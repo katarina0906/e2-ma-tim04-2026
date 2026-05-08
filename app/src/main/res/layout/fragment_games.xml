@@ -180,32 +180,49 @@
         </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
+            android:id="@+id/stepByStepCard"
             android:layout_width="match_parent"
             android:layout_height="110dp"
             android:layout_marginBottom="12dp"
             app:cardCornerRadius="22dp"
-            app:cardElevation="4dp">
+            app:cardElevation="6dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="#ECECEC"
-                android:gravity="center"
-                android:orientation="vertical">
+                android:background="#FFFFFF"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="20dp">
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🪜 Korak po korak"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    android:textColor="#777777" />
+                    android:layout_width="70dp"
+                    android:layout_height="70dp"
+                    android:gravity="center"
+                    android:text="🪜"
+                    android:textSize="34sp" />
 
-                <TextView
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Uskoro"
-                    android:textColor="#888888" />
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Korak po korak"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:textColor="#1E1E2F" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="2 runde • 70 sekundi • max 40 bodova"
+                        android:textColor="#666666"
+                        android:textSize="14sp"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
