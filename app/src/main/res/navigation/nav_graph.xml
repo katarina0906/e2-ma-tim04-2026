@@ -84,4 +84,16 @@
         android:label="Spojnice"
         tools:layout="@layout/fragment_spojnice" />
 
+    <fragment
+        android:id="@+id/stepByStepFragment"
+        android:name="com.example.slagalicatim04.fragments.StepByStepFragment"
+        android:label="Korak po korak"
+        tools:layout="@layout/fragment_step_by_step" />
+
+    <fragment
+        android:id="@+id/myNumberFragment"
+        android:name="com.example.slagalicatim04.fragments.MyNumberFragment"
+        android:label="Moj broj"
+        tools:layout="@layout/fragment_my_number" />
+
 </navigation>
