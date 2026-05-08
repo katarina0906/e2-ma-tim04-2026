@@ -19,7 +19,7 @@
     <string name="reset_password_button">Sacuvaj novu lozinku</string>
     <string name="verification_title">Potvrda registracije</string>
     <string name="verification_message">Klikni na link poslat na mejl da bi aktivirala nalog. Tek nakon potvrde mejla omogucena je prijava.</string>
-    <string name="verification_sent_to">Poslato na: ana.jovanovic@example.com</string>
+    <string name="verification_sent_to">Poslato na: katarinazgonjanin@gmail.com </string>
     <string name="back_to_login">Nazad na prijavu</string>
     <string name="go_to_register">Nemam nalog</string>
     <string name="forgot_password">Zaboravljena lozinka?</string>
