@@ -85,6 +85,12 @@
         tools:layout="@layout/fragment_spojnice" />
 
     <fragment
+        android:id="@+id/asocijacijeFragment"
+        android:name="com.example.slagalicatim04.fragments.AsocijacijeFragment"
+        android:label="Asocijacije"
+        tools:layout="@layout/fragment_asocijacije" />
+
+    <fragment
         android:id="@+id/stepByStepFragment"
         android:name="com.example.slagalicatim04.fragments.StepByStepFragment"
         android:label="Korak po korak"

@@ -30,6 +30,10 @@ public class GamesFragment extends Fragment {
                 Navigation.findNavController(v).navigate(R.id.spojniceFragment)
         );
 
+        view.findViewById(R.id.asocijacijeCard).setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.asocijacijeFragment)
+        );
+
         view.findViewById(R.id.stepByStepCard).setOnClickListener(v ->
                 Navigation.findNavController(v).navigate(R.id.stepByStepFragment)
         );

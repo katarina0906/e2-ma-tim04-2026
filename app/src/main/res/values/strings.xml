@@ -28,4 +28,32 @@
     <string name="verification_pending_status">Status: ceka se potvrda mejla</string>
     <string name="auth_card_title">Slagalica duel</string>
     <string name="auth_card_description">Takmici se, skupljaj zvezde i napreduj kroz lige.</string>
+
+    <string name="aso_round_label">Runda %1$d / %2$d</string>
+    <string name="aso_timer_fmt">⏱ %1$d:%2$02d</string>
+    <string name="aso_time_up">Vreme ove runde je isteklo.</string>
+    <string name="aso_must_guess_or_pass">Prvo završi pogađanje ili predaj potez.</string>
+    <string name="aso_open_first">Prvo otvori jedno polje.</string>
+    <string name="aso_column_done">Ova kolona je već rešena.</string>
+    <string name="aso_empty_guess">Unesi tekst pogađanja.</string>
+    <string name="aso_column_ok">Tačno! Kolona +%1$d bodova</string>
+    <string name="aso_wrong_switch">Netačno. Sledeći igrač otvara polje.</string>
+    <string name="aso_all_columns_hint">Sve kolone su rešene — možeš pogađati samo konačno rešenje.</string>
+    <string name="aso_final_ok">Konačno tačno! +%1$d bodova</string>
+    <string name="aso_open_first_pass">Ne možeš predati potez pre otvaranja polja.</string>
+    <string name="aso_round_solved_final">Konačno rešenje je pogođeno — runda je gotova.</string>
+    <string name="aso_game_over">Kraj obe runde. Igrač 1: %1$d bodova — Igrač 2: %2$d bodova</string>
+    <string name="aso_turn_fmt">Na potezu: Igrač %1$d</string>
+    <string name="aso_phase_open">Igrač %1$d: otvori jedno skriveno polje.</string>
+    <string name="aso_phase_guess">Igrač %1$d: klikni na polje kolone ili konačno da uneseš odgovor — ili predaj potez.</string>
+    <string name="aso_player_points">Igrač %1$d: %2$d</string>
+    <string name="aso_round_points_fmt">Ova runda — I1: %1$d  I2: %2$d</string>
+    <string name="aso_hint_tap_field">U fazi pogađanja: klikni na donje polje kolone (A–D) ili na konačno rešenje iznad, unesi tekst pa Potvrdi.</string>
+    <string name="aso_hint_tap_field_dialog">Klikni na polje rešenja kolone ili na konačno iznad — otvoriće se prozor za unos i tastatura.</string>
+    <string name="aso_guess_hint">Tvoj odgovor</string>
+    <string name="aso_confirm_guess">Potvrdi pogađanje</string>
+    <string name="aso_dialog_title_final">Konačno rešenje</string>
+    <string name="aso_dialog_title_column">Kolona %1$s</string>
+    <string name="aso_pass_next_turn">Dalje — sledeći igrač</string>
+    <string name="aso_hint_open_phase">Klikni na belo polje sa ? da otkriješ reč ili izraz.</string>
 </resources>
