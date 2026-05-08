@@ -1,66 +1,106 @@
 package com.example.slagalicatim04.fragments;
 
+import android.graphics.Color;
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
+import android.os.CountDownTimer;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.TextView;
+
+import androidx.fragment.app.Fragment;
 
 import com.example.slagalicatim04.R;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link KoZnaZnaFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
 public class KoZnaZnaFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    private TextView timerText, resultText;
+    private Button answerA, answerB, answerC, answerD;
+    private CountDownTimer timer;
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    private String correctAnswer = "Beograd";
 
-    public KoZnaZnaFragment() {
-        // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment KoZnaZnaFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static KoZnaZnaFragment newInstance(String param1, String param2) {
-        KoZnaZnaFragment fragment = new KoZnaZnaFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
-    }
+    public KoZnaZnaFragment() {}
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_ko_zna_zna, container, false);
+
+        View view = inflater.inflate(R.layout.fragment_ko_zna_zna, container, false);
+
+        timerText = view.findViewById(R.id.timerText);
+        resultText = view.findViewById(R.id.resultText);
+
+        answerA = view.findViewById(R.id.answerA);
+        answerB = view.findViewById(R.id.answerB);
+        answerC = view.findViewById(R.id.answerC);
+        answerD = view.findViewById(R.id.answerD);
+
+        View.OnClickListener listener = v -> checkAnswer((Button) v);
+
+        answerA.setOnClickListener(listener);
+        answerB.setOnClickListener(listener);
+        answerC.setOnClickListener(listener);
+        answerD.setOnClickListener(listener);
+
+        startTimer();
+
+        return view;
+    }
+
+    private void startTimer() {
+        timer = new CountDownTimer(5000, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                timerText.setText("⏱ " + millisUntilFinished / 1000 + "s");
+            }
+
+            @Override
+            public void onFinish() {
+                timerText.setText("⏱ 0s");
+                resultText.setText("Vreme je isteklo!");
+                disableButtons();
+            }
+        }.start();
+    }
+
+    private void checkAnswer(Button selectedButton) {
+        if (timer != null) timer.cancel();
+
+        String selected = selectedButton.getText().toString();
+
+        if (selected.equals(correctAnswer)) {
+            selectedButton.setBackgroundColor(Color.parseColor("#4CAF50"));
+            resultText.setText("Tačno! +10 bodova");
+        } else {
+            selectedButton.setBackgroundColor(Color.parseColor("#E53935"));
+            resultText.setText("Netačno! -5 bodova");
+            highlightCorrectAnswer();
+        }
+
+        disableButtons();
+    }
+
+    private void highlightCorrectAnswer() {
+        if (answerA.getText().toString().equals(correctAnswer)) {
+            answerA.setBackgroundColor(Color.parseColor("#4CAF50"));
+        }
+        if (answerB.getText().toString().equals(correctAnswer)) {
+            answerB.setBackgroundColor(Color.parseColor("#4CAF50"));
+        }
+        if (answerC.getText().toString().equals(correctAnswer)) {
+            answerC.setBackgroundColor(Color.parseColor("#4CAF50"));
+        }
+        if (answerD.getText().toString().equals(correctAnswer)) {
+            answerD.setBackgroundColor(Color.parseColor("#4CAF50"));
+        }
+    }
+
+    private void disableButtons() {
+        answerA.setEnabled(false);
+        answerB.setEnabled(false);
+        answerC.setEnabled(false);
+        answerD.setEnabled(false);
     }
 }

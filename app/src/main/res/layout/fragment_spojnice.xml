@@ -23,6 +23,7 @@
             android:padding="12dp">
 
             <TextView
+                android:id="@+id/roundText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -32,6 +33,7 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/timerText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="#EFEAF8"
@@ -60,7 +62,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Poveži izvođače sa nazivima njihovih pesama"
+                android:text="Poveži izvođače sa njihovim pesmama"
                 android:textColor="#1E1E2F"
                 android:textSize="20sp"
                 android:textStyle="bold" />
@@ -69,7 +71,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:text="Spoji pojmove iz leve i desne kolone."
+                android:text="Klikni prvo na izvođača, pa na pesmu."
                 android:textColor="#777777"
                 android:textSize="13sp" />
 
@@ -89,6 +91,7 @@
             android:orientation="vertical">
 
             <Button
+                android:id="@+id/leftDino"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginBottom="10dp"
@@ -96,6 +99,7 @@
                 android:textAllCaps="false" />
 
             <Button
+                android:id="@+id/leftColic"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginBottom="10dp"
@@ -103,6 +107,7 @@
                 android:textAllCaps="false" />
 
             <Button
+                android:id="@+id/leftAdele"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginBottom="10dp"
@@ -110,17 +115,14 @@
                 android:textAllCaps="false" />
 
             <Button
+                android:id="@+id/leftCeca"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginBottom="10dp"
-                android:text="Breskvica"
+                android:text="Ceca"
                 android:textAllCaps="false" />
 
-            <Button
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="The Weeknd"
-                android:textAllCaps="false" />
+
 
         </LinearLayout>
 
@@ -134,14 +136,10 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <Button
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="10dp"
-                android:text="Blinding Lights"
-                android:textAllCaps="false" />
+
 
             <Button
+                android:id="@+id/rightTiSiMiUKrvi"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginBottom="10dp"
@@ -149,6 +147,7 @@
                 android:textAllCaps="false" />
 
             <Button
+                android:id="@+id/rightEasyOnMe"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginBottom="10dp"
@@ -156,20 +155,33 @@
                 android:textAllCaps="false" />
 
             <Button
+                android:id="@+id/rightNedostajes"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginBottom="10dp"
-                android:text="Sava i Dunav"
+                android:text="Nedostaješ"
                 android:textAllCaps="false" />
 
             <Button
+                android:id="@+id/rightVreteno"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="C'est La Vie"
+                android:text="Vreteno"
                 android:textAllCaps="false" />
 
         </LinearLayout>
 
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/resultText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center"
+        android:text=""
+        android:textColor="#6F4BB2"
+        android:textSize="16sp"
+        android:textStyle="bold" />
 
 </LinearLayout>
