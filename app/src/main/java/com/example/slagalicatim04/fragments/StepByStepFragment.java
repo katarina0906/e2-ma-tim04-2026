@@ -1,9 +1,11 @@
 package com.example.slagalicatim04.fragments;
 
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -16,19 +18,22 @@ import com.google.android.material.textfield.TextInputEditText;
 
 public class StepByStepFragment extends Fragment {
 
+    private static final int ROUND_DURATION_SECONDS = 70;
+    private static final String FINAL_ANSWER = "Jakov Jozinovic";
     private final String[] hints = {
-            "1. Nobelovac",
-            "2. Fizika",
-            "3. Relativitet",
-            "4. Naucnik",
-            "5. Nemacka",
-            "6. Formula",
-            "7. Ajnstajn"
+            "1. Hrvatski",
+            "2. Mladi",
+            "3. Pjevac",
+            "4. Vinkovci",
+            "5. Zvjezdice",
+            "6. Supertalent",
+            "7. Inicijali J. J."
     };
 
     private final TextView[] stepViews = new TextView[7];
-    private int openedSteps = 4;
+    private int openedSteps = 1;
     private boolean roundFinished = false;
+    private CountDownTimer roundTimer;
 
     public StepByStepFragment() {
     }
@@ -39,6 +44,7 @@ public class StepByStepFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_step_by_step, container, false);
 
+        ScrollView scrollView = view.findViewById(R.id.stepByStepScrollView);
         TextView currentStepValue = view.findViewById(R.id.currentStepValue);
         TextView currentPointsValue = view.findViewById(R.id.currentPointsValue);
         TextView timerValue = view.findViewById(R.id.timerValue);
@@ -60,25 +66,12 @@ public class StepByStepFragment extends Fragment {
         stepViews[6] = view.findViewById(R.id.step7Text);
 
         updateStepCards();
-        updateRoundState(currentStepValue, currentPointsValue, timerValue, statusText);
+        updateRoundState(currentStepValue, currentPointsValue, statusText);
         resultBanner.setVisibility(View.GONE);
-
-        nextStepButton.setOnClickListener(v -> {
-            if (roundFinished) {
-                return;
-            }
-
-            if (openedSteps < hints.length) {
-                openedSteps++;
-                updateStepCards();
-                updateRoundState(currentStepValue, currentPointsValue, timerValue, statusText);
-            }
-
-            if (openedSteps == hints.length) {
-                nextStepButton.setEnabled(false);
-                statusText.setText("Otvoren je i poslednji korak. Pokusaj da pogodis konacni pojam.");
-            }
-        });
+        nextStepButton.setVisibility(View.GONE);
+        startRoundTimer(timerValue, currentStepValue, currentPointsValue, statusText,
+                resultBanner, resultBannerTitle, resultBannerMessage, nextStepButton,
+                confirmButton, giveUpButton, answerInput, scrollView);
 
         confirmButton.setOnClickListener(v -> {
             if (roundFinished) {
@@ -90,8 +83,9 @@ public class StepByStepFragment extends Fragment {
                 answer = answerInput.getText().toString().trim();
             }
 
-            if (answer.equalsIgnoreCase("Albert Ajnstajn") || answer.equalsIgnoreCase("Ajnstajn")) {
+            if (answer.equalsIgnoreCase(FINAL_ANSWER)) {
                 roundFinished = true;
+                cancelRoundTimer();
                 currentStepValue.setText("Reseno");
                 currentPointsValue.setText(currentPointsForStep() + " bodova");
                 timerValue.setText("Gotovo");
@@ -100,6 +94,7 @@ public class StepByStepFragment extends Fragment {
                 resultBanner.setBackgroundColor(0xFFEDF8F1);
                 resultBannerTitle.setText("Tacan odgovor");
                 resultBannerMessage.setText("Osvojeno je " + currentPointsForStep() + " bodova u ovoj rundi.");
+                scrollToTop(scrollView);
                 nextStepButton.setEnabled(false);
                 confirmButton.setEnabled(false);
                 giveUpButton.setEnabled(false);
@@ -110,6 +105,7 @@ public class StepByStepFragment extends Fragment {
                 resultBanner.setBackgroundColor(0xFFFFF1F1);
                 resultBannerTitle.setText("Odgovor nije tacan");
                 resultBannerMessage.setText("Pokreni sledeci korak ili pokusaj ponovo sa novim odgovorom.");
+                scrollToTop(scrollView);
             }
         });
 
@@ -119,6 +115,7 @@ public class StepByStepFragment extends Fragment {
             }
 
             roundFinished = true;
+            cancelRoundTimer();
             currentStepValue.setText("Predato");
             currentPointsValue.setText("0 bodova");
             timerValue.setText("Rival 10s");
@@ -126,7 +123,8 @@ public class StepByStepFragment extends Fragment {
             resultBanner.setVisibility(View.VISIBLE);
             resultBanner.setBackgroundColor(0xFFFFF5E8);
             resultBannerTitle.setText("Runda je predata");
-            resultBannerMessage.setText("Protivnik sada dobija sansu da osvoji dodatnih 5 bodova.");
+            resultBannerMessage.setText("Protivnik sada dobija sansu da osvoji dodatnih 5 bodova. Tacan odgovor je: " + FINAL_ANSWER + ".");
+            scrollToTop(scrollView);
             nextStepButton.setEnabled(false);
             confirmButton.setEnabled(false);
             giveUpButton.setEnabled(false);
@@ -134,6 +132,12 @@ public class StepByStepFragment extends Fragment {
         });
 
         return view;
+    }
+
+    @Override
+    public void onDestroyView() {
+        cancelRoundTimer();
+        super.onDestroyView();
     }
 
     private void updateStepCards() {
@@ -153,14 +157,79 @@ public class StepByStepFragment extends Fragment {
     }
 
     private void updateRoundState(TextView currentStepValue, TextView currentPointsValue,
-                                  TextView timerValue, TextView statusText) {
+                                  TextView statusText) {
         currentStepValue.setText(openedSteps + " / 7");
         currentPointsValue.setText(currentPointsForStep() + " bodova");
-        timerValue.setText((80 - openedSteps * 10) + "s");
         statusText.setText("Otvori sledeci korak ili potvrdi odgovor kada zelis.");
     }
 
     private int currentPointsForStep() {
         return 22 - (openedSteps * 2);
+    }
+
+    private void scrollToTop(ScrollView scrollView) {
+        scrollView.post(() -> scrollView.smoothScrollTo(0, 0));
+    }
+
+    private void startRoundTimer(TextView timerValue, TextView currentStepValue,
+                                 TextView currentPointsValue, TextView statusText,
+                                 View resultBanner, TextView resultBannerTitle,
+                                 TextView resultBannerMessage, MaterialButton nextStepButton,
+                                 MaterialButton confirmButton, MaterialButton giveUpButton,
+                                 TextInputEditText answerInput, ScrollView scrollView) {
+        cancelRoundTimer();
+        roundTimer = new CountDownTimer(70000, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                int secondsLeft = (int) (millisUntilFinished / 1000);
+                timerValue.setText(secondsLeft + "s");
+
+                int stepsThatShouldBeOpen = Math.min(
+                        hints.length,
+                        1 + ((ROUND_DURATION_SECONDS - secondsLeft) / 10)
+                );
+
+                if (!roundFinished && stepsThatShouldBeOpen > openedSteps) {
+                    openedSteps = stepsThatShouldBeOpen;
+                    updateStepCards();
+                    updateRoundState(currentStepValue, currentPointsValue, statusText);
+
+                    if (openedSteps == hints.length) {
+                        statusText.setText("Otvoren je i poslednji korak. Pokusaj da pogodis konacni pojam.");
+                    } else {
+                        statusText.setText("Otvoren je novi korak. Pokusaj da pogodis konacni pojam.");
+                    }
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                if (roundFinished) {
+                    return;
+                }
+                roundFinished = true;
+                timerValue.setText("0s");
+                currentStepValue.setText("Isteklo");
+                currentPointsValue.setText("0 bodova");
+                statusText.setText("Vreme je isteklo. Protivnik dobija sansu da osvoji 5 bodova.");
+                resultBanner.setVisibility(View.VISIBLE);
+                resultBanner.setBackgroundColor(0xFFFFF5E8);
+                resultBannerTitle.setText("Vreme je isteklo");
+                resultBannerMessage.setText("Runda je zavrsena bez tacnog odgovora. Tacan odgovor je: " + FINAL_ANSWER + ".");
+                nextStepButton.setEnabled(false);
+                confirmButton.setEnabled(false);
+                giveUpButton.setEnabled(false);
+                answerInput.setEnabled(false);
+                scrollToTop(scrollView);
+            }
+        };
+        roundTimer.start();
+    }
+
+    private void cancelRoundTimer() {
+        if (roundTimer != null) {
+            roundTimer.cancel();
+            roundTimer = null;
+        }
     }
 }

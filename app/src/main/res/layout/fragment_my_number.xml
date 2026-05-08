@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/myNumberScrollView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F4F1FA"
@@ -105,6 +106,15 @@
                         android:textSize="14sp" />
                 </LinearLayout>
 
+                <TextView
+                    android:id="@+id/targetCountdown"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Automatski ce se prikazati za 5s"
+                    android:textColor="#6C6780"
+                    android:textSize="13sp" />
+
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
@@ -146,32 +156,26 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:orientation="horizontal"
-                    android:weightSum="2">
+                    android:orientation="horizontal">
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/stopTargetButton"
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:text="Stop broj"
                         android:textAllCaps="false"
                         app:backgroundTint="#6F4BB2"
                         app:cornerRadius="18dp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/autoRevealButton"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="10dp"
-                        android:text="Auto posle 5s"
-                        android:textAllCaps="false"
-                        android:textColor="#6F4BB2"
-                        app:cornerRadius="18dp"
-                        app:strokeColor="#6F4BB2" />
                 </LinearLayout>
+
+                <TextView
+                    android:id="@+id/numbersCountdown"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Automatski ce se otvoriti za 5s"
+                    android:textColor="#6C6780"
+                    android:textSize="13sp" />
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -352,9 +356,128 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:enabled="false"
+                        android:focusable="false"
                         android:inputType="text"
-                        android:text="100*(7+2)-15-1" />
+                        android:text="" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal"
+                    android:weightSum="4">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/openParenthesisButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:enabled="false"
+                        android:text="("
+                        android:textAllCaps="false"
+                        android:textColor="#6F4BB2"
+                        app:strokeColor="#6F4BB2" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/closeParenthesisButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:enabled="false"
+                        android:text=")"
+                        android:textAllCaps="false"
+                        android:textColor="#6F4BB2"
+                        app:strokeColor="#6F4BB2" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/plusButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:enabled="false"
+                        android:text="+"
+                        android:textAllCaps="false"
+                        android:textColor="#6F4BB2"
+                        app:strokeColor="#6F4BB2" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/minusButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:enabled="false"
+                        android:text="-"
+                        android:textAllCaps="false"
+                        android:textColor="#6F4BB2"
+                        app:strokeColor="#6F4BB2" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:weightSum="4">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/multiplyButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:enabled="false"
+                        android:text="*"
+                        android:textAllCaps="false"
+                        android:textColor="#6F4BB2"
+                        app:strokeColor="#6F4BB2" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/divideButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:enabled="false"
+                        android:text="/"
+                        android:textAllCaps="false"
+                        android:textColor="#6F4BB2"
+                        app:strokeColor="#6F4BB2" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/backspaceButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:enabled="false"
+                        android:text="Obrisi"
+                        android:textAllCaps="false"
+                        android:textColor="#6F4BB2"
+                        app:strokeColor="#6F4BB2" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/clearExpressionButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:enabled="false"
+                        android:text="Reset"
+                        android:textAllCaps="false"
+                        android:textColor="#6F4BB2"
+                        app:strokeColor="#6F4BB2" />
+                </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/checkExpressionButton"
