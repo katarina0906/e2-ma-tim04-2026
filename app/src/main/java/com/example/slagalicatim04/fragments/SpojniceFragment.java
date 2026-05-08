@@ -1,66 +1,167 @@
 package com.example.slagalicatim04.fragments;
 
+import android.graphics.Color;
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
+import android.os.CountDownTimer;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.TextView;
+
+import androidx.fragment.app.Fragment;
 
 import com.example.slagalicatim04.R;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link SpojniceFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
+import java.util.HashMap;
+import java.util.Map;
+
 public class SpojniceFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    private TextView timerText, resultText;
+    private CountDownTimer timer;
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    private Button selectedLeftButton = null;
+    private int score = 0;
+
+    private final Map<Integer, Integer> correctPairs = new HashMap<>();
 
     public SpojniceFragment() {
-        // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment SpojniceFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static SpojniceFragment newInstance(String param1, String param2) {
-        SpojniceFragment fragment = new SpojniceFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_spojnice, container, false);
+
+        View view = inflater.inflate(R.layout.fragment_spojnice, container, false);
+
+        timerText = view.findViewById(R.id.timerText);
+        resultText = view.findViewById(R.id.resultText);
+
+        correctPairs.put(R.id.leftDino, R.id.rightNedostajes);
+        correctPairs.put(R.id.leftColic, R.id.rightTiSiMiUKrvi);
+        correctPairs.put(R.id.leftAdele, R.id.rightEasyOnMe);
+        correctPairs.put(R.id.leftCeca, R.id.rightVreteno);
+
+
+        setupLeftButton(view, R.id.leftDino);
+        setupLeftButton(view, R.id.leftColic);
+        setupLeftButton(view, R.id.leftAdele);
+        setupLeftButton(view, R.id.leftCeca);
+
+
+        setupRightButton(view, R.id.rightNedostajes);
+        setupRightButton(view, R.id.rightTiSiMiUKrvi);
+        setupRightButton(view, R.id.rightEasyOnMe);
+        setupRightButton(view, R.id.rightVreteno);
+
+
+        startTimer();
+
+        return view;
+    }
+
+    private void setupLeftButton(View view, int buttonId) {
+        Button button = view.findViewById(buttonId);
+
+        button.setOnClickListener(v -> {
+            if (selectedLeftButton != null && selectedLeftButton.isEnabled()) {
+                selectedLeftButton.setBackgroundColor(Color.parseColor("#6F4BB2"));
+            }
+
+            selectedLeftButton = button;
+            button.setBackgroundColor(Color.parseColor("#F9A825"));
+            resultText.setText("Izaberi pesmu za: " + button.getText());
+        });
+    }
+
+    private void setupRightButton(View view, int buttonId) {
+        Button button = view.findViewById(buttonId);
+
+        button.setOnClickListener(v -> {
+            if (selectedLeftButton == null) {
+                resultText.setText("Prvo izaberi izvođača iz leve kolone.");
+                return;
+            }
+
+            int selectedLeftId = selectedLeftButton.getId();
+            Integer correctRightId = correctPairs.get(selectedLeftId);
+
+            if (correctRightId != null && correctRightId == buttonId) {
+                selectedLeftButton.setBackgroundColor(Color.parseColor("#4CAF50"));
+                button.setBackgroundColor(Color.parseColor("#4CAF50"));
+
+                selectedLeftButton.setEnabled(false);
+                button.setEnabled(false);
+
+                score += 2;
+                resultText.setText("Tačno! +" + score + " bodova ukupno");
+
+                selectedLeftButton = null;
+
+                if (score == 10) {
+                    if (timer != null) timer.cancel();
+                    timerText.setText("Završeno");
+                    resultText.setText("Sve spojnice su tačne! Osvojeno: 10 bodova");
+                }
+
+            } else {
+                button.setBackgroundColor(Color.parseColor("#E53935"));
+                selectedLeftButton.setBackgroundColor(Color.parseColor("#E53935"));
+                resultText.setText("Netačno. Pokušaj drugi par.");
+
+                Button wrongLeft = selectedLeftButton;
+                Button wrongRight = button;
+
+                wrongLeft.postDelayed(() -> {
+                    if (wrongLeft.isEnabled()) {
+                        wrongLeft.setBackgroundColor(Color.parseColor("#6F4BB2"));
+                    }
+                    if (wrongRight.isEnabled()) {
+                        wrongRight.setBackgroundColor(Color.parseColor("#6F4BB2"));
+                    }
+                }, 700);
+
+                selectedLeftButton = null;
+            }
+        });
+    }
+
+    private void startTimer() {
+        timer = new CountDownTimer(30000, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                timerText.setText("⏱ " + millisUntilFinished / 1000 + "s");
+            }
+
+            @Override
+            public void onFinish() {
+                timerText.setText("⏱ 0s");
+                resultText.setText("Vreme je isteklo! Osvojeno: " + score + " bodova");
+                disableAllButtons();
+            }
+        }.start();
+    }
+
+    private void disableAllButtons() {
+        if (getView() == null) return;
+
+        int[] ids = {
+                R.id.leftDino, R.id.leftColic, R.id.leftAdele, R.id.leftCeca,
+                R.id.rightNedostajes, R.id.rightTiSiMiUKrvi, R.id.rightEasyOnMe, R.id.rightVreteno
+        };
+
+        for (int id : ids) {
+            Button button = getView().findViewById(id);
+            button.setEnabled(false);
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (timer != null) {
+            timer.cancel();
+        }
     }
 }

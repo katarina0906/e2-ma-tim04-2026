@@ -22,7 +22,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="?attr/actionBarSize"
-        android:layout_marginBottom="70dp"
+        android:layout_marginBottom="56dp"
         app:defaultNavHost="true"
         app:navGraph="@navigation/nav_graph" />
 
