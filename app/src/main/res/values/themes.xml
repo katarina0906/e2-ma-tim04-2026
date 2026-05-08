@@ -3,7 +3,15 @@
     <style name="Base.Theme.Slagalica" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="bottomNavigationStyle">@style/Widget.Slagalica.BottomNavigationView</item>
     </style>
 
     <style name="Theme.Slagalica" parent="Base.Theme.Slagalica" />
+
+    <style name="Widget.Slagalica.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
+        <item name="android:minHeight">@dimen/bottom_nav_height</item>
+        <item name="itemPaddingTop">2dp</item>
+        <item name="itemPaddingBottom">2dp</item>
+        <item name="itemIconSize">24dp</item>
+    </style>
 </resources>
