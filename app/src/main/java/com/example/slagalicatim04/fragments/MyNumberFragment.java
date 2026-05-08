@@ -34,6 +34,9 @@ public class MyNumberFragment extends Fragment {
         TextView statusValue = view.findViewById(R.id.myNumberStatusValue);
         TextView resultValue = view.findViewById(R.id.resultValue);
         TextView scoreValue = view.findViewById(R.id.scoreValue);
+        View resultBanner = view.findViewById(R.id.myNumberResultBanner);
+        TextView resultBannerTitle = view.findViewById(R.id.myNumberResultTitle);
+        TextView resultBannerMessage = view.findViewById(R.id.myNumberResultMessage);
         TextInputEditText expressionInput = view.findViewById(R.id.expressionInput);
         MaterialButton stopTargetButton = view.findViewById(R.id.stopTargetButton);
         MaterialButton stopNumbersButton = view.findViewById(R.id.stopNumbersButton);
@@ -51,6 +54,7 @@ public class MyNumberFragment extends Fragment {
         }
 
         updateNumberViews(numberViews, false);
+        resultBanner.setVisibility(View.GONE);
 
         stopTargetButton.setOnClickListener(v -> {
             if (roundFinished || targetShown) {
@@ -74,7 +78,7 @@ public class MyNumberFragment extends Fragment {
             updateNumberViews(numberViews, true);
             timerValue.setText("50s");
             statusValue.setText("Brojevi su zaustavljeni. Sastavi izraz koristeci ponudjene operande.");
-            stopNumbersButton.setText("Brojevi spremni");
+            stopNumbersButton.setText("Brojevi zaustavljeni");
             expressionInput.setEnabled(true);
             checkExpressionButton.setEnabled(true);
         });
@@ -89,9 +93,9 @@ public class MyNumberFragment extends Fragment {
             targetValue.setText("724");
             updateNumberViews(numberViews, true);
             timerValue.setText("50s");
-            statusValue.setText("Simulacija isteka 5 sekundi: brojevi su automatski prikazani.");
+            statusValue.setText("Isteklo je 5 sekundi i brojevi su automatski prikazani.");
             stopTargetButton.setText("Zaustavljeno");
-            stopNumbersButton.setText("Auto prikaz");
+            stopNumbersButton.setText("Brojevi prikazani");
             stopNumbersButton.setEnabled(false);
             expressionInput.setEnabled(true);
             checkExpressionButton.setEnabled(true);
@@ -113,7 +117,11 @@ public class MyNumberFragment extends Fragment {
                 scoreValue.setText("10 bodova");
                 timerValue.setText("Gotovo");
                 statusValue.setText("Tacno resenje. Igrac dobija maksimalnih 10 bodova.");
-                checkExpressionButton.setText("Tacno");
+                resultBanner.setVisibility(View.VISIBLE);
+                resultBanner.setBackgroundColor(0xFFEDF8F1);
+                resultBannerTitle.setText("Tacan rezultat");
+                resultBannerMessage.setText("Izraz je pogodio trazeni broj i osvojeno je 10 bodova.");
+                checkExpressionButton.setEnabled(false);
                 stopTargetButton.setEnabled(false);
                 stopNumbersButton.setEnabled(false);
                 autoRevealButton.setEnabled(false);
@@ -121,11 +129,19 @@ public class MyNumberFragment extends Fragment {
             } else if (expression.isEmpty()) {
                 resultValue.setText("-");
                 scoreValue.setText("0 bodova");
-                statusValue.setText("Nema unosa. U pravoj partiji igrac bi ostao bez bodova.");
+                statusValue.setText("Nema unosa. Igrac ne osvaja bodove.");
+                resultBanner.setVisibility(View.VISIBLE);
+                resultBanner.setBackgroundColor(0xFFFFF5E8);
+                resultBannerTitle.setText("Nema unosa");
+                resultBannerMessage.setText("Izraz nije unet, pa igrac u ovoj rundi ne osvaja bodove.");
             } else {
                 resultValue.setText("719");
                 scoreValue.setText("5 bodova");
-                statusValue.setText("Priblizan rezultat. U simulaciji je igrac blizu trazenog broja.");
+                statusValue.setText("Rezultat je blizu trazenog broja.");
+                resultBanner.setVisibility(View.VISIBLE);
+                resultBanner.setBackgroundColor(0xFFFFF1F1);
+                resultBannerTitle.setText("Blizu trazenog broja");
+                resultBannerMessage.setText("Uneti izraz nije tacan, ali rezultat ostaje blizu trazenog broja.");
             }
         });
 

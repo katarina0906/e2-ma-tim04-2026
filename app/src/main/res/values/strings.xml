@@ -25,7 +25,7 @@
     <string name="forgot_password">Zaboravljena lozinka?</string>
     <string name="already_have_account">Vec imam nalog</string>
     <string name="resend_email">Posalji link ponovo</string>
-    <string name="mock_verification_status">Status: ceka se potvrda mejla</string>
+    <string name="verification_pending_status">Status: ceka se potvrda mejla</string>
     <string name="auth_card_title">Slagalica duel</string>
     <string name="auth_card_description">Takmici se, skupljaj zvezde i napreduj kroz lige.</string>
 </resources>

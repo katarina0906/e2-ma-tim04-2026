@@ -43,6 +43,9 @@ public class StepByStepFragment extends Fragment {
         TextView currentPointsValue = view.findViewById(R.id.currentPointsValue);
         TextView timerValue = view.findViewById(R.id.timerValue);
         TextView statusText = view.findViewById(R.id.statusText);
+        View resultBanner = view.findViewById(R.id.stepByStepResultBanner);
+        TextView resultBannerTitle = view.findViewById(R.id.stepByStepResultTitle);
+        TextView resultBannerMessage = view.findViewById(R.id.stepByStepResultMessage);
         TextInputEditText answerInput = view.findViewById(R.id.answerInput);
         MaterialButton nextStepButton = view.findViewById(R.id.nextStepButton);
         MaterialButton confirmButton = view.findViewById(R.id.confirmAnswerButton);
@@ -58,6 +61,7 @@ public class StepByStepFragment extends Fragment {
 
         updateStepCards();
         updateRoundState(currentStepValue, currentPointsValue, timerValue, statusText);
+        resultBanner.setVisibility(View.GONE);
 
         nextStepButton.setOnClickListener(v -> {
             if (roundFinished) {
@@ -92,12 +96,20 @@ public class StepByStepFragment extends Fragment {
                 currentPointsValue.setText(currentPointsForStep() + " bodova");
                 timerValue.setText("Gotovo");
                 statusText.setText("Tacan odgovor. Runda je zavrsena i osvojen je prikazani broj bodova.");
+                resultBanner.setVisibility(View.VISIBLE);
+                resultBanner.setBackgroundColor(0xFFEDF8F1);
+                resultBannerTitle.setText("Tacan odgovor");
+                resultBannerMessage.setText("Osvojeno je " + currentPointsForStep() + " bodova u ovoj rundi.");
                 nextStepButton.setEnabled(false);
-                confirmButton.setText("Tacno");
+                confirmButton.setEnabled(false);
                 giveUpButton.setEnabled(false);
                 answerInput.setEnabled(false);
             } else {
                 statusText.setText("Odgovor nije tacan. Otvori sledeci korak ili pokusaj ponovo.");
+                resultBanner.setVisibility(View.VISIBLE);
+                resultBanner.setBackgroundColor(0xFFFFF1F1);
+                resultBannerTitle.setText("Odgovor nije tacan");
+                resultBannerMessage.setText("Pokreni sledeci korak ili pokusaj ponovo sa novim odgovorom.");
             }
         });
 
@@ -111,9 +123,13 @@ public class StepByStepFragment extends Fragment {
             currentPointsValue.setText("0 bodova");
             timerValue.setText("Rival 10s");
             statusText.setText("Igrac nije pogodio. Protivnik dobija sansu da osvoji 5 bodova.");
+            resultBanner.setVisibility(View.VISIBLE);
+            resultBanner.setBackgroundColor(0xFFFFF5E8);
+            resultBannerTitle.setText("Runda je predata");
+            resultBannerMessage.setText("Protivnik sada dobija sansu da osvoji dodatnih 5 bodova.");
             nextStepButton.setEnabled(false);
             confirmButton.setEnabled(false);
-            giveUpButton.setText("Predato");
+            giveUpButton.setEnabled(false);
             answerInput.setEnabled(false);
         });
 
@@ -141,7 +157,7 @@ public class StepByStepFragment extends Fragment {
         currentStepValue.setText(openedSteps + " / 7");
         currentPointsValue.setText(currentPointsForStep() + " bodova");
         timerValue.setText((80 - openedSteps * 10) + "s");
-        statusText.setText("Simulacija runde: otvori sledeci korak ili potvrdi odgovor kada zelis.");
+        statusText.setText("Otvori sledeci korak ili potvrdi odgovor kada zelis.");
     }
 
     private int currentPointsForStep() {
