@@ -3,6 +3,7 @@ package com.example.slagalicatim04;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -47,11 +48,28 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.homeFragment,
                 R.id.gamesFragment,
-                R.id.profileFragment
+                R.id.profileFragment,
+                R.id.loginFragment
         ).build();
 
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(binding.bottomNavigation, navController);
+
+        navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+            int destinationId = destination.getId();
+            boolean isAuthScreen = destinationId == R.id.loginFragment
+                    || destinationId == R.id.registerFragment
+                    || destinationId == R.id.emailVerificationFragment
+                    || destinationId == R.id.resetPasswordFragment;
+
+            if (isAuthScreen) {
+                binding.toolbar.setVisibility(View.GONE);
+                binding.bottomNavigation.setVisibility(View.GONE);
+            } else {
+                binding.toolbar.setVisibility(View.VISIBLE);
+                binding.bottomNavigation.setVisibility(View.VISIBLE);
+            }
+        });
     }
 
     @Override
