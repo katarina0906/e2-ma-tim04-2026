@@ -29,4 +29,10 @@
         android:label="Ko zna zna"
         tools:layout="@layout/fragment_ko_zna_zna" />
 
+    <fragment
+        android:id="@+id/spojniceFragment"
+        android:name="com.example.slagalicatim04.fragments.SpojniceFragment"
+        android:label="Spojnice"
+        tools:layout="@layout/fragment_spojnice" />
+
 </navigation>
