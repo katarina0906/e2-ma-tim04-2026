@@ -23,4 +23,10 @@
         android:label="Games"
         tools:layout="@layout/fragment_games" />
 
+    <fragment
+        android:id="@+id/koZnaZnaFragment"
+        android:name="com.example.slagalicatim04.fragments.KoZnaZnaFragment"
+        android:label="Ko zna zna"
+        tools:layout="@layout/fragment_ko_zna_zna" />
+
 </navigation>
