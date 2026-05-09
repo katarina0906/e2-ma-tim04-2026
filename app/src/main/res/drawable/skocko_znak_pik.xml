@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder → skocko_znak_pik.png -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#1E1E2F"
+        android:pathData="M24,8L34,22H28v6H20v-6H14z M20,32h8v8h-8z" />
+</vector>

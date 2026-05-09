@@ -56,4 +56,32 @@
     <string name="aso_dialog_title_column">Kolona %1$s</string>
     <string name="aso_pass_next_turn">Dalje — sledeći igrač</string>
     <string name="aso_hint_open_phase">Klikni na belo polje sa ? da otkriješ reč ili izraz.</string>
+
+    <string name="sk_round_fmt">Runda %1$d / %2$d</string>
+    <string name="sk_timer_fmt">⏱ %1$d:%2$02d</string>
+    <string name="sk_player_pts">Igrač %1$d: %2$d</string>
+    <string name="sk_status_solve">Igrač %1$d pogađa svoju kombinaciju. Rundu je započeo igrač %2$d.</string>
+    <string name="sk_status_steal">Igrač %1$d — ukradeni pokušaj (kombinacija igrača %2$d). Jedan pokušaj, 10 s.</string>
+    <string name="sk_hint_feedback">Crni krug = tačan znak i mesto, beli obod = tačan znak, pogrešno mesto.</string>
+    <string name="sk_steal_title">Ukradeni pokušaj</string>
+    <string name="sk_steal_hint">Složi jednu kombinaciju i pošalji. Tačno = 10 bodova.</string>
+    <string name="sk_palette_label">Izaberi znak (redom popunjava mesta)</string>
+    <string name="sk_draft_label">Tvoj pokušaj</string>
+    <string name="sk_draft_slot">Mesto u kombinaciji</string>
+    <string name="sk_clear">Obriši</string>
+    <string name="sk_submit">Pošalji</string>
+    <string name="sk_next_round">Naredna runda</string>
+    <string name="sk_new_game">Nova igra</string>
+    <string name="sk_sym_skocko">Skocko</string>
+    <string name="sk_sym_herc">Herc</string>
+    <string name="sk_sym_krug">Krug</string>
+    <string name="sk_sym_zvezda">Zvezda</string>
+    <string name="sk_sym_kvadrat">Kvadrat</string>
+    <string name="sk_sym_trougao">Trougao</string>
+    <string name="sk_draft_incomplete">Popuni sva četiri mesta.</string>
+    <string name="sk_steal_ok">Tačno! +10 bodova.</string>
+    <string name="sk_steal_fail">Nije tačno.</string>
+    <string name="sk_game_over_fmt">Kraj igre. Igrač 1: %1$d  Igrač 2: %2$d</string>
+    <string name="sk_round_done">Runda završena.</string>
+    <string name="sk_time_turn">Vreme je isteklo za ovaj potez.</string>
 </resources>
