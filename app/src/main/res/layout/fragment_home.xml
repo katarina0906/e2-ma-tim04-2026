@@ -10,8 +10,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
-        android:paddingBottom="24dp">
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="36dp">
 
         <androidx.cardview.widget.CardView
             android:id="@+id/homeProfileCard"
