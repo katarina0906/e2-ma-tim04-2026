@@ -91,6 +91,12 @@
         tools:layout="@layout/fragment_asocijacije" />
 
     <fragment
+        android:id="@+id/skockoFragment"
+        android:name="com.example.slagalicatim04.fragments.SkockoFragment"
+        android:label="Skočko"
+        tools:layout="@layout/fragment_skocko" />
+
+    <fragment
         android:id="@+id/stepByStepFragment"
         android:name="com.example.slagalicatim04.fragments.StepByStepFragment"
         android:label="Korak po korak"
