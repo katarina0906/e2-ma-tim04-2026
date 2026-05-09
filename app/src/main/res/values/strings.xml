@@ -1,46 +1,116 @@
 <resources>
     <string name="app_name">Slagalica</string>
     <string name="action_settings">Settings</string>
-    <!-- Strings used for fragments for navigation -->
-    <string name="first_fragment_label">First Fragment</string>
-    <string name="second_fragment_label">Second Fragment</string>
-    <string name="next">Next</string>
-    <string name="previous">Previous</string>
+    <string name="auth_welcome">Dobro dosla u Slagalicu</string>
+    <string name="auth_subtitle">Prijavi se ili napravi nalog da bi zaigrala duel.</string>
+    <string name="login_title">Prijava</string>
+    <string name="login_hint">Email ili korisnicko ime</string>
+    <string name="email_hint">Email adresa</string>
+    <string name="username_hint">Korisnicko ime</string>
+    <string name="region_hint">Region</string>
+    <string name="password_hint">Lozinka</string>
+    <string name="confirm_password_hint">Ponovi lozinku</string>
+    <string name="old_password_hint">Stara lozinka</string>
+    <string name="new_password_hint">Nova lozinka</string>
+    <string name="register_title">Registracija</string>
+    <string name="register_button">Kreiraj nalog</string>
+    <string name="login_button">Prijavi se</string>
+    <string name="reset_password_title">Reset lozinke</string>
+    <string name="reset_password_button">Sacuvaj novu lozinku</string>
+    <string name="verification_title">Potvrda registracije</string>
+    <string name="verification_message">Klikni na link poslat na mejl da bi aktivirala nalog. Tek nakon potvrde mejla omogucena je prijava.</string>
+    <string name="verification_sent_to">Poslato na: katarinazgonjanin@gmail.com </string>
+    <string name="back_to_login">Nazad na prijavu</string>
+    <string name="go_to_register">Nemam nalog</string>
+    <string name="forgot_password">Zaboravljena lozinka?</string>
+    <string name="already_have_account">Vec imam nalog</string>
+    <string name="resend_email">Posalji link ponovo</string>
+    <string name="verification_pending_status">Status: ceka se potvrda mejla</string>
+    <string name="auth_card_title">Slagalica duel</string>
+    <string name="auth_card_description">Takmici se, skupljaj zvezde i napreduj kroz lige.</string>
 
-    <string name="lorem_ipsum">
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam in scelerisque sem. Mauris
-        volutpat, dolor id interdum ullamcorper, risus dolor egestas lectus, sit amet mattis purus
-        dui nec risus. Maecenas non sodales nisi, vel dictum dolor. Class aptent taciti sociosqu ad
-        litora torquent per conubia nostra, per inceptos himenaeos. Suspendisse blandit eleifend
-        diam, vel rutrum tellus vulputate quis. Aliquam eget libero aliquet, imperdiet nisl a,
-        ornare ex. Sed rhoncus est ut libero porta lobortis. Fusce in dictum tellus.\n\n
-        Suspendisse interdum ornare ante. Aliquam nec cursus lorem. Morbi id magna felis. Vivamus
-        egestas, est a condimentum egestas, turpis nisl iaculis ipsum, in dictum tellus dolor sed
-        neque. Morbi tellus erat, dapibus ut sem a, iaculis tincidunt dui. Interdum et malesuada
-        fames ac ante ipsum primis in faucibus. Curabitur et eros porttitor, ultricies urna vitae,
-        molestie nibh. Phasellus at commodo eros, non aliquet metus. Sed maximus nisl nec dolor
-        bibendum, vel congue leo egestas.\n\n
-        Sed interdum tortor nibh, in sagittis risus mollis quis. Curabitur mi odio, condimentum sit
-        amet auctor at, mollis non turpis. Nullam pretium libero vestibulum, finibus orci vel,
-        molestie quam. Fusce blandit tincidunt nulla, quis sollicitudin libero facilisis et. Integer
-        interdum nunc ligula, et fermentum metus hendrerit id. Vestibulum lectus felis, dictum at
-        lacinia sit amet, tristique id quam. Cras eu consequat dui. Suspendisse sodales nunc ligula,
-        in lobortis sem porta sed. Integer id ultrices magna, in luctus elit. Sed a pellentesque
-        est.\n\n
-        Aenean nunc velit, lacinia sed dolor sed, ultrices viverra nulla. Etiam a venenatis nibh.
-        Morbi laoreet, tortor sed facilisis varius, nibh orci rhoncus nulla, id elementum leo dui
-        non lorem. Nam mollis ipsum quis auctor varius. Quisque elementum eu libero sed commodo. In
-        eros nisl, imperdiet vel imperdiet et, scelerisque a mauris. Pellentesque varius ex nunc,
-        quis imperdiet eros placerat ac. Duis finibus orci et est auctor tincidunt. Sed non viverra
-        ipsum. Nunc quis augue egestas, cursus lorem at, molestie sem. Morbi a consectetur ipsum, a
-        placerat diam. Etiam vulputate dignissim convallis. Integer faucibus mauris sit amet finibus
-        convallis.\n\n
-        Phasellus in aliquet mi. Pellentesque habitant morbi tristique senectus et netus et
-        malesuada fames ac turpis egestas. In volutpat arcu ut felis sagittis, in finibus massa
-        gravida. Pellentesque id tellus orci. Integer dictum, lorem sed efficitur ullamcorper,
-        libero justo consectetur ipsum, in mollis nisl ex sed nisl. Donec maximus ullamcorper
-        sodales. Praesent bibendum rhoncus tellus nec feugiat. In a ornare nulla. Donec rhoncus
-        libero vel nunc consequat, quis tincidunt nisl eleifend. Cras bibendum enim a justo luctus
-        vestibulum. Fusce dictum libero quis erat maximus, vitae volutpat diam dignissim.
-    </string>
+    <string name="aso_round_label">Runda %1$d / %2$d</string>
+    <string name="aso_timer_fmt">⏱ %1$d:%2$02d</string>
+    <string name="aso_time_up">Vreme ove runde je isteklo.</string>
+    <string name="aso_must_guess_or_pass">Prvo završi pogađanje ili predaj potez.</string>
+    <string name="aso_open_first">Prvo otvori jedno polje.</string>
+    <string name="aso_column_done">Ova kolona je već rešena.</string>
+    <string name="aso_empty_guess">Unesi tekst pogađanja.</string>
+    <string name="aso_column_ok">Tačno! Kolona +%1$d bodova</string>
+    <string name="aso_wrong_switch">Netačno. Sledeći igrač otvara polje.</string>
+    <string name="aso_all_columns_hint">Sve kolone su rešene — možeš pogađati samo konačno rešenje.</string>
+    <string name="aso_final_ok">Konačno tačno! +%1$d bodova</string>
+    <string name="aso_open_first_pass">Ne možeš predati potez pre otvaranja polja.</string>
+    <string name="aso_round_solved_final">Konačno rešenje je pogođeno — runda je gotova.</string>
+    <string name="aso_game_over">Kraj obe runde. Igrač 1: %1$d bodova — Igrač 2: %2$d bodova</string>
+    <string name="aso_turn_fmt">Na potezu: Igrač %1$d</string>
+    <string name="aso_phase_open">Igrač %1$d: otvori jedno skriveno polje.</string>
+    <string name="aso_phase_guess">Igrač %1$d: klikni na polje kolone ili konačno da uneseš odgovor — ili predaj potez.</string>
+    <string name="aso_player_points">Igrač %1$d: %2$d</string>
+    <string name="aso_round_points_fmt">Ova runda — I1: %1$d  I2: %2$d</string>
+    <string name="aso_hint_tap_field">U fazi pogađanja: klikni na donje polje kolone (A–D) ili na konačno rešenje iznad, unesi tekst pa Potvrdi.</string>
+    <string name="aso_hint_tap_field_dialog">Klikni na polje rešenja kolone ili na konačno iznad — otvoriće se prozor za unos i tastatura.</string>
+    <string name="aso_guess_hint">Tvoj odgovor</string>
+    <string name="aso_confirm_guess">Potvrdi pogađanje</string>
+    <string name="aso_dialog_title_final">Konačno rešenje</string>
+    <string name="aso_dialog_title_column">Kolona %1$s</string>
+    <string name="aso_pass_next_turn">Dalje — sledeći igrač</string>
+    <string name="aso_hint_open_phase">Klikni na belo polje sa ? da otkriješ reč ili izraz.</string>
+
+    <string name="sk_round_fmt">Runda %1$d / %2$d</string>
+    <string name="sk_timer_fmt">⏱ %1$d:%2$02d</string>
+    <string name="sk_player_pts">Igrač %1$d: %2$d</string>
+    <string name="sk_status_solve">Igrač %1$d pogađa svoju kombinaciju. Rundu je započeo igrač %2$d.</string>
+    <string name="sk_status_steal">Igrač %1$d — ukradeni pokušaj (kombinacija igrača %2$d). Jedan pokušaj, 10 s.</string>
+    <string name="sk_hint_feedback">Crni krug = tačan znak i mesto, beli obod = tačan znak, pogrešno mesto.</string>
+    <string name="sk_steal_title">Ukradeni pokušaj</string>
+    <string name="sk_steal_hint">Složi jednu kombinaciju i pošalji. Tačno = 10 bodova.</string>
+    <string name="sk_palette_label">Izaberi znak (redom popunjava mesta)</string>
+    <string name="sk_draft_label">Tvoj pokušaj</string>
+    <string name="sk_draft_slot">Mesto u kombinaciji</string>
+    <string name="sk_clear">Obriši</string>
+    <string name="sk_submit">Pošalji</string>
+    <string name="sk_next_round">Naredna runda</string>
+    <string name="sk_new_game">Nova igra</string>
+    <string name="sk_sym_skocko">Skocko</string>
+    <string name="sk_sym_herc">Herc</string>
+    <string name="sk_sym_krug">Krug</string>
+    <string name="sk_sym_zvezda">Zvezda</string>
+    <string name="sk_sym_kvadrat">Kvadrat</string>
+    <string name="sk_sym_trougao">Trougao</string>
+    <string name="sk_draft_incomplete">Popuni sva četiri mesta.</string>
+    <string name="sk_steal_ok">Tačno! +10 bodova.</string>
+    <string name="sk_steal_fail">Nije tačno.</string>
+    <string name="sk_game_over_fmt">Kraj igre. Igrač 1: %1$d  Igrač 2: %2$d</string>
+    <string name="sk_round_done">Runda završena.</string>
+    <string name="sk_time_turn">Vreme je isteklo za ovaj potez.</string>
+
+    <string name="notifications_title">Obaveštenja</string>
+    <string name="notifications_intro">Istorija sistemskih notifikacija — plasman, nagrade, čet i prijatelji. Sledeće vezuje backend.</string>
+    <string name="notifications_intro_short">Istorija, filteri i reakcije</string>
+    <string name="notifications_filter_all">Sve</string>
+    <string name="notifications_filter_unread">Nepročitane</string>
+    <string name="notifications_filter_read">Pročitane</string>
+    <string name="notifications_empty">Nema notifikacija u ovoj kategoriji.</string>
+    <string name="notif_action_mark_read">Pročitano</string>
+    <string name="notif_action_react">Reaguj</string>
+    <string name="notif_marked_read">Označeno kao pročitano.</string>
+    <string name="notif_react_placeholder">Otvoriće se sledeća radnja kada bude podešeno sa serverom (reakcije na obaveštenje).</string>
+    <string name="notif_reaction_pick_title">Reaguj</string>
+    <string name="notif_reaction_saved">Reakcija sačuvana.</string>
+    <string name="notif_cat_chat_label">Čet</string>
+    <string name="notif_cat_ranking_label">Rang</string>
+    <string name="notif_cat_rewards_label">Nagrade</string>
+    <string name="notif_cat_other_label">Ostalo</string>
+
+    <string name="notif_channel_chat_name">Čet poruke</string>
+    <string name="notif_channel_chat_desc">Obaveštenja o novoj aktivnosti i porukama u četu.</string>
+    <string name="notif_channel_ranking_name">Rangiranje i lige</string>
+    <string name="notif_channel_ranking_desc">Plasman na rang listama i promena liga.</string>
+    <string name="notif_channel_rewards_name">Nagrade</string>
+    <string name="notif_channel_rewards_desc">Dostupne nagrade, poklon kutije i slične obavesti.</string>
+    <string name="notif_channel_other_name">Ostalo</string>
+    <string name="notif_channel_other_desc">Pozivi za prijatelje i druge aplikacije koje nemaju svoj kanal.</string>
+
+    <string name="profile_open_notifications">Notifikacije</string>
 </resources>

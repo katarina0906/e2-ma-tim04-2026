@@ -1,3 +1,7 @@
 <resources>
     <dimen name="fab_margin">16dp</dimen>
+    <!-- Visina donjeg menija (usklađeno sa marginom NavHost-a) -->
+    <dimen name="bottom_nav_height">56dp</dimen>
+    <!-- Malo viši app bar od podrazumevanog actionBarSize (~56dp) radi proporcije -->
+    <dimen name="main_toolbar_min_height">64dp</dimen>
 </resources>
