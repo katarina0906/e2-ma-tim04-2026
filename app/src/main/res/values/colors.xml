@@ -2,4 +2,9 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <color name="notif_cat_chat_stripe">#6F4BB2</color>
+    <color name="notif_cat_ranking_stripe">#1565C0</color>
+    <color name="notif_cat_rewards_stripe">#C62828</color>
+    <color name="notif_cat_other_stripe">#757575</color>
 </resources>

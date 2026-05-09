@@ -217,11 +217,15 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/homeQuickNotifications"
                 android:layout_width="0dp"
                 android:layout_height="82dp"
                 android:layout_weight="1"
                 android:layout_marginStart="10dp"
                 android:background="#FFFFFF"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 android:gravity="center"
                 android:text="🔔\nNotifikacije"
                 android:textColor="#1E1E2F"

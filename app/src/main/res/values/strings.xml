@@ -84,4 +84,33 @@
     <string name="sk_game_over_fmt">Kraj igre. Igrač 1: %1$d  Igrač 2: %2$d</string>
     <string name="sk_round_done">Runda završena.</string>
     <string name="sk_time_turn">Vreme je isteklo za ovaj potez.</string>
+
+    <string name="notifications_title">Obaveštenja</string>
+    <string name="notifications_intro">Istorija sistemskih notifikacija — plasman, nagrade, čet i prijatelji. Sledeće vezuje backend.</string>
+    <string name="notifications_intro_short">Istorija, filteri i reakcije</string>
+    <string name="notifications_filter_all">Sve</string>
+    <string name="notifications_filter_unread">Nepročitane</string>
+    <string name="notifications_filter_read">Pročitane</string>
+    <string name="notifications_empty">Nema notifikacija u ovoj kategoriji.</string>
+    <string name="notif_action_mark_read">Pročitano</string>
+    <string name="notif_action_react">Reaguj</string>
+    <string name="notif_marked_read">Označeno kao pročitano.</string>
+    <string name="notif_react_placeholder">Otvoriće se sledeća radnja kada bude podešeno sa serverom (reakcije na obaveštenje).</string>
+    <string name="notif_reaction_pick_title">Reaguj</string>
+    <string name="notif_reaction_saved">Reakcija sačuvana.</string>
+    <string name="notif_cat_chat_label">Čet</string>
+    <string name="notif_cat_ranking_label">Rang</string>
+    <string name="notif_cat_rewards_label">Nagrade</string>
+    <string name="notif_cat_other_label">Ostalo</string>
+
+    <string name="notif_channel_chat_name">Čet poruke</string>
+    <string name="notif_channel_chat_desc">Obaveštenja o novoj aktivnosti i porukama u četu.</string>
+    <string name="notif_channel_ranking_name">Rangiranje i lige</string>
+    <string name="notif_channel_ranking_desc">Plasman na rang listama i promena liga.</string>
+    <string name="notif_channel_rewards_name">Nagrade</string>
+    <string name="notif_channel_rewards_desc">Dostupne nagrade, poklon kutije i slične obavesti.</string>
+    <string name="notif_channel_other_name">Ostalo</string>
+    <string name="notif_channel_other_desc">Pozivi za prijatelje i druge aplikacije koje nemaju svoj kanal.</string>
+
+    <string name="profile_open_notifications">Notifikacije</string>
 </resources>
