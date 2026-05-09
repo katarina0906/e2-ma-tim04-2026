@@ -25,8 +25,9 @@ import java.util.Arrays;
 import java.util.Random;
 
 /**
- * Skočko: 2 runde × 30 s po igraču, ukradeni pokušaj 10 s / 10 bodova. Znakovi: skocko, herc, krug,
- * zvezda, kvadrat, trougao (slike u drawable/).
+ * Skočko: 2 runde. U svakoj rundi samo igrač koji je započeo rundu ima do 6 pokušaja u 30 s;
+ * ako ne pogodi, protivnik dobija jedan ukradeni pokušaj (10 s, 10 bodova) na njegovu kombinaciju.
+ * Znakovi: skocko, herc, krug, zvezda, kvadrat, trougao.
  */
 public class SkockoFragment extends Fragment {
 
@@ -35,10 +36,6 @@ public class SkockoFragment extends Fragment {
     private static final int MAX_ATTEMPTS = 6;
     private static final long TURN_MS = 30_000L;
     private static final long STEAL_MS = 10_000L;
-
-    private static final int SUB_STARTER = 0;
-    private static final int SUB_OTHER = 1;
-    private static final int SUB_STEAL = 2;
 
     private static final int[] SYMBOL_DRAWABLES = {
             R.drawable.skocko_znak_skocko,
@@ -81,8 +78,9 @@ public class SkockoFragment extends Fragment {
 
     private int roundIndex;
     private int roundStarter;
-    private int subPhase;
+    /** Ko trenutno pogađa svoju kombinaciju (uvek igrač koji je započeo rundu). */
     private int solvingPlayer;
+    /** Čija tajna kombinacija se pogađa u ukradenom pokušaju (onaj koji nije pogodio svoju). */
     private int stealVictim;
     private boolean stealPhase;
     private boolean stealAttemptDone;
@@ -216,7 +214,6 @@ public class SkockoFragment extends Fragment {
         clearHistoryUi();
         numCommitted = 0;
         clearDraft();
-        subPhase = SUB_STARTER;
         solvingPlayer = roundStarter;
         roundText.setText(getString(R.string.sk_round_fmt, roundIndex + 1, 2));
         resultText.setText("");
@@ -311,8 +308,9 @@ public class SkockoFragment extends Fragment {
             stealAttemptDone = true;
             int[] g = draftToArray();
             cancelTimer();
+            int stealer = 1 - roundStarter;
             if (Arrays.equals(g, secrets[stealVictim])) {
-                totalScores[roundStarter] += 10;
+                totalScores[stealer] += 10;
                 updateScoreUi();
                 Toast.makeText(requireContext(), R.string.sk_steal_ok, Toast.LENGTH_SHORT).show();
             } else {
@@ -339,46 +337,18 @@ public class SkockoFragment extends Fragment {
             cancelTimer();
             awardSolve(solvingPlayer, numCommitted);
             updateScoreUi();
-            onSolveCurrentSubPhase();
+            finishRound();
             return;
         }
         if (numCommitted >= MAX_ATTEMPTS) {
             cancelTimer();
-            onFailCurrentSubPhase();
-        }
-    }
-
-    private void onSolveCurrentSubPhase() {
-        if (subPhase == SUB_STARTER) {
-            beginOtherTurn();
-        } else if (subPhase == SUB_OTHER) {
-            finishRound();
-        }
-    }
-
-    private void onFailCurrentSubPhase() {
-        if (subPhase == SUB_STARTER) {
-            beginOtherTurn();
-        } else if (subPhase == SUB_OTHER) {
             beginSteal();
         }
     }
 
-    private void beginOtherTurn() {
-        numCommitted = 0;
-        clearHistoryUi();
-        clearDraft();
-        subPhase = SUB_OTHER;
-        solvingPlayer = 1 - roundStarter;
-        updateStatus();
-        enableInputs(true);
-        startPhaseTimer(TURN_MS);
-    }
-
     private void beginSteal() {
         stealPhase = true;
-        stealVictim = 1 - roundStarter;
-        solvingPlayer = roundStarter;
+        stealVictim = roundStarter;
         stealAttemptDone = false;
         stealCard.setVisibility(View.VISIBLE);
         clearDraft();
@@ -419,11 +389,7 @@ public class SkockoFragment extends Fragment {
             return;
         }
         Toast.makeText(requireContext(), R.string.sk_time_turn, Toast.LENGTH_SHORT).show();
-        if (subPhase == SUB_STARTER) {
-            beginOtherTurn();
-        } else if (subPhase == SUB_OTHER) {
-            beginSteal();
-        }
+        beginSteal();
     }
 
     private void awardSolve(int player, int attemptCount) {
@@ -522,11 +488,11 @@ public class SkockoFragment extends Fragment {
             return;
         }
         if (stealPhase) {
-            statusText.setText(getString(R.string.sk_status_steal, roundStarter + 1, stealVictim + 1));
+            int stealer = 1 - roundStarter;
+            statusText.setText(getString(R.string.sk_status_steal, stealer + 1, stealVictim + 1));
             return;
         }
-        int p = solvingPlayer;
-        statusText.setText(getString(R.string.sk_status_solve, p + 1, roundStarter + 1));
+        statusText.setText(getString(R.string.sk_status_solve, solvingPlayer + 1, roundStarter + 1));
     }
 
     private void updateScoreUi() {
