@@ -15,7 +15,7 @@ import com.example.slagalicatim04.R;
 
 public class KoZnaZnaFragment extends Fragment {
 
-    private TextView timerText, resultText;
+    private TextView timerText, resultText, playerScoreText;
     private Button answerA, answerB, answerC, answerD;
     private CountDownTimer timer;
 
@@ -31,6 +31,7 @@ public class KoZnaZnaFragment extends Fragment {
 
         timerText = view.findViewById(R.id.timerText);
         resultText = view.findViewById(R.id.resultText);
+        playerScoreText = view.findViewById(R.id.kzzScore0);
 
         answerA = view.findViewById(R.id.answerA);
         answerB = view.findViewById(R.id.answerB);
@@ -72,9 +73,11 @@ public class KoZnaZnaFragment extends Fragment {
 
         if (selected.equals(correctAnswer)) {
             selectedButton.setBackgroundColor(Color.parseColor("#4CAF50"));
+            playerScoreText.setText("Igrač 1: 10");
             resultText.setText("Tačno! +10 bodova");
         } else {
             selectedButton.setBackgroundColor(Color.parseColor("#E53935"));
+            playerScoreText.setText("Igrač 1: -5");
             resultText.setText("Netačno! -5 bodova");
             highlightCorrectAnswer();
         }

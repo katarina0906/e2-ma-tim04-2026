@@ -84,7 +84,7 @@
                         android:background="#EFEAF8"
                         android:gravity="center"
                         android:padding="8dp"
-                        android:text="I1: 0"
+                        android:text="Igrač 1: 0"
                         android:textColor="#1E1E2F"
                         android:textStyle="bold" />
 
@@ -97,7 +97,7 @@
                         android:background="#F5F5F5"
                         android:gravity="center"
                         android:padding="8dp"
-                        android:text="I2: 0"
+                        android:text="Igrač 2: 0"
                         android:textColor="#1E1E2F"
                         android:textStyle="bold" />
                 </LinearLayout>

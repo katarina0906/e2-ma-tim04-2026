@@ -17,15 +17,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="10dp"
-            app:cardCornerRadius="22dp"
-            app:cardElevation="6dp">
+            app:cardCornerRadius="18dp"
+            app:cardElevation="4dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="#FFFFFF"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="12dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -44,16 +44,17 @@
                             android:layout_height="wrap_content"
                             android:text="Runda 1 / 2"
                             android:textColor="#1E1E2F"
-                            android:textSize="22sp"
+                            android:textSize="17sp"
                             android:textStyle="bold" />
 
                         <TextView
+                            android:id="@+id/statusText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:text="Na potezu: Igrac 1"
-                            android:textColor="#6C6780"
-                            android:textSize="14sp" />
+                            android:text="Otvori sledeci korak ili potvrdi odgovor kada zelis."
+                            android:textColor="#666666"
+                            android:textSize="13sp" />
                     </LinearLayout>
 
                     <TextView
@@ -61,10 +62,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:background="#EFEAF8"
-                        android:paddingLeft="12dp"
-                        android:paddingTop="8dp"
-                        android:paddingRight="12dp"
-                        android:paddingBottom="8dp"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="6dp"
                         android:text="40s"
                         android:textColor="#6F4BB2"
                         android:textStyle="bold" />
@@ -73,53 +72,32 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:orientation="horizontal"
-                    android:weightSum="3">
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
 
                     <TextView
-                        android:id="@+id/currentStepValue"
                         android:layout_width="0dp"
-                        android:layout_height="72dp"
+                        android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:background="#F6F2FF"
+                        android:background="#EFEAF8"
                         android:gravity="center"
-                        android:text="4 / 7"
+                        android:padding="8dp"
+                        android:text="Igrač 1: 0"
                         android:textColor="#1E1E2F"
                         android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/currentPointsValue"
                         android:layout_width="0dp"
-                        android:layout_height="72dp"
+                        android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="8dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="#FDF4E7"
+                        android:background="#F5F5F5"
                         android:gravity="center"
-                        android:text="14 bodova"
-                        android:textColor="#A86400"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="72dp"
-                        android:layout_weight="1"
-                        android:background="#EDF8F1"
-                        android:gravity="center"
-                        android:text="Bonus rivalu\n5 bodova"
-                        android:textColor="#217A4A"
+                        android:padding="8dp"
+                        android:text="Igrač 2: 0"
+                        android:textColor="#1E1E2F"
                         android:textStyle="bold" />
                 </LinearLayout>
-
-                <TextView
-                    android:id="@+id/statusText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Otvori sledeci korak ili potvrdi odgovor kada zelis."
-                    android:textColor="#6C6780"
-                    android:textSize="13sp" />
 
                 <LinearLayout
                     android:id="@+id/stepByStepResultBanner"
@@ -150,6 +128,38 @@
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/currentStepValue"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="#F6F2FF"
+                android:gravity="center"
+                android:padding="8dp"
+                android:text="1 / 7"
+                android:textColor="#1E1E2F"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/currentPointsValue"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:background="#FDF4E7"
+                android:gravity="center"
+                android:padding="8dp"
+                android:text="20 bodova"
+                android:textColor="#A86400"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
