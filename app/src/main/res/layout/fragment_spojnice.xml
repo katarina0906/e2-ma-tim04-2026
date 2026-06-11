@@ -18,29 +18,83 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="#FFFFFF"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:padding="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
 
             <TextView
                 android:id="@+id/roundText"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:text="Runda 1 / 2"
                 android:textColor="#1E1E2F"
-                android:textSize="18sp"
+                android:textSize="17sp"
                 android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Na potezu: Igrač 1"
+                        android:textColor="#666666"
+                        android:textSize="13sp" />
+                </LinearLayout>
 
             <TextView
                 android:id="@+id/timerText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="#EFEAF8"
-                android:padding="8dp"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="6dp"
                 android:text="⏱ 30s"
                 android:textColor="#6F4BB2"
                 android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/spScore0"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="#EFEAF8"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:text="Igrač 1: 0"
+                    android:textColor="#1E1E2F"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/spScore1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:background="#F5F5F5"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:text="Igrač 2: 0"
+                    android:textColor="#1E1E2F"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>

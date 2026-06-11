@@ -18,7 +18,7 @@ import java.util.Map;
 
 public class SpojniceFragment extends Fragment {
 
-    private TextView timerText, resultText;
+    private TextView timerText, resultText, playerScoreText;
     private CountDownTimer timer;
 
     private Button selectedLeftButton = null;
@@ -37,6 +37,7 @@ public class SpojniceFragment extends Fragment {
 
         timerText = view.findViewById(R.id.timerText);
         resultText = view.findViewById(R.id.resultText);
+        playerScoreText = view.findViewById(R.id.spScore0);
 
         correctPairs.put(R.id.leftDino, R.id.rightNedostajes);
         correctPairs.put(R.id.leftColic, R.id.rightTiSiMiUKrvi);
@@ -95,6 +96,7 @@ public class SpojniceFragment extends Fragment {
                 button.setEnabled(false);
 
                 score += 2;
+                playerScoreText.setText("Igrač 1: " + score);
                 resultText.setText("Tačno! +" + score + " bodova ukupno");
 
                 selectedLeftButton = null;
