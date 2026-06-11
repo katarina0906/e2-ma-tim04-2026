@@ -86,18 +86,16 @@
     <string name="sk_time_turn">Vreme je isteklo za ovaj potez.</string>
 
     <string name="notifications_title">Obaveštenja</string>
-    <string name="notifications_intro">Istorija sistemskih notifikacija — plasman, nagrade, čet i prijatelji. Sledeće vezuje backend.</string>
-    <string name="notifications_intro_short">Istorija, filteri i reakcije</string>
+    <string name="notifications_intro">Istorija sistemskih notifikacija — plasman, nagrade, čet i prijatelji. Klik otvara povezanu stranicu.</string>
+    <string name="notifications_intro_short">Istorija i povezane stranice</string>
     <string name="notifications_filter_all">Sve</string>
     <string name="notifications_filter_unread">Nepročitane</string>
     <string name="notifications_filter_read">Pročitane</string>
     <string name="notifications_empty">Nema notifikacija u ovoj kategoriji.</string>
     <string name="notif_action_mark_read">Pročitano</string>
-    <string name="notif_action_react">Reaguj</string>
+    <string name="notif_action_open">Otvori</string>
     <string name="notif_marked_read">Označeno kao pročitano.</string>
-    <string name="notif_react_placeholder">Otvoriće se sledeća radnja kada bude podešeno sa serverom (reakcije na obaveštenje).</string>
-    <string name="notif_reaction_pick_title">Reaguj</string>
-    <string name="notif_reaction_saved">Reakcija sačuvana.</string>
+    <string name="notification_target_title">Detalji</string>
     <string name="notif_cat_chat_label">Čet</string>
     <string name="notif_cat_ranking_label">Rang</string>
     <string name="notif_cat_rewards_label">Nagrade</string>

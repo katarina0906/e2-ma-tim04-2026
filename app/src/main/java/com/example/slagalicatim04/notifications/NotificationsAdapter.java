@@ -22,7 +22,7 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
     public interface Listener {
         void onMarkRead(InAppNotification item);
 
-        void onReact(InAppNotification item);
+        void onOpen(InAppNotification item);
     }
 
     private List<InAppNotification> items = new ArrayList<>();
@@ -66,8 +66,7 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
         private final TextView message;
         private final TextView time;
         private final MaterialButton markRead;
-        private final MaterialButton react;
-        private final TextView reactionBadge;
+        private final MaterialButton open;
 
         NotifHolder(@NonNull View itemView) {
             super(itemView);
@@ -79,8 +78,7 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
             message = itemView.findViewById(R.id.notif_message);
             time = itemView.findViewById(R.id.notif_time);
             markRead = itemView.findViewById(R.id.notif_mark_read);
-            react = itemView.findViewById(R.id.notif_react);
-            reactionBadge = itemView.findViewById(R.id.notif_reaction_badge);
+            open = itemView.findViewById(R.id.notif_open);
         }
 
         void bind(InAppNotification n, Listener listener) {
@@ -101,20 +99,9 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
             card.setAlpha(alphaCard);
             markRead.setVisibility(unread ? View.VISIBLE : View.GONE);
 
-            if (n.reactionEmoji != null && !n.reactionEmoji.isEmpty()) {
-                reactionBadge.setText(n.reactionEmoji);
-                reactionBadge.setVisibility(View.VISIBLE);
-            } else {
-                reactionBadge.setVisibility(View.GONE);
-            }
-
-            card.setOnClickListener(v -> {
-                if (!n.read) {
-                    listener.onMarkRead(n);
-                }
-            });
+            card.setOnClickListener(v -> listener.onOpen(n));
             markRead.setOnClickListener(v -> listener.onMarkRead(n));
-            react.setOnClickListener(v -> listener.onReact(n));
+            open.setOnClickListener(v -> listener.onOpen(n));
         }
 
         private static int stripeColorFor(InAppNotification.Category c) {

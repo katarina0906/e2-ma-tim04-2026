@@ -83,6 +83,12 @@
         tools:layout="@layout/fragment_notifications" />
 
     <fragment
+        android:id="@+id/notificationTargetFragment"
+        android:name="com.example.slagalicatim04.fragments.NotificationTargetFragment"
+        android:label="@string/notification_target_title"
+        tools:layout="@layout/fragment_notification_target" />
+
+    <fragment
         android:id="@+id/gamesFragment"
         android:name="com.example.slagalicatim04.fragments.GamesFragment"
         android:label="Games"
