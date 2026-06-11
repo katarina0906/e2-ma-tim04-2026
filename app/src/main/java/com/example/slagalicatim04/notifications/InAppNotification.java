@@ -4,7 +4,7 @@ import androidx.annotation.Nullable;
 
 import com.example.slagalicatim04.R;
 
-/** Model za istoriju sistemskih obaveštenja u aplikaciji (prikaz bez backend-a). */
+/** Model za istoriju sistemskih obavestenja u aplikaciji (prikaz bez backend-a). */
 public class InAppNotification {
 
     public enum Category {
@@ -24,17 +24,13 @@ public class InAppNotification {
     public final Category category;
     public final String title;
     public final String message;
-    /** Kratko vreme kao u listi („pre 2 h”), samo za prikaz. */
+    /** Kratko vreme kao u listi, samo za prikaz. */
     public final String timeAgoLabel;
     public boolean read;
 
-    /** Proizvoljna oznaka tipa („poziv”, „liga”) za buduće reakcije. */
+    /** Oznaka akcije koja odredjuje koju stranicu otvara klik na notifikaciju. */
     @Nullable
     public final String actionHint;
-
-    /** Izabrani emoji kao na WhatsApp reakcijama (npr. 👍); null dok korisnik ne reaguje. */
-    @Nullable
-    public String reactionEmoji;
 
     public InAppNotification(String id, Category category, String title, String message,
                              String timeAgoLabel, boolean read,
@@ -46,6 +42,5 @@ public class InAppNotification {
         this.timeAgoLabel = timeAgoLabel;
         this.read = read;
         this.actionHint = actionHint;
-        this.reactionEmoji = null;
     }
 }

@@ -89,11 +89,11 @@
                 tools:text="Pomerila si se na rang listi." />
 
             <TextView
-                android:id="@+id/notif_reaction_badge"
+                android:id="@+id/notif_action_hint"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/notif_reaction_pill_bg"
+                android:background="#EFEAF8"
                 android:paddingHorizontal="10dp"
                 android:paddingVertical="4dp"
                 android:textColor="#1E1E2F"
@@ -119,12 +119,12 @@
                     android:textAllCaps="false" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/notif_react"
+                    android:id="@+id/notif_open"
                     style="@style/Widget.MaterialComponents.Button"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="@string/notif_action_react"
+                    android:text="@string/notif_action_open"
                     android:textAllCaps="false" />
             </LinearLayout>
         </LinearLayout>
