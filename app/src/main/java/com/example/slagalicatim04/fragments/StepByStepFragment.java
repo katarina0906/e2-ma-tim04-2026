@@ -3,7 +3,6 @@ package com.example.slagalicatim04.fragments;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +22,7 @@ import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
+import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.stepbystep.StepByStepGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchState;
@@ -185,28 +185,17 @@ public class StepByStepFragment extends Fragment {
     private StepByStepPlayerSession resolveCurrentUser() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        String userId;
+        String userId = new TestRoomPlayerProvider(requireContext()).getPlayerId();
         String userName;
 
         if (authUser != null) {
-            userId = authUser.getId();
             userName = authUser.getUsername().isEmpty() ? authUser.getEmail() : authUser.getUsername();
         } else if (firebaseUser != null) {
-            userId = firebaseUser.getUid();
             userName = firebaseUser.getEmail() == null ? firebaseUser.getUid() : firebaseUser.getEmail();
         } else {
-            userId = "guest";
             userName = "Gost";
         }
         return new StepByStepPlayerSession(userId, userName);
-    }
-
-    private String deviceId() {
-        String id = Settings.Secure.getString(
-                requireContext().getContentResolver(),
-                Settings.Secure.ANDROID_ID
-        );
-        return isEmpty(id) ? String.valueOf(System.currentTimeMillis()) : id;
     }
 
     private void renderCurrentState() {
@@ -217,6 +206,11 @@ public class StepByStepFragment extends Fragment {
 
         if (currentState.effectivePhase().startsWith("myNumber")) {
             navigateToMyNumber();
+            return;
+        }
+
+        if (!currentState.isStepByStepGame()) {
+            setControlsEnabled(false);
             return;
         }
 

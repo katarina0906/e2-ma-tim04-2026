@@ -5,7 +5,7 @@ import android.content.Context;
 import com.example.slagalicatim04.models.MatchingMultiplayerState;
 import com.example.slagalicatim04.models.QuizMultiplayerState;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
-import com.example.slagalicatim04.stepbystep.StepByStepGameService;
+import com.example.slagalicatim04.services.SkockoGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 public class MultiplayerGameRepository {
     public static final String TEST_ROOM_ID = StepByStepMatchRepository.DEFAULT_MATCH_ID;
@@ -27,6 +28,7 @@ public class MultiplayerGameRepository {
     private static final int QUIZ_QUESTION_COUNT = 5;
     private static final int MATCHING_PAIR_COUNT = 5;
     private static final int MATCHING_ROUND_COUNT = 2;
+    private final Random random = new Random();
 
     private final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
     private final String playerId;
@@ -246,26 +248,34 @@ public class MultiplayerGameRepository {
             updates.put("spAttemptedPairs", new ArrayList<>());
             updates.put("spTurnPairCount", MATCHING_PAIR_COUNT);
         } else {
-            updates.putAll(newStepByStepState());
+            updates.putAll(newSkockoState());
         }
         transaction.set(matchRef, updates, SetOptions.merge());
     }
 
-    private Map<String, Object> newStepByStepState() {
+    private Map<String, Object> newSkockoState() {
         Map<String, Object> state = new HashMap<>();
-        state.put("currentGame", "stepByStep");
-        state.put("phase", "round1");
+        state.put("currentGame", "skocko");
+        state.put("phase", "round");
+        state.put("phaseToken", System.currentTimeMillis() + "-" + random.nextLong());
         state.put("round", 1L);
         state.put("activePlayer", 1L);
-        state.put("stealPlayer", 0L);
-        state.put("roundStartedAt", FieldValue.serverTimestamp());
-        state.put("stealStartedAt", 0L);
-        state.put("visibleStepCount", 1L);
-        state.put("secondsLeft", StepByStepGameService.ROUND_DURATION_MS / 1000);
-        state.put("stepByStepFinished", false);
+        state.put("phaseStartedAt", FieldValue.serverTimestamp());
+        state.put("phaseDeadlineAt",
+                System.currentTimeMillis() + com.example.slagalicatim04.skocko.SkockoMatchRepository.ROUND_DURATION_MS);
+        state.put("secret", randomSkockoSecret());
+        state.put("attempts", new ArrayList<>());
         state.put("finished", false);
-        state.put("statusMessage", "Spojnice su zavrsene. Pokrece se Korak po korak.");
+        state.put("statusMessage", "Spojnice su zavrsene. Pokrece se Skočko.");
         return state;
+    }
+
+    private List<Integer> randomSkockoSecret() {
+        List<Integer> secret = new ArrayList<>();
+        for (int i = 0; i < SkockoGameService.CODE_LENGTH; i++) {
+            secret.add(random.nextInt(SkockoGameService.SYMBOL_COUNT));
+        }
+        return secret;
     }
 
     private void addToTotalScore(DocumentSnapshot match, Map<String, Object> updates,

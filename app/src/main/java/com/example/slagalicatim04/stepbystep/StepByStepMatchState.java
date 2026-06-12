@@ -34,6 +34,7 @@ public class StepByStepMatchState {
     private final String round1Result;
     private final String round2Result;
     private final String finalResult;
+    private final String currentGame;
 
     public StepByStepMatchState(DocumentSnapshot snapshot) {
         player1Id = stringValue(snapshot, "player1Id");
@@ -57,6 +58,7 @@ public class StepByStepMatchState {
         round1Result = stringValue(snapshot, "round1Result");
         round2Result = stringValue(snapshot, "round2Result");
         finalResult = stringValue(snapshot, "finalResult");
+        currentGame = stringValue(snapshot, "currentGame");
     }
 
     public String getPlayer1Id() {
@@ -151,6 +153,14 @@ public class StepByStepMatchState {
 
     public String getFinalResult() {
         return finalResult;
+    }
+
+    public String getCurrentGame() {
+        return currentGame;
+    }
+
+    public boolean isStepByStepGame() {
+        return "stepByStep".equals(currentGame);
     }
 
     public boolean hasSecondPlayer() {

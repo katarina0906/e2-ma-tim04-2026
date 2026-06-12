@@ -71,7 +71,7 @@ public class SpojniceFragment extends Fragment {
     private int selectedLeftIndex = -1;
     private String timerChanceKey = "";
     private boolean submitting;
-    private boolean navigatedToStepByStep;
+    private boolean navigatedToSkocko;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -154,7 +154,7 @@ public class SpojniceFragment extends Fragment {
         updateScores(state);
 
         if ("next".equals(state.getStatus())) {
-            navigateToStepByStep();
+            navigateToSkocko();
             return;
         }
         if ("finished".equals(state.getStatus())) {
@@ -305,14 +305,14 @@ public class SpojniceFragment extends Fragment {
         }
     }
 
-    private void navigateToStepByStep() {
-        if (navigatedToStepByStep || getView() == null) {
+    private void navigateToSkocko() {
+        if (navigatedToSkocko || getView() == null) {
             return;
         }
-        navigatedToStepByStep = true;
+        navigatedToSkocko = true;
         Bundle args = new Bundle();
         args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
-        Navigation.findNavController(requireView()).navigate(R.id.stepByStepFragment, args);
+        Navigation.findNavController(requireView()).navigate(R.id.skockoFragment, args);
     }
 
     @Override
