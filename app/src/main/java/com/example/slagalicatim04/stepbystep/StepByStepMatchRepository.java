@@ -104,7 +104,7 @@ public class StepByStepMatchRepository {
             }
             StepByStepMatchState state = new StepByStepMatchState(snapshot);
             int myPlayer = state.playerNumber(player.getId());
-            if (!gameService.isMyTurn(state, myPlayer)) {
+            if (!state.isStepByStepGame() || !gameService.isMyTurn(state, myPlayer)) {
                 return null;
             }
 
@@ -128,7 +128,8 @@ public class StepByStepMatchRepository {
             }
             StepByStepMatchState state = new StepByStepMatchState(snapshot);
             int myPlayer = state.playerNumber(player.getId());
-            if (!gameService.isRoundPhase(state.effectivePhase())
+            if (!state.isStepByStepGame()
+                    || !gameService.isRoundPhase(state.effectivePhase())
                     || state.getActivePlayer() != myPlayer) {
                 return null;
             }
@@ -140,7 +141,9 @@ public class StepByStepMatchRepository {
     }
 
     public void expireIfNeeded(StepByStepPlayerSession player, StepByStepMatchState state) {
-        if (!state.hasSecondPlayer() || gameService.waitingForServerTime(state)) {
+        if (!state.isStepByStepGame()
+                || !state.hasSecondPlayer()
+                || gameService.waitingForServerTime(state)) {
             return;
         }
         if (!isClockOwner(player, state)) {
@@ -162,7 +165,7 @@ public class StepByStepMatchRepository {
 
     public void publishClockDisplay(StepByStepPlayerSession player, StepByStepMatchState state,
                                     int visibleStepCount, int secondsLeft) {
-        if (!isClockOwner(player, state) || state.isFinished()) {
+        if (!state.isStepByStepGame() || !isClockOwner(player, state) || state.isFinished()) {
             return;
         }
         if (state.getVisibleStepCount() == visibleStepCount && state.getSecondsLeft() == secondsLeft) {
@@ -176,7 +179,7 @@ public class StepByStepMatchRepository {
     }
 
     public void tickClock(StepByStepPlayerSession player, StepByStepMatchState state) {
-        if (!isClockOwner(player, state) || state.isFinished()) {
+        if (!state.isStepByStepGame() || !isClockOwner(player, state) || state.isFinished()) {
             return;
         }
         int nextSecondsLeft = gameService.nextSecondsLeft(state);
@@ -211,6 +214,7 @@ public class StepByStepMatchRepository {
         state.put("player2Score", 0L);
         state.put("player1Ready", false);
         state.put("player2Ready", false);
+        state.put("currentGame", "stepByStep");
         state.put("round", 1L);
         state.put("phase", StepByStepMatchState.PHASE_WAITING);
         state.put("activePlayer", 1L);

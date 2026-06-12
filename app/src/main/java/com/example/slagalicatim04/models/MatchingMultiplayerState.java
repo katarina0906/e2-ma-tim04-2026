@@ -25,7 +25,7 @@ public class MatchingMultiplayerState {
         String phase = stringValue(snapshot.getString("phase"), "waiting");
         status = "spojnice".equals(snapshot.getString("currentGame"))
                 && "spojnicePlaying".equals(phase) ? "playing"
-                : (phase.startsWith("round") ? "next" : "waiting");
+                : ("skocko".equals(snapshot.getString("currentGame")) ? "next" : "waiting");
         currentRound = intValue(snapshot.getLong("spCurrentRound"));
         currentPlayer = stringValue(snapshot.getString("spCurrentPlayer"), "");
         secondChance = Boolean.TRUE.equals(snapshot.getBoolean("spSecondChance"));

@@ -35,7 +35,7 @@ public class GamesFragment extends Fragment {
         );
 
         view.findViewById(R.id.skockoCard).setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.skockoFragment)
+                Navigation.findNavController(v).navigate(R.id.skockoWaitingRoomFragment)
         );
 
         view.findViewById(R.id.stepByStepCard).setOnClickListener(v ->
