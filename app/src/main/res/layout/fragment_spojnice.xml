@@ -73,7 +73,17 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/spAvatar0"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/player_avatar_background"
+                        android:clipToOutline="true"
+                        android:contentDescription="Profilna slika prvog igraca"
+                        android:scaleType="centerCrop" />
 
                     <TextView
                         android:id="@+id/spScore0"
@@ -87,11 +97,21 @@
                         android:textColor="#1E1E2F"
                         android:textStyle="bold" />
 
+                    <ImageView
+                        android:id="@+id/spAvatar1"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/player_avatar_background"
+                        android:clipToOutline="true"
+                        android:contentDescription="Profilna slika drugog igraca"
+                        android:scaleType="centerCrop" />
+
                     <TextView
                         android:id="@+id/spScore1"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="4dp"
                         android:layout_weight="1"
                         android:background="#F5F5F5"
                         android:gravity="center"

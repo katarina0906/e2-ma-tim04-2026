@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -14,6 +15,7 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
+import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.models.Answer;
 import com.example.slagalicatim04.models.Question;
 import com.example.slagalicatim04.models.QuizMultiplayerState;
@@ -32,6 +34,8 @@ public class KoZnaZnaFragment extends Fragment {
     private TextView resultText;
     private TextView playerScoreText;
     private TextView opponentScoreText;
+    private ImageView playerOneAvatar;
+    private ImageView playerTwoAvatar;
     private TextView questionText;
     private TextView questionCounterText;
     private Button[] answerButtons;
@@ -54,6 +58,8 @@ public class KoZnaZnaFragment extends Fragment {
         resultText = view.findViewById(R.id.resultText);
         playerScoreText = view.findViewById(R.id.kzzScore0);
         opponentScoreText = view.findViewById(R.id.kzzScore1);
+        playerOneAvatar = view.findViewById(R.id.kzzAvatar0);
+        playerTwoAvatar = view.findViewById(R.id.kzzAvatar1);
         questionText = view.findViewById(R.id.questionText);
         questionCounterText = view.findViewById(R.id.questionCounterText);
         answerButtons = new Button[]{
@@ -181,8 +187,16 @@ public class KoZnaZnaFragment extends Fragment {
     }
 
     private void updateScores(QuizMultiplayerState state) {
-        playerScoreText.setText("Igrac 1: " + state.getScore(state.getPlayer1Id()));
-        opponentScoreText.setText("Igrac 2: " + state.getScore(state.getPlayer2Id()));
+        playerScoreText.setText(playerName(state.getPlayer1Name(), "Igrac 1") + ": "
+                + state.getScore(state.getPlayer1Id()));
+        opponentScoreText.setText(playerName(state.getPlayer2Name(), "Igrac 2") + ": "
+                + state.getScore(state.getPlayer2Id()));
+        PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
+        PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+    }
+
+    private String playerName(String name, String fallback) {
+        return name == null || name.trim().isEmpty() ? fallback : name;
     }
 
     private void showWaitingState() {

@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -14,6 +15,7 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
+import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.models.MatchingMultiplayerState;
 import com.example.slagalicatim04.models.MatchingPair;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
@@ -60,6 +62,8 @@ public class SpojniceFragment extends Fragment {
     private TextView resultText;
     private TextView playerOneScoreText;
     private TextView playerTwoScoreText;
+    private ImageView playerOneAvatar;
+    private ImageView playerTwoAvatar;
     private CountDownTimer timer;
     private MultiplayerGameRepository multiplayerRepository;
     private MultiplayerGameRepository.Subscription stateRegistration;
@@ -79,6 +83,8 @@ public class SpojniceFragment extends Fragment {
         resultText = view.findViewById(R.id.resultText);
         playerOneScoreText = view.findViewById(R.id.spScore0);
         playerTwoScoreText = view.findViewById(R.id.spScore1);
+        playerOneAvatar = view.findViewById(R.id.spAvatar0);
+        playerTwoAvatar = view.findViewById(R.id.spAvatar1);
         view.findViewById(R.id.newSpojniceGameButton).setVisibility(View.GONE);
 
         for (int index = 0; index < leftButtons.length; index++) {
@@ -169,7 +175,8 @@ public class SpojniceFragment extends Fragment {
 
         roundText.setText("Runda " + (state.getCurrentRound() + 1) + " / 2");
         String playerLabel = state.getCurrentPlayer().equals(state.getPlayer1Id())
-                ? "Igrac 1" : "Igrac 2";
+                ? playerName(state.getPlayer1Name(), "Igrac 1")
+                : playerName(state.getPlayer2Name(), "Igrac 2");
         turnText.setText("Na potezu: " + playerLabel
                 + (state.isSecondChance() ? " (preostali parovi)" : " (pocinje rundu)"));
         if (state.getCurrentPlayer().equals(multiplayerRepository.getPlayerId())) {
@@ -244,8 +251,16 @@ public class SpojniceFragment extends Fragment {
     }
 
     private void updateScores(MatchingMultiplayerState state) {
-        playerOneScoreText.setText("Igrac 1: " + state.getScore(state.getPlayer1Id()));
-        playerTwoScoreText.setText("Igrac 2: " + state.getScore(state.getPlayer2Id()));
+        playerOneScoreText.setText(playerName(state.getPlayer1Name(), "Igrac 1") + ": "
+                + state.getScore(state.getPlayer1Id()));
+        playerTwoScoreText.setText(playerName(state.getPlayer2Name(), "Igrac 2") + ": "
+                + state.getScore(state.getPlayer2Id()));
+        PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
+        PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+    }
+
+    private String playerName(String name, String fallback) {
+        return name == null || name.trim().isEmpty() ? fallback : name;
     }
 
     private void showWaitingState() {

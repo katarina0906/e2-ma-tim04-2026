@@ -9,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ScrollView;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,6 +22,7 @@ import androidx.navigation.Navigation;
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.stepbystep.StepByStepGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchState;
@@ -61,6 +63,8 @@ public class StepByStepFragment extends Fragment {
     private TextView currentPointsValue;
     private TextView player1ScoreText;
     private TextView player2ScoreText;
+    private ImageView player1Avatar;
+    private ImageView player2Avatar;
     private View resultBanner;
     private TextView resultBannerTitle;
     private TextView resultBannerMessage;
@@ -119,6 +123,8 @@ public class StepByStepFragment extends Fragment {
         currentPointsValue.setVisibility(View.GONE);
         player1ScoreText = view.findViewById(R.id.player1ScoreText);
         player2ScoreText = view.findViewById(R.id.player2ScoreText);
+        player1Avatar = view.findViewById(R.id.stepPlayer1Avatar);
+        player2Avatar = view.findViewById(R.id.stepPlayer2Avatar);
         resultBanner = view.findViewById(R.id.stepByStepResultBanner);
         resultBannerTitle = view.findViewById(R.id.stepByStepResultTitle);
         resultBannerMessage = view.findViewById(R.id.stepByStepResultMessage);
@@ -237,8 +243,12 @@ public class StepByStepFragment extends Fragment {
         roundLabelText.setText("Runda " + currentState.getRound() + " / 2");
         timerValue.setText(timerText(currentState, phase, waitingForServerTime, secondsLeft));
         currentStepValue.setText(openedSteps + " / 7");
-        player1ScoreText.setText("Igrac 1: " + currentState.getPlayer1Score());
-        player2ScoreText.setText("Igrac 2: " + currentState.getPlayer2Score());
+        player1ScoreText.setText(playerName(currentState.getPlayer1Name(), "Igrac 1") + ": "
+                + currentState.getPlayer1Score());
+        player2ScoreText.setText(playerName(currentState.getPlayer2Name(), "Igrac 2") + ": "
+                + currentState.getPlayer2Score());
+        PlayerHeaderLoader.loadAvatar(currentState.getPlayer1Id(), player1Avatar);
+        PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
         updatePlayerScoreStyle(myPlayer);
         statusText.setText(waitingForServerTime
                 ? "Sinhronizuje se pocetak runde..."
@@ -428,6 +438,10 @@ public class StepByStepFragment extends Fragment {
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String playerName(String name, String fallback) {
+        return isEmpty(name) ? fallback : name;
     }
 
     private void scrollToTop() {

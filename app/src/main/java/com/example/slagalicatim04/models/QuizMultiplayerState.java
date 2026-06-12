@@ -10,7 +10,9 @@ public class QuizMultiplayerState {
     private final int currentQuestion;
     private final long deadlineAt;
     private final String player1Id;
+    private final String player1Name;
     private final String player2Id;
+    private final String player2Name;
     private final Map<String, Long> scores;
     private final Map<String, Object> answers;
 
@@ -22,7 +24,9 @@ public class QuizMultiplayerState {
         currentQuestion = intValue(snapshot.getLong("kzzCurrentQuestion"));
         deadlineAt = 0L;
         player1Id = stringValue(snapshot.getString("player1Id"), "");
+        player1Name = stringValue(snapshot.getString("player1Name"), "Igrac 1");
         player2Id = stringValue(snapshot.getString("player2Id"), "");
+        player2Name = stringValue(snapshot.getString("player2Name"), "Igrac 2");
         scores = scoreMap(snapshot);
         answers = objectMapValue(snapshot.get("kzzAnswers"));
     }
@@ -45,6 +49,14 @@ public class QuizMultiplayerState {
 
     public String getPlayer2Id() {
         return player2Id;
+    }
+
+    public String getPlayer1Name() {
+        return player1Name;
+    }
+
+    public String getPlayer2Name() {
+        return player2Name;
     }
 
     public int getScore(String playerId) {
