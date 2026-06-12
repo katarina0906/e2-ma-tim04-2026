@@ -6,6 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MyNumberMatchState {
+    public static final String GAME = "myNumber";
+
+    private final String currentGame;
     private final String phase;
     private final String player1Id;
     private final String player1Name;
@@ -31,6 +34,7 @@ public class MyNumberMatchState {
     private final String statusMessage;
 
     public MyNumberMatchState(DocumentSnapshot snapshot) {
+        currentGame = stringValue(snapshot, "currentGame");
         phase = stringValue(snapshot, "phase");
         player1Id = stringValue(snapshot, "player1Id");
         player1Name = stringValue(snapshot, "player1Name");
@@ -56,6 +60,7 @@ public class MyNumberMatchState {
         statusMessage = stringValue(snapshot, "myNumberStatusMessage");
     }
 
+    public String getCurrentGame() { return currentGame; }
     public String getPhase() { return phase; }
     public String getPlayer1Id() { return player1Id; }
     public String getPlayer1Name() { return player1Name; }
@@ -84,6 +89,10 @@ public class MyNumberMatchState {
         if (player == 1) return p1Submitted;
         if (player == 2) return p2Submitted;
         return false;
+    }
+
+    public boolean isMyNumberGame() {
+        return GAME.equals(currentGame);
     }
 
     private static String stringValue(DocumentSnapshot snapshot, String key) {

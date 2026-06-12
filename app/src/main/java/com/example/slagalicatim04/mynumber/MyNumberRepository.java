@@ -43,7 +43,8 @@ public class MyNumberRepository {
             DocumentSnapshot snapshot = transaction.get(matchRef);
             if (!snapshot.exists()) return null;
             String phase = snapshot.getString("phase");
-            if ("myNumberSetup".equals(phase)) {
+            if (MyNumberMatchState.GAME.equals(snapshot.getString("currentGame"))
+                    && "myNumberSetup".equals(phase)) {
                 transaction.set(matchRef,
                         newRoundState(1, snapshot.getLong("player1Score"), snapshot.getLong("player2Score")),
                         SetOptions.merge());
@@ -58,7 +59,9 @@ public class MyNumberRepository {
             if (!snapshot.exists()) return null;
             MyNumberMatchState state = new MyNumberMatchState(snapshot);
             int myPlayer = playerNumber(snapshot, player.getId());
-            if (myPlayer != state.getActivePlayer() || MyNumberGameService.PHASE_FINISHED.equals(state.getPhase())) {
+            if (!state.isMyNumberGame()
+                    || myPlayer != state.getActivePlayer()
+                    || MyNumberGameService.PHASE_FINISHED.equals(state.getPhase())) {
                 return null;
             }
             Map<String, Object> updates = new HashMap<>();
@@ -96,7 +99,9 @@ public class MyNumberRepository {
             if (!snapshot.exists()) return null;
             MyNumberMatchState state = new MyNumberMatchState(snapshot);
             int myPlayer = playerNumber(snapshot, player.getId());
-            if (myPlayer == 0 || state.isSubmitted(myPlayer)) return null;
+            if (!state.isMyNumberGame() || myPlayer == 0 || state.isSubmitted(myPlayer)) {
+                return null;
+            }
             Integer result;
             try {
                 result = service.evaluate(expression, state.getNumbers());
@@ -124,7 +129,8 @@ public class MyNumberRepository {
         matchRef.get().addOnSuccessListener(snapshot -> {
             if (!snapshot.exists()) return;
             MyNumberMatchState state = new MyNumberMatchState(snapshot);
-            if (playerNumber(snapshot, player.getId()) == state.getActivePlayer()) {
+            if (state.isMyNumberGame()
+                    && playerNumber(snapshot, player.getId()) == state.getActivePlayer()) {
                 Map<String, Object> updates = new HashMap<>();
                 updates.put(field, value);
                 if ("myNumberTargetShown".equals(field)) updates.put("myNumberTargetRevealLeft", 0);
@@ -155,6 +161,7 @@ public class MyNumberRepository {
 
     private Map<String, Object> newRoundState(int round, Long p1Score, Long p2Score) {
         Map<String, Object> state = new HashMap<>();
+        state.put("currentGame", MyNumberMatchState.GAME);
         state.put("phase", round == 1 ? MyNumberGameService.PHASE_ROUND1 : MyNumberGameService.PHASE_ROUND2);
         state.put("myNumberRound", round);
         state.put("myNumberActivePlayer", service.activePlayerForRound(round));
