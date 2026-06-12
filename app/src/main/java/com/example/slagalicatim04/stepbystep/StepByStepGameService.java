@@ -16,35 +16,72 @@ public class StepByStepGameService {
 
     public int computedOpenedSteps(StepByStepMatchState state) {
         String phase = state.effectivePhase();
-        long roundStartedAt = state.getRoundStartedAt();
-        if (StepByStepMatchState.PHASE_WAITING.equals(phase) || roundStartedAt <= 0) {
+        if (StepByStepMatchState.PHASE_WAITING.equals(phase)) {
             return 0;
         }
-        if (!StepByStepMatchState.PHASE_PLAYING.equals(phase)
-                && !StepByStepMatchState.PHASE_STEAL.equals(phase)) {
+        if (isStealPhase(phase)) {
             return 7;
         }
-        int elapsed = (int) Math.max(0, System.currentTimeMillis() - roundStartedAt);
-        return Math.max(1, Math.min(7, 1 + (elapsed / 10_000)));
+        if (!isRoundPhase(phase)) {
+            return 7;
+        }
+        int elapsedSeconds = Math.max(0, (ROUND_DURATION_MS / 1000) - state.getSecondsLeft());
+        return Math.max(1, Math.min(7, 1 + (elapsedSeconds / 10)));
+    }
+
+    public int nextVisibleStepCount(StepByStepMatchState state, int nextSecondsLeft) {
+        if (isStealPhase(state.effectivePhase())) {
+            return 7;
+        }
+        if (!isRoundPhase(state.effectivePhase())) {
+            return state.getVisibleStepCount();
+        }
+        int elapsedSeconds = Math.max(0, (ROUND_DURATION_MS / 1000) - nextSecondsLeft);
+        return Math.max(1, Math.min(7, 1 + (elapsedSeconds / 10)));
+    }
+
+    public int nextSecondsLeft(StepByStepMatchState state) {
+        if (!isRoundPhase(state.effectivePhase()) && !isStealPhase(state.effectivePhase())) {
+            return state.getSecondsLeft();
+        }
+        return Math.max(0, state.getSecondsLeft() - 1);
+    }
+
+    public boolean phaseTimeExpired(StepByStepMatchState state) {
+        return (isRoundPhase(state.effectivePhase()) || isStealPhase(state.effectivePhase()))
+                && state.getSecondsLeft() <= 0;
     }
 
     public int secondsLeft(StepByStepMatchState state) {
-        if (state.getVisibleStepCount() > 0 || state.isFinished()) {
-            return state.getSecondsLeft();
+        if (state.isFinished()) {
+            return 0;
         }
-        return computedSecondsLeft(state);
+        if ((isRoundPhase(state.effectivePhase()) || isStealPhase(state.effectivePhase()))
+                && state.getVisibleStepCount() > 0) {
+            if (isStealPhase(state.effectivePhase())) {
+                return Math.min(STEAL_DURATION_MS / 1000, state.getSecondsLeft());
+            }
+            return Math.min(ROUND_DURATION_MS / 1000, state.getSecondsLeft());
+        }
+        return state.getSecondsLeft();
     }
 
     public int computedSecondsLeft(StepByStepMatchState state) {
         String phase = state.effectivePhase();
         long now = System.currentTimeMillis();
-        if (StepByStepMatchState.PHASE_WAITING.equals(phase) || state.getRoundStartedAt() <= 0) {
+        if (StepByStepMatchState.PHASE_WAITING.equals(phase)) {
             return 0;
         }
-        if (StepByStepMatchState.PHASE_STEAL.equals(phase)) {
+        if (isStealPhase(phase)) {
+            if (state.getStealStartedAt() <= 0) {
+                return 0;
+            }
             return Math.max(0, (int) ((STEAL_DURATION_MS - (now - state.getStealStartedAt())) / 1000));
         }
-        if (StepByStepMatchState.PHASE_PLAYING.equals(phase)) {
+        if (isRoundPhase(phase)) {
+            if (state.getRoundStartedAt() <= 0) {
+                return 0;
+            }
             return Math.max(0, (int) ((ROUND_DURATION_MS - (now - state.getRoundStartedAt())) / 1000));
         }
         return 0;
@@ -59,33 +96,23 @@ public class StepByStepGameService {
             return false;
         }
         String phase = state.effectivePhase();
-        if (StepByStepMatchState.PHASE_STEAL.equals(phase)) {
+        if (isStealPhase(phase)) {
             return state.getStealPlayer() == myPlayer;
         }
-        return StepByStepMatchState.PHASE_PLAYING.equals(phase)
+        return isRoundPhase(phase)
                 && state.getActivePlayer() == myPlayer;
     }
 
     public boolean waitingForServerTime(StepByStepMatchState state) {
-        String phase = state.effectivePhase();
-        return (StepByStepMatchState.PHASE_PLAYING.equals(phase) && state.getRoundStartedAt() <= 0)
-                || (StepByStepMatchState.PHASE_STEAL.equals(phase) && state.getStealStartedAt() <= 0);
+        return false;
     }
 
     public boolean shouldStartSteal(StepByStepMatchState state) {
-        long elapsed = System.currentTimeMillis() - state.getRoundStartedAt();
-        return StepByStepMatchState.PHASE_PLAYING.equals(state.effectivePhase())
-                && state.getRoundStartedAt() > 0
-                && elapsed >= ROUND_DURATION_MS
-                && elapsed < ROUND_DURATION_MS + 20_000;
+        return isRoundPhase(state.effectivePhase()) && phaseTimeExpired(state);
     }
 
     public boolean shouldFinishSteal(StepByStepMatchState state) {
-        long elapsed = System.currentTimeMillis() - state.getStealStartedAt();
-        return StepByStepMatchState.PHASE_STEAL.equals(state.effectivePhase())
-                && state.getStealStartedAt() > 0
-                && elapsed >= STEAL_DURATION_MS
-                && elapsed < STEAL_DURATION_MS + 20_000;
+        return isStealPhase(state.effectivePhase()) && phaseTimeExpired(state);
     }
 
     public String statusText(StepByStepMatchState state, int myPlayer) {
@@ -96,21 +123,31 @@ public class StepByStepGameService {
         if (StepByStepMatchState.PHASE_WAITING.equals(phase)) {
             return myPlayer == 1 ? "Cekas da se drugi igrac pridruzi." : "Ceka se drugi igrac.";
         }
-        if (StepByStepMatchState.PHASE_STEAL.equals(phase)) {
+        if (isStealPhase(phase)) {
             return state.getStealPlayer() == myPlayer
-                    ? "Tvoja sansa za 5 bodova. Imas 10 sekundi."
-                    : "Protivnik ima sansu za 5 bodova.";
+                    ? "Protivnik nije pogodio. Unesi odgovor za 5 bodova."
+                    : "Cekajte svoj red. Protivnik ima 10 sekundi za odgovor.";
         }
         if (state.getActivePlayer() == myPlayer) {
-            return "Tvoja runda. Pogodi pojam pre isteka vremena.";
+            return "Tvoja runda. Unesi konacni pojam pre isteka vremena.";
         }
-        return state.getStatusMessage().isEmpty()
-                ? "Cekas potez drugog igraca."
-                : state.getStatusMessage();
+        return "Cekajte svoj red. Drugi igrac trenutno odgovara.";
     }
 
     public boolean matches(String guess, String answer) {
         return normalized(guess).equals(normalized(answer));
+    }
+
+    public boolean isRoundPhase(String phase) {
+        return StepByStepMatchState.PHASE_PLAYING.equals(phase)
+                || StepByStepMatchState.PHASE_ROUND1.equals(phase)
+                || StepByStepMatchState.PHASE_ROUND2.equals(phase);
+    }
+
+    public boolean isStealPhase(String phase) {
+        return StepByStepMatchState.PHASE_STEAL.equals(phase)
+                || StepByStepMatchState.PHASE_STEAL1.equals(phase)
+                || StepByStepMatchState.PHASE_STEAL2.equals(phase);
     }
 
     private String normalized(String value) {

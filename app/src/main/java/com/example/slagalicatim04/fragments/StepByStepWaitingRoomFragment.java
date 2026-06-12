@@ -96,7 +96,8 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         player1Text.setText("Igrac 1: " + playerLabel(state.getPlayer1Name(), state.isPlayer1Ready()));
         player2Text.setText("Igrac 2: " + playerLabel(state.getPlayer2Name(), state.isPlayer2Ready()));
 
-        if (StepByStepMatchState.PHASE_PLAYING.equals(state.getPhase())) {
+        if (StepByStepMatchState.PHASE_PLAYING.equals(state.getPhase())
+                || StepByStepMatchState.PHASE_ROUND1.equals(state.getPhase())) {
             navigateToGame();
             return;
         }

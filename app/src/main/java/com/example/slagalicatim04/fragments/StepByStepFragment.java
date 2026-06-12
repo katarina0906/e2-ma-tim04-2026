@@ -46,6 +46,8 @@ public class StepByStepFragment extends Fragment {
     private ListenerRegistration listenerRegistration;
     private StepByStepPlayerSession playerSession;
     private StepByStepMatchState currentState;
+    private long lastClockTickAt;
+    private String lastRenderedPhase = "";
 
     private ScrollView scrollView;
     private TextView roundLabelText;
@@ -58,6 +60,7 @@ public class StepByStepFragment extends Fragment {
     private View resultBanner;
     private TextView resultBannerTitle;
     private TextView resultBannerMessage;
+    private TextView answerHelpText;
     private TextInputEditText answerInput;
     private MaterialButton confirmButton;
     private MaterialButton giveUpButton;
@@ -116,6 +119,7 @@ public class StepByStepFragment extends Fragment {
         resultBanner = view.findViewById(R.id.stepByStepResultBanner);
         resultBannerTitle = view.findViewById(R.id.stepByStepResultTitle);
         resultBannerMessage = view.findViewById(R.id.stepByStepResultMessage);
+        answerHelpText = view.findViewById(R.id.answerHelpText);
         answerInput = view.findViewById(R.id.answerInput);
         confirmButton = view.findViewById(R.id.confirmAnswerButton);
         giveUpButton = view.findViewById(R.id.giveUpButton);
@@ -217,6 +221,10 @@ public class StepByStepFragment extends Fragment {
         boolean waitingForServerTime = gameService.waitingForServerTime(currentState);
         boolean isMyTurn = gameService.isMyTurn(currentState, myPlayer);
         String phase = currentState.effectivePhase();
+        if (!phase.equals(lastRenderedPhase)) {
+            lastRenderedPhase = phase;
+            lastClockTickAt = System.currentTimeMillis();
+        }
 
         roundLabelText.setText("Runda " + currentState.getRound() + " / 2");
         timerValue.setText(timerText(currentState, phase, waitingForServerTime, secondsLeft));
@@ -231,7 +239,7 @@ public class StepByStepFragment extends Fragment {
         updateControls(phase, currentState.isFinished(), !waitingForServerTime && isMyTurn);
         updateBanner();
 
-        matchRepository.expireIfNeeded(currentState);
+        matchRepository.expireIfNeeded(playerSession, currentState);
         if (!currentState.isFinished() && currentState.hasSecondPlayer()) {
             uiHandler.postDelayed(ticker, 1000);
         }
@@ -261,9 +269,12 @@ public class StepByStepFragment extends Fragment {
                 || !gameService.isMyTurn(currentState, myPlayer)) {
             return;
         }
-        int visibleSteps = gameService.computedOpenedSteps(currentState);
-        int secondsLeft = gameService.computedSecondsLeft(currentState);
-        matchRepository.publishClockDisplay(playerSession, currentState, visibleSteps, secondsLeft);
+        long now = System.currentTimeMillis();
+        if (now - lastClockTickAt < 900) {
+            return;
+        }
+        lastClockTickAt = now;
+        matchRepository.tickClock(playerSession, currentState);
     }
 
     private void updatePlayerScoreStyle(int myPlayer) {
@@ -292,10 +303,24 @@ public class StepByStepFragment extends Fragment {
         answerInput.setEnabled(!finished && isMyTurn);
         confirmButton.setEnabled(!finished && isMyTurn);
         giveUpButton.setEnabled(!finished && isMyTurn
-                && StepByStepMatchState.PHASE_PLAYING.equals(phase));
+                && gameService.isRoundPhase(phase));
+        updateAnswerHint(phase, finished, isMyTurn);
 
         newGameButton.setVisibility(finished ? View.VISIBLE : View.GONE);
         newGameButton.setText("Nova igra");
+    }
+
+    private void updateAnswerHint(String phase, boolean finished, boolean isMyTurn) {
+        if (finished) {
+            answerHelpText.setText("Igra je zavrsena.");
+        } else if (!isMyTurn) {
+            answerHelpText.setText("Cekajte svoj red. Polje za odgovor ce se otkljucati kada budete na potezu.");
+        } else if (gameService.isStealPhase(phase)) {
+            answerHelpText.setText("Protivnik nije pogodio. Unesite odgovor za 5 bodova.");
+        } else {
+            answerHelpText.setText("Tvoj red. Unesite konacni pojam.");
+        }
+        answerInput.setHint("Tvoj odgovor");
     }
 
     private void setControlsEnabled(boolean enabled) {

@@ -57,8 +57,8 @@ public class StepByStepMatchRepository {
                     && StepByStepMatchState.isEmpty(state.getPlayer2Id())) {
                 updates.put("player2Id", player.getId());
                 updates.put("player2Name", player.getName());
-                updates.put("phase", StepByStepMatchState.PHASE_PLAYING);
-                updates.put("roundStartedAt", System.currentTimeMillis());
+                updates.put("phase", StepByStepMatchState.PHASE_ROUND1);
+                updates.put("roundStartedAt", FieldValue.serverTimestamp());
                 updates.put("statusMessage", "Igrac 2 se pridruzio. Runda 1 je na igracu 1.");
             }
 
@@ -128,7 +128,7 @@ public class StepByStepMatchRepository {
             }
             StepByStepMatchState state = new StepByStepMatchState(snapshot);
             int myPlayer = state.playerNumber(player.getId());
-            if (!StepByStepMatchState.PHASE_PLAYING.equals(state.effectivePhase())
+            if (!gameService.isRoundPhase(state.effectivePhase())
                     || state.getActivePlayer() != myPlayer) {
                 return null;
             }
@@ -139,16 +139,11 @@ public class StepByStepMatchRepository {
         }).addOnFailureListener(onError::onError);
     }
 
-    public void expireIfNeeded(StepByStepMatchState state) {
+    public void expireIfNeeded(StepByStepPlayerSession player, StepByStepMatchState state) {
         if (!state.hasSecondPlayer() || gameService.waitingForServerTime(state)) {
             return;
         }
-        if (StepByStepMatchState.PHASE_PLAYING.equals(state.effectivePhase())
-                && state.getSecondsLeft() > 0) {
-            return;
-        }
-        if (StepByStepMatchState.PHASE_STEAL.equals(state.effectivePhase())
-                && state.getSecondsLeft() > 0) {
+        if (!isClockOwner(player, state)) {
             return;
         }
         Map<String, Object> updates = new HashMap<>();
@@ -178,6 +173,15 @@ public class StepByStepMatchRepository {
         updates.put("secondsLeft", secondsLeft);
         updates.put("updatedAt", FieldValue.serverTimestamp());
         matchRef.set(updates, SetOptions.merge());
+    }
+
+    public void tickClock(StepByStepPlayerSession player, StepByStepMatchState state) {
+        if (!isClockOwner(player, state) || state.isFinished()) {
+            return;
+        }
+        int nextSecondsLeft = gameService.nextSecondsLeft(state);
+        int nextVisibleStepCount = gameService.nextVisibleStepCount(state, nextSecondsLeft);
+        publishClockDisplay(player, state, nextVisibleStepCount, nextSecondsLeft);
     }
 
     public void resetMatch(StepByStepPlayerSession player) {
@@ -225,7 +229,7 @@ public class StepByStepMatchRepository {
     }
 
     private void applyCorrectAnswer(StepByStepMatchState state, Map<String, Object> updates) {
-        if (StepByStepMatchState.PHASE_STEAL.equals(state.effectivePhase())) {
+        if (gameService.isStealPhase(state.effectivePhase())) {
             addScore(state, updates, state.getStealPlayer(), 5);
             putRoundResult(updates, state.getRound(), "Igrac " + state.getStealPlayer()
                     + " je ukrao rundu za 5 bodova.");
@@ -245,9 +249,11 @@ public class StepByStepMatchRepository {
 
     private void startStealUpdates(Map<String, Object> updates, int activePlayer) {
         int opponent = activePlayer == 1 ? 2 : 1;
-        updates.put("phase", StepByStepMatchState.PHASE_STEAL);
+        updates.put("phase", activePlayer == 1
+                ? StepByStepMatchState.PHASE_STEAL1
+                : StepByStepMatchState.PHASE_STEAL2);
         updates.put("stealPlayer", opponent);
-        updates.put("stealStartedAt", System.currentTimeMillis());
+        updates.put("stealStartedAt", FieldValue.serverTimestamp());
         updates.put("visibleStepCount", 7L);
         updates.put("secondsLeft", StepByStepGameService.STEAL_DURATION_MS / 1000);
         updates.put("statusMessage", "Igrac " + activePlayer + " nije pogodio. Igrac "
@@ -267,10 +273,10 @@ public class StepByStepMatchRepository {
             return;
         }
         updates.put("round", currentRound + 1);
-        updates.put("phase", StepByStepMatchState.PHASE_PLAYING);
+        updates.put("phase", StepByStepMatchState.PHASE_ROUND2);
         updates.put("activePlayer", 2);
         updates.put("stealPlayer", 0);
-        updates.put("roundStartedAt", System.currentTimeMillis());
+        updates.put("roundStartedAt", FieldValue.serverTimestamp());
         updates.put("stealStartedAt", 0L);
         updates.put("visibleStepCount", 1L);
         updates.put("secondsLeft", StepByStepGameService.ROUND_DURATION_MS / 1000);
@@ -291,10 +297,10 @@ public class StepByStepMatchRepository {
     private boolean isClockOwner(StepByStepPlayerSession player, StepByStepMatchState state) {
         int myPlayer = state.playerNumber(player.getId());
         String phase = state.effectivePhase();
-        if (StepByStepMatchState.PHASE_PLAYING.equals(phase)) {
+        if (gameService.isRoundPhase(phase)) {
             return myPlayer == state.getActivePlayer();
         }
-        if (StepByStepMatchState.PHASE_STEAL.equals(phase)) {
+        if (gameService.isStealPhase(phase)) {
             return myPlayer == state.getStealPlayer();
         }
         return false;

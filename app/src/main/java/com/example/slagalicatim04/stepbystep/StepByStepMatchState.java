@@ -7,6 +7,10 @@ public class StepByStepMatchState {
     public static final String PHASE_WAITING = "waiting";
     public static final String PHASE_PLAYING = "playing";
     public static final String PHASE_STEAL = "steal";
+    public static final String PHASE_ROUND1 = "round1";
+    public static final String PHASE_STEAL1 = "steal1";
+    public static final String PHASE_ROUND2 = "round2";
+    public static final String PHASE_STEAL2 = "steal2";
     public static final String PHASE_FINISHED = "finished";
 
     private final String player1Id;

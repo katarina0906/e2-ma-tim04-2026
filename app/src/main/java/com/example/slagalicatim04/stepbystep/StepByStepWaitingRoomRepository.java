@@ -95,14 +95,14 @@ public class StepByStepWaitingRoomRepository {
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
 
             if (otherReady) {
-                updates.put("phase", StepByStepMatchState.PHASE_PLAYING);
+                updates.put("phase", StepByStepMatchState.PHASE_ROUND1);
                 updates.put("finished", false);
                 updates.put("round", 1L);
                 updates.put("activePlayer", 1L);
                 updates.put("stealPlayer", 0L);
                 updates.put("player1Score", 0L);
                 updates.put("player2Score", 0L);
-                updates.put("roundStartedAt", System.currentTimeMillis());
+                updates.put("roundStartedAt", FieldValue.serverTimestamp());
                 updates.put("stealStartedAt", 0L);
                 updates.put("visibleStepCount", 1L);
                 updates.put("secondsLeft", StepByStepGameService.ROUND_DURATION_MS / 1000);
@@ -121,6 +121,10 @@ public class StepByStepWaitingRoomRepository {
     private boolean needsFreshRoom(StepByStepMatchState state, String playerId) {
         boolean gameAlreadyStarted = StepByStepMatchState.PHASE_PLAYING.equals(state.getPhase())
                 || StepByStepMatchState.PHASE_STEAL.equals(state.getPhase())
+                || StepByStepMatchState.PHASE_ROUND1.equals(state.getPhase())
+                || StepByStepMatchState.PHASE_STEAL1.equals(state.getPhase())
+                || StepByStepMatchState.PHASE_ROUND2.equals(state.getPhase())
+                || StepByStepMatchState.PHASE_STEAL2.equals(state.getPhase())
                 || StepByStepMatchState.PHASE_FINISHED.equals(state.getPhase())
                 || state.isFinished();
         boolean fullForeignRoom = !state.isParticipant(playerId)
