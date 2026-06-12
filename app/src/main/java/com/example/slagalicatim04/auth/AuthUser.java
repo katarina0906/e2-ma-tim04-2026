@@ -10,9 +10,17 @@ public class AuthUser {
     private final String passwordSalt;
     private final boolean emailVerified;
     private final String verificationToken;
+    private final String avatarUrl;
 
     public AuthUser(String id, String email, String username, String region, String passwordHash,
                     String passwordSalt, boolean emailVerified, String verificationToken) {
+        this(id, email, username, region, passwordHash, passwordSalt, emailVerified,
+                verificationToken, "");
+    }
+
+    public AuthUser(String id, String email, String username, String region, String passwordHash,
+                    String passwordSalt, boolean emailVerified, String verificationToken,
+                    String avatarUrl) {
         this.id = id;
         this.email = email;
         this.username = username;
@@ -21,6 +29,7 @@ public class AuthUser {
         this.passwordSalt = passwordSalt;
         this.emailVerified = emailVerified;
         this.verificationToken = verificationToken;
+        this.avatarUrl = avatarUrl;
     }
 
     public String getId() {
@@ -55,15 +64,22 @@ public class AuthUser {
         return verificationToken;
     }
 
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
     public AuthUser verified() {
-        return new AuthUser(id, email, username, region, passwordHash, passwordSalt, true, "");
+        return new AuthUser(id, email, username, region, passwordHash, passwordSalt, true, "",
+                avatarUrl);
     }
 
     public AuthUser withPassword(String passwordHash, String passwordSalt) {
-        return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified, verificationToken);
+        return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified,
+                verificationToken, avatarUrl);
     }
 
     public AuthUser withVerificationToken(String verificationToken) {
-        return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified, verificationToken);
+        return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified,
+                verificationToken, avatarUrl);
     }
 }
