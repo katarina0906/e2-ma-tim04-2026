@@ -1,39 +1,70 @@
 package com.example.slagalicatim04.fragments;
 
 import android.os.Bundle;
-import android.os.CountDownTimer;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
+import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.slagalicatim04.R;
+import com.example.slagalicatim04.auth.AuthService;
+import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.stepbystep.StepByStepGameService;
+import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
+import com.example.slagalicatim04.stepbystep.StepByStepMatchState;
+import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
+import com.example.slagalicatim04.stepbystep.StepByStepRound;
+import com.example.slagalicatim04.stepbystep.StepByStepRoundRepository;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.ListenerRegistration;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class StepByStepFragment extends Fragment {
-
-    private static final int ROUND_DURATION_SECONDS = 70;
-    private static final String FINAL_ANSWER = "Jakov Jozinovic";
-    private final String[] hints = {
-            "1. Hrvatski",
-            "2. Mladi",
-            "3. Pjevac",
-            "4. Vinkovci",
-            "5. Zvjezdice",
-            "6. Supertalent",
-            "7. Inicijali J. J."
-    };
-
     private final TextView[] stepViews = new TextView[7];
-    private int openedSteps = 1;
-    private boolean roundFinished = false;
-    private CountDownTimer roundTimer;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final Runnable ticker = this::renderCurrentState;
+    private final StepByStepRoundRepository roundRepository = new StepByStepRoundRepository();
+    private final StepByStepGameService gameService = new StepByStepGameService();
+    private final List<StepByStepRound> rounds = new ArrayList<>();
+
+    private StepByStepMatchRepository matchRepository;
+    private ListenerRegistration listenerRegistration;
+    private StepByStepPlayerSession playerSession;
+    private StepByStepMatchState currentState;
+    private long lastClockTickAt;
+    private String lastRenderedPhase = "";
+
+    private ScrollView scrollView;
+    private TextView roundLabelText;
+    private TextView statusText;
+    private TextView timerValue;
+    private TextView currentStepValue;
+    private TextView currentPointsValue;
+    private TextView player1ScoreText;
+    private TextView player2ScoreText;
+    private View resultBanner;
+    private TextView resultBannerTitle;
+    private TextView resultBannerMessage;
+    private TextView answerHelpText;
+    private TextInputEditText answerInput;
+    private MaterialButton confirmButton;
+    private MaterialButton giveUpButton;
+    private MaterialButton newGameButton;
 
     public StepByStepFragment() {
     }
@@ -44,18 +75,55 @@ public class StepByStepFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_step_by_step, container, false);
 
-        ScrollView scrollView = view.findViewById(R.id.stepByStepScrollView);
-        TextView currentStepValue = view.findViewById(R.id.currentStepValue);
-        TextView currentPointsValue = view.findViewById(R.id.currentPointsValue);
-        TextView timerValue = view.findViewById(R.id.timerValue);
-        TextView statusText = view.findViewById(R.id.statusText);
-        View resultBanner = view.findViewById(R.id.stepByStepResultBanner);
-        TextView resultBannerTitle = view.findViewById(R.id.stepByStepResultTitle);
-        TextView resultBannerMessage = view.findViewById(R.id.stepByStepResultMessage);
-        TextInputEditText answerInput = view.findViewById(R.id.answerInput);
-        MaterialButton nextStepButton = view.findViewById(R.id.nextStepButton);
-        MaterialButton confirmButton = view.findViewById(R.id.confirmAnswerButton);
-        MaterialButton giveUpButton = view.findViewById(R.id.giveUpButton);
+        bindViews(view);
+        playerSession = resolveCurrentUser();
+        String roomId = StepByStepMatchRepository.DEFAULT_MATCH_ID;
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
+        matchRepository = new StepByStepMatchRepository(gameService, roomId);
+
+        resultBanner.setVisibility(View.GONE);
+        newGameButton.setVisibility(View.GONE);
+        statusText.setText("Ucitavanje pitanja iz baze...");
+        setControlsEnabled(false);
+        loadRounds();
+
+        confirmButton.setOnClickListener(v -> submitAnswer());
+        giveUpButton.setOnClickListener(v -> giveUpRound());
+        newGameButton.setOnClickListener(v -> resetMatch());
+
+        return view;
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (listenerRegistration != null) {
+            listenerRegistration.remove();
+            listenerRegistration = null;
+        }
+        uiHandler.removeCallbacks(ticker);
+        super.onDestroyView();
+    }
+
+    private void bindViews(View view) {
+        scrollView = view.findViewById(R.id.stepByStepScrollView);
+        roundLabelText = view.findViewById(R.id.roundLabelText);
+        statusText = view.findViewById(R.id.statusText);
+        timerValue = view.findViewById(R.id.timerValue);
+        currentStepValue = view.findViewById(R.id.currentStepValue);
+        currentPointsValue = view.findViewById(R.id.currentPointsValue);
+        currentPointsValue.setVisibility(View.GONE);
+        player1ScoreText = view.findViewById(R.id.player1ScoreText);
+        player2ScoreText = view.findViewById(R.id.player2ScoreText);
+        resultBanner = view.findViewById(R.id.stepByStepResultBanner);
+        resultBannerTitle = view.findViewById(R.id.stepByStepResultTitle);
+        resultBannerMessage = view.findViewById(R.id.stepByStepResultMessage);
+        answerHelpText = view.findViewById(R.id.answerHelpText);
+        answerInput = view.findViewById(R.id.answerInput);
+        confirmButton = view.findViewById(R.id.confirmAnswerButton);
+        giveUpButton = view.findViewById(R.id.giveUpButton);
+        newGameButton = view.findViewById(R.id.nextStepButton);
 
         stepViews[0] = view.findViewById(R.id.step1Text);
         stepViews[1] = view.findViewById(R.id.step2Text);
@@ -64,172 +132,297 @@ public class StepByStepFragment extends Fragment {
         stepViews[4] = view.findViewById(R.id.step5Text);
         stepViews[5] = view.findViewById(R.id.step6Text);
         stepViews[6] = view.findViewById(R.id.step7Text);
-
-        updateStepCards();
-        updateRoundState(currentStepValue, currentPointsValue, statusText);
-        resultBanner.setVisibility(View.GONE);
-        nextStepButton.setVisibility(View.GONE);
-        startRoundTimer(timerValue, currentStepValue, currentPointsValue, statusText,
-                resultBanner, resultBannerTitle, resultBannerMessage, nextStepButton,
-                confirmButton, giveUpButton, answerInput, scrollView);
-
-        confirmButton.setOnClickListener(v -> {
-            if (roundFinished) {
-                return;
-            }
-
-            String answer = "";
-            if (answerInput.getText() != null) {
-                answer = answerInput.getText().toString().trim();
-            }
-
-            if (answer.equalsIgnoreCase(FINAL_ANSWER)) {
-                roundFinished = true;
-                cancelRoundTimer();
-                currentStepValue.setText("Reseno");
-                currentPointsValue.setText(currentPointsForStep() + " bodova");
-                timerValue.setText("Gotovo");
-                statusText.setText("Tacan odgovor. Runda je zavrsena i osvojen je prikazani broj bodova.");
-                resultBanner.setVisibility(View.VISIBLE);
-                resultBanner.setBackgroundColor(0xFFEDF8F1);
-                resultBannerTitle.setText("Tacan odgovor");
-                resultBannerMessage.setText("Osvojeno je " + currentPointsForStep() + " bodova u ovoj rundi.");
-                scrollToTop(scrollView);
-                nextStepButton.setEnabled(false);
-                confirmButton.setEnabled(false);
-                giveUpButton.setEnabled(false);
-                answerInput.setEnabled(false);
-            } else {
-                statusText.setText("Odgovor nije tacan. Otvori sledeci korak ili pokusaj ponovo.");
-                resultBanner.setVisibility(View.VISIBLE);
-                resultBanner.setBackgroundColor(0xFFFFF1F1);
-                resultBannerTitle.setText("Odgovor nije tacan");
-                resultBannerMessage.setText("Pokreni sledeci korak ili pokusaj ponovo sa novim odgovorom.");
-                scrollToTop(scrollView);
-            }
-        });
-
-        giveUpButton.setOnClickListener(v -> {
-            if (roundFinished) {
-                return;
-            }
-
-            roundFinished = true;
-            cancelRoundTimer();
-            currentStepValue.setText("Predato");
-            currentPointsValue.setText("0 bodova");
-            timerValue.setText("Rival 10s");
-            statusText.setText("Igrac nije pogodio. Protivnik dobija sansu da osvoji 5 bodova.");
-            resultBanner.setVisibility(View.VISIBLE);
-            resultBanner.setBackgroundColor(0xFFFFF5E8);
-            resultBannerTitle.setText("Runda je predata");
-            resultBannerMessage.setText("Protivnik sada dobija sansu da osvoji dodatnih 5 bodova. Tacan odgovor je: " + FINAL_ANSWER + ".");
-            scrollToTop(scrollView);
-            nextStepButton.setEnabled(false);
-            confirmButton.setEnabled(false);
-            giveUpButton.setEnabled(false);
-            answerInput.setEnabled(false);
-        });
-
-        return view;
     }
 
-    @Override
-    public void onDestroyView() {
-        cancelRoundTimer();
-        super.onDestroyView();
+    private void loadRounds() {
+        roundRepository.loadOrSeed(new StepByStepRoundRepository.Callback() {
+            @Override
+            public void onSuccess(List<StepByStepRound> loadedRounds) {
+                rounds.clear();
+                rounds.addAll(loadedRounds);
+                joinAndListen();
+            }
+
+            @Override
+            public void onError(Exception error) {
+                showError(error);
+                statusText.setText("Nema podataka u bazi za Korak po korak.");
+            }
+        });
     }
 
-    private void updateStepCards() {
-        for (int i = 0; i < stepViews.length; i++) {
-            TextView stepView = stepViews[i];
+    private void joinAndListen() {
+        matchRepository.ensureParticipant(playerSession, this::listenToMatch, this::showError);
+    }
 
-            if (i < openedSteps) {
-                stepView.setText(hints[i]);
-                stepView.setBackgroundColor(0xFFF6F2FF);
-                stepView.setTextColor(0xFF1E1E2F);
-            } else {
-                stepView.setText((i + 1) + ". Zakljucano");
-                stepView.setBackgroundColor(0xFFECECEC);
-                stepView.setTextColor(0xFF7D7D7D);
-            }
+    private void listenToMatch() {
+        if (listenerRegistration != null) {
+            listenerRegistration.remove();
         }
+        listenerRegistration = matchRepository.listen(new StepByStepMatchRepository.MatchListener() {
+            @Override
+            public void onStateChanged(StepByStepMatchState state) {
+                currentState = state;
+                renderCurrentState();
+            }
+
+            @Override
+            public void onError(Exception error) {
+                showError(error);
+            }
+        });
     }
 
-    private void updateRoundState(TextView currentStepValue, TextView currentPointsValue,
-                                  TextView statusText) {
+    private StepByStepPlayerSession resolveCurrentUser() {
+        AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        String userId;
+        String userName;
+
+        if (authUser != null) {
+            userId = authUser.getId();
+            userName = authUser.getUsername().isEmpty() ? authUser.getEmail() : authUser.getUsername();
+        } else if (firebaseUser != null) {
+            userId = firebaseUser.getUid();
+            userName = firebaseUser.getEmail() == null ? firebaseUser.getUid() : firebaseUser.getEmail();
+        } else {
+            userId = "guest";
+            userName = "Gost";
+        }
+        return new StepByStepPlayerSession(userId + "-" + deviceId(), userName);
+    }
+
+    private String deviceId() {
+        String id = Settings.Secure.getString(
+                requireContext().getContentResolver(),
+                Settings.Secure.ANDROID_ID
+        );
+        return isEmpty(id) ? String.valueOf(System.currentTimeMillis()) : id;
+    }
+
+    private void renderCurrentState() {
+        uiHandler.removeCallbacks(ticker);
+        if (currentState == null || !isAdded()) {
+            return;
+        }
+
+        StepByStepRound roundData = currentRoundData(currentState.getRound());
+        if (roundData == null) {
+            statusText.setText("Pitanja se ucitavaju iz baze...");
+            setControlsEnabled(false);
+            timerValue.setText("--");
+            return;
+        }
+
+        int myPlayer = currentState.playerNumber(playerSession.getId());
+        publishSharedClock(myPlayer);
+        int openedSteps = gameService.openedSteps(currentState);
+        int secondsLeft = gameService.secondsLeft(currentState);
+        boolean waitingForServerTime = gameService.waitingForServerTime(currentState);
+        boolean isMyTurn = gameService.isMyTurn(currentState, myPlayer);
+        String phase = currentState.effectivePhase();
+        if (!phase.equals(lastRenderedPhase)) {
+            lastRenderedPhase = phase;
+            lastClockTickAt = System.currentTimeMillis();
+        }
+
+        roundLabelText.setText("Runda " + currentState.getRound() + " / 2");
+        timerValue.setText(timerText(currentState, phase, waitingForServerTime, secondsLeft));
         currentStepValue.setText(openedSteps + " / 7");
-        currentPointsValue.setText(currentPointsForStep() + " bodova");
-        statusText.setText("Otvori sledeci korak ili potvrdi odgovor kada zelis.");
-    }
+        player1ScoreText.setText("Igrac 1: " + currentState.getPlayer1Score());
+        player2ScoreText.setText("Igrac 2: " + currentState.getPlayer2Score());
+        updatePlayerScoreStyle(myPlayer);
+        statusText.setText(waitingForServerTime
+                ? "Sinhronizuje se pocetak runde..."
+                : gameService.statusText(currentState, myPlayer));
+        updateStepCards(roundData, openedSteps);
+        updateControls(phase, currentState.isFinished(), !waitingForServerTime && isMyTurn);
+        updateBanner();
 
-    private int currentPointsForStep() {
-        return 22 - (openedSteps * 2);
-    }
-
-    private void scrollToTop(ScrollView scrollView) {
-        scrollView.post(() -> scrollView.smoothScrollTo(0, 0));
-    }
-
-    private void startRoundTimer(TextView timerValue, TextView currentStepValue,
-                                 TextView currentPointsValue, TextView statusText,
-                                 View resultBanner, TextView resultBannerTitle,
-                                 TextView resultBannerMessage, MaterialButton nextStepButton,
-                                 MaterialButton confirmButton, MaterialButton giveUpButton,
-                                 TextInputEditText answerInput, ScrollView scrollView) {
-        cancelRoundTimer();
-        roundTimer = new CountDownTimer(70000, 1000) {
-            @Override
-            public void onTick(long millisUntilFinished) {
-                int secondsLeft = (int) (millisUntilFinished / 1000);
-                timerValue.setText(secondsLeft + "s");
-
-                int stepsThatShouldBeOpen = Math.min(
-                        hints.length,
-                        1 + ((ROUND_DURATION_SECONDS - secondsLeft) / 10)
-                );
-
-                if (!roundFinished && stepsThatShouldBeOpen > openedSteps) {
-                    openedSteps = stepsThatShouldBeOpen;
-                    updateStepCards();
-                    updateRoundState(currentStepValue, currentPointsValue, statusText);
-
-                    if (openedSteps == hints.length) {
-                        statusText.setText("Otvoren je i poslednji korak. Pokusaj da pogodis konacni pojam.");
-                    } else {
-                        statusText.setText("Otvoren je novi korak. Pokusaj da pogodis konacni pojam.");
-                    }
-                }
-            }
-
-            @Override
-            public void onFinish() {
-                if (roundFinished) {
-                    return;
-                }
-                roundFinished = true;
-                timerValue.setText("0s");
-                currentStepValue.setText("Isteklo");
-                currentPointsValue.setText("0 bodova");
-                statusText.setText("Vreme je isteklo. Protivnik dobija sansu da osvoji 5 bodova.");
-                resultBanner.setVisibility(View.VISIBLE);
-                resultBanner.setBackgroundColor(0xFFFFF5E8);
-                resultBannerTitle.setText("Vreme je isteklo");
-                resultBannerMessage.setText("Runda je zavrsena bez tacnog odgovora. Tacan odgovor je: " + FINAL_ANSWER + ".");
-                nextStepButton.setEnabled(false);
-                confirmButton.setEnabled(false);
-                giveUpButton.setEnabled(false);
-                answerInput.setEnabled(false);
-                scrollToTop(scrollView);
-            }
-        };
-        roundTimer.start();
-    }
-
-    private void cancelRoundTimer() {
-        if (roundTimer != null) {
-            roundTimer.cancel();
-            roundTimer = null;
+        matchRepository.expireIfNeeded(playerSession, currentState);
+        if (!currentState.isFinished() && currentState.hasSecondPlayer()) {
+            uiHandler.postDelayed(ticker, 1000);
         }
+    }
+
+    private String timerText(StepByStepMatchState state, String phase,
+                             boolean waitingForServerTime, int secondsLeft) {
+        if (state.isFinished()) {
+            return "Kraj";
+        }
+        if (StepByStepMatchState.PHASE_WAITING.equals(phase) || waitingForServerTime) {
+            return "--";
+        }
+        return secondsLeft + "s";
+    }
+
+    private String pointsText(String phase, boolean waitingForServerTime, int openedSteps) {
+        if (StepByStepMatchState.PHASE_WAITING.equals(phase) || waitingForServerTime) {
+            return "--";
+        }
+        return gameService.pointsForStep(openedSteps) + " bodova";
+    }
+
+    private void publishSharedClock(int myPlayer) {
+        if (currentState.isFinished()
+                || gameService.waitingForServerTime(currentState)
+                || !gameService.isMyTurn(currentState, myPlayer)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastClockTickAt < 900) {
+            return;
+        }
+        lastClockTickAt = now;
+        matchRepository.tickClock(playerSession, currentState);
+    }
+
+    private void updatePlayerScoreStyle(int myPlayer) {
+        player1ScoreText.setTypeface(null, myPlayer == 1 ? Typeface.BOLD : Typeface.NORMAL);
+        player2ScoreText.setTypeface(null, myPlayer == 2 ? Typeface.BOLD : Typeface.NORMAL);
+        player1ScoreText.setBackgroundColor(myPlayer == 1 ? 0xFFEFEAF8 : 0xFFF5F5F5);
+        player2ScoreText.setBackgroundColor(myPlayer == 2 ? 0xFFEFEAF8 : 0xFFF5F5F5);
+    }
+
+    private void updateStepCards(StepByStepRound roundData, int openedSteps) {
+        List<String> hints = roundData.getSteps();
+        for (int i = 0; i < stepViews.length; i++) {
+            if (i < openedSteps && i < hints.size()) {
+                stepViews[i].setText(hints.get(i));
+                stepViews[i].setBackgroundColor(0xFFF6F2FF);
+                stepViews[i].setTextColor(0xFF1E1E2F);
+            } else {
+                stepViews[i].setText((i + 1) + ". Zakljucano");
+                stepViews[i].setBackgroundColor(0xFFECECEC);
+                stepViews[i].setTextColor(0xFF7D7D7D);
+            }
+        }
+    }
+
+    private void updateControls(String phase, boolean finished, boolean isMyTurn) {
+        answerInput.setEnabled(!finished && isMyTurn);
+        confirmButton.setEnabled(!finished && isMyTurn);
+        giveUpButton.setEnabled(!finished && isMyTurn
+                && gameService.isRoundPhase(phase));
+        updateAnswerHint(phase, finished, isMyTurn);
+
+        newGameButton.setVisibility(finished ? View.VISIBLE : View.GONE);
+        newGameButton.setText("Nova igra");
+    }
+
+    private void updateAnswerHint(String phase, boolean finished, boolean isMyTurn) {
+        if (finished) {
+            answerHelpText.setText("Igra je zavrsena.");
+        } else if (!isMyTurn) {
+            answerHelpText.setText("Cekajte svoj red. Polje za odgovor ce se otkljucati kada budete na potezu.");
+        } else if (gameService.isStealPhase(phase)) {
+            answerHelpText.setText("Protivnik nije pogodio. Unesite odgovor za 5 bodova.");
+        } else {
+            answerHelpText.setText("Tvoj red. Unesite konacni pojam.");
+        }
+        answerInput.setHint("Tvoj odgovor");
+    }
+
+    private void setControlsEnabled(boolean enabled) {
+        answerInput.setEnabled(enabled);
+        confirmButton.setEnabled(enabled);
+        giveUpButton.setEnabled(enabled);
+    }
+
+    private void updateBanner() {
+        String message = bannerMessage();
+        if (message.isEmpty()) {
+            resultBanner.setVisibility(View.GONE);
+            return;
+        }
+        resultBanner.setVisibility(View.VISIBLE);
+        resultBanner.setBackgroundColor(0xFFF6F2FF);
+        resultBannerTitle.setText("Stanje igre");
+        resultBannerMessage.setText(message);
+    }
+
+    private String bannerMessage() {
+        if (currentState.isFinished()) {
+            return finalScoreMessage();
+        }
+        if (!isEmpty(currentState.getStatusMessage())) {
+            return currentState.getStatusMessage();
+        }
+        if (currentState.getRound() == 2 && !isEmpty(currentState.getRound1Result())) {
+            return currentState.getRound1Result();
+        }
+        return "";
+    }
+
+    private String finalScoreMessage() {
+        long p1 = currentState.getPlayer1Score();
+        long p2 = currentState.getPlayer2Score();
+        String winner;
+        if (p1 > p2) {
+            winner = "Pobednik: Igrac 1";
+        } else if (p2 > p1) {
+            winner = "Pobednik: Igrac 2";
+        } else {
+            winner = "Nereseno";
+        }
+        StringBuilder builder = new StringBuilder();
+        if (!isEmpty(currentState.getRound1Result())) {
+            builder.append(currentState.getRound1Result()).append("\n");
+        }
+        if (!isEmpty(currentState.getRound2Result())) {
+            builder.append(currentState.getRound2Result()).append("\n");
+        }
+        builder.append("Konacno - Igrac 1: ").append(p1)
+                .append(", Igrac 2: ").append(p2)
+                .append("\n").append(winner);
+        return builder.toString();
+    }
+
+    private void submitAnswer() {
+        if (currentState == null || answerInput.getText() == null) {
+            return;
+        }
+        String answer = answerInput.getText().toString().trim();
+        if (answer.isEmpty()) {
+            Toast.makeText(requireContext(), "Unesi odgovor.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        StepByStepRound roundData = currentRoundData(currentState.getRound());
+        if (roundData == null) {
+            return;
+        }
+        matchRepository.submitAnswer(playerSession, roundData, answer, this::showError);
+        answerInput.setText("");
+    }
+
+    private void giveUpRound() {
+        matchRepository.giveUpRound(playerSession, this::showError);
+    }
+
+    private void resetMatch() {
+        matchRepository.resetMatch(playerSession);
+        scrollToTop();
+    }
+
+    private StepByStepRound currentRoundData(int round) {
+        int index = round - 1;
+        if (index < 0 || index >= rounds.size()) {
+            return null;
+        }
+        return rounds.get(index);
+    }
+
+    private void showError(Exception error) {
+        if (isAdded()) {
+            Toast.makeText(requireContext(), error.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    private void scrollToTop() {
+        scrollView.post(() -> scrollView.smoothScrollTo(0, 0));
     }
 }

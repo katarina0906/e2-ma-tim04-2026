@@ -39,7 +39,7 @@ public class GamesFragment extends Fragment {
         );
 
         view.findViewById(R.id.stepByStepCard).setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.stepByStepFragment)
+                Navigation.findNavController(v).navigate(R.id.stepByStepWaitingRoomFragment)
         );
 
         view.findViewById(R.id.myNumberCard).setOnClickListener(v ->
