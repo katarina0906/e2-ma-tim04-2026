@@ -5,12 +5,15 @@ import android.content.Context;
 import com.example.slagalicatim04.models.MatchingMultiplayerState;
 import com.example.slagalicatim04.models.QuizMultiplayerState;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
+import com.example.slagalicatim04.stepbystep.StepByStepGameService;
+import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.google.firebase.Timestamp;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.SetOptions;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,26 +22,19 @@ import java.util.List;
 import java.util.Map;
 
 public class MultiplayerGameRepository {
-    public static final String TEST_ROOM_ID = "test-room";
+    public static final String TEST_ROOM_ID = StepByStepMatchRepository.DEFAULT_MATCH_ID;
 
     private static final int QUIZ_QUESTION_COUNT = 5;
-    private static final long QUIZ_DURATION_MS = 5_000L;
     private static final int MATCHING_PAIR_COUNT = 5;
     private static final int MATCHING_ROUND_COUNT = 2;
-    private static final long MATCHING_DURATION_MS = 30_000L;
 
-    private final FirebaseFirestore firestore;
+    private final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
     private final String playerId;
-    private final DocumentReference roomRef;
-    private final DocumentReference quizRef;
-    private final DocumentReference matchingRef;
+    private final DocumentReference matchRef;
 
     public MultiplayerGameRepository(Context context) {
-        firestore = FirebaseFirestore.getInstance();
         playerId = new TestRoomPlayerProvider(context).getPlayerId();
-        roomRef = firestore.collection("rooms").document(TEST_ROOM_ID);
-        quizRef = roomRef.collection("games").document("ko_zna_zna");
-        matchingRef = roomRef.collection("games").document("spojnice");
+        matchRef = firestore.collection("stepByStepMatches").document(TEST_ROOM_ID);
     }
 
     public String getPlayerId() {
@@ -46,8 +42,7 @@ public class MultiplayerGameRepository {
     }
 
     public Subscription joinQuiz(StateListener<QuizMultiplayerState> listener) {
-        joinRoomAndEnsureGame(true, listener);
-        ListenerRegistration registration = quizRef.addSnapshotListener((snapshot, error) -> {
+        ListenerRegistration registration = matchRef.addSnapshotListener((snapshot, error) -> {
             if (error != null) {
                 listener.onError(error);
             } else if (snapshot != null && snapshot.exists()) {
@@ -57,31 +52,8 @@ public class MultiplayerGameRepository {
         return registration::remove;
     }
 
-    public void leaveQuizWaitingRoom() {
-        leaveWaitingRoom(quizRef);
-    }
-
-    public void leaveMatchingWaitingRoom() {
-        leaveWaitingRoom(matchingRef);
-    }
-
-    private void leaveWaitingRoom(DocumentReference gameRef) {
-        firestore.runTransaction(transaction -> {
-            DocumentSnapshot game = transaction.get(gameRef);
-            if (!game.exists() || !"waiting".equals(game.getString("status"))) {
-                return null;
-            }
-            List<String> readyPlayers = mutableStringList(game.get("readyPlayers"));
-            if (readyPlayers.remove(playerId)) {
-                transaction.update(gameRef, "readyPlayers", readyPlayers);
-            }
-            return null;
-        });
-    }
-
     public Subscription joinMatching(StateListener<MatchingMultiplayerState> listener) {
-        joinRoomAndEnsureGame(false, listener);
-        ListenerRegistration registration = matchingRef.addSnapshotListener((snapshot, error) -> {
+        ListenerRegistration registration = matchRef.addSnapshotListener((snapshot, error) -> {
             if (error != null) {
                 listener.onError(error);
             } else if (snapshot != null && snapshot.exists()) {
@@ -91,18 +63,25 @@ public class MultiplayerGameRepository {
         return registration::remove;
     }
 
+    public void leaveQuizWaitingRoom() {
+    }
+
+    public void leaveMatchingWaitingRoom() {
+    }
+
     public void submitQuizAnswer(int questionIndex, String answerId, boolean correct) {
         firestore.runTransaction(transaction -> {
-            DocumentSnapshot game = transaction.get(quizRef);
-            if (!isActive(game) || intValue(game.getLong("currentQuestion")) != questionIndex) {
+            DocumentSnapshot match = transaction.get(matchRef);
+            if (!isPhase(match, "koZnaZnaPlaying")
+                    || intValue(match.getLong("kzzCurrentQuestion")) != questionIndex
+                    || !isParticipant(match)) {
                 return null;
             }
 
-            Map<String, Object> answers = mutableObjectMap(game.get("answers"));
+            Map<String, Object> answers = mutableObjectMap(match.get("kzzAnswers"));
             if (answers.containsKey(playerId)) {
                 return null;
             }
-
             Map<String, Object> answer = new HashMap<>();
             answer.put("answerId", answerId);
             answer.put("correct", correct);
@@ -110,25 +89,23 @@ public class MultiplayerGameRepository {
             answers.put(playerId, answer);
 
             Map<String, Object> updates = new HashMap<>();
-            updates.put("answers", answers);
+            updates.put("kzzAnswers", answers);
             if (!correct) {
-                Map<String, Long> scores = mutableLongMap(game.get("scores"));
-                scores.put(playerId, scoreOf(scores, playerId) - 5L);
-                updates.put("scores", scores);
+                addToTotalScore(match, updates, playerId, -5);
             }
-            transaction.update(quizRef, updates);
+            transaction.set(matchRef, updates, SetOptions.merge());
             return null;
         });
     }
 
     public void advanceQuizIfReady(int questionIndex) {
         firestore.runTransaction(transaction -> {
-            DocumentSnapshot game = transaction.get(quizRef);
-            Map<String, Object> answers = mutableObjectMap(game.get("answers"));
-            if (isActive(game)
-                    && intValue(game.getLong("currentQuestion")) == questionIndex
+            DocumentSnapshot match = transaction.get(matchRef);
+            Map<String, Object> answers = mutableObjectMap(match.get("kzzAnswers"));
+            if (isPhase(match, "koZnaZnaPlaying")
+                    && intValue(match.getLong("kzzCurrentQuestion")) == questionIndex
                     && answers.size() >= 2) {
-                advanceQuiz(transaction, game, answers);
+                advanceQuiz(transaction, match, answers);
             }
             return null;
         });
@@ -136,9 +113,10 @@ public class MultiplayerGameRepository {
 
     public void expireQuizQuestion(int questionIndex) {
         firestore.runTransaction(transaction -> {
-            DocumentSnapshot game = transaction.get(quizRef);
-            if (isActive(game) && intValue(game.getLong("currentQuestion")) == questionIndex) {
-                advanceQuiz(transaction, game, mutableObjectMap(game.get("answers")));
+            DocumentSnapshot match = transaction.get(matchRef);
+            if (isPhase(match, "koZnaZnaPlaying")
+                    && intValue(match.getLong("kzzCurrentQuestion")) == questionIndex) {
+                advanceQuiz(transaction, match, mutableObjectMap(match.get("kzzAnswers")));
             }
             return null;
         });
@@ -146,38 +124,32 @@ public class MultiplayerGameRepository {
 
     public void submitMatchingAttempt(int roundIndex, int leftIndex, int rightPairIndex) {
         firestore.runTransaction(transaction -> {
-            DocumentSnapshot game = transaction.get(matchingRef);
-            if (!isActive(game)
-                    || intValue(game.getLong("currentRound")) != roundIndex
-                    || !playerId.equals(game.getString("currentPlayer"))) {
+            DocumentSnapshot match = transaction.get(matchRef);
+            if (!isPhase(match, "spojnicePlaying")
+                    || intValue(match.getLong("spCurrentRound")) != roundIndex
+                    || !playerId.equals(match.getString("spCurrentPlayer"))) {
                 return null;
             }
 
-            List<Long> matched = mutableLongList(game.get("matchedPairs"));
-            List<Long> attempted = mutableLongList(game.get("attemptedPairs"));
-            int turnPairCount = intValue(game.getLong("turnPairCount"));
-            if (turnPairCount <= 0) {
-                turnPairCount = MATCHING_PAIR_COUNT;
-            }
+            List<Long> matched = mutableLongList(match.get("spMatchedPairs"));
+            List<Long> attempted = mutableLongList(match.get("spAttemptedPairs"));
+            int turnPairCount = intValue(match.getLong("spTurnPairCount"));
             if (matched.contains((long) leftIndex) || attempted.contains((long) leftIndex)) {
                 return null;
             }
             attempted.add((long) leftIndex);
 
-            Map<String, Long> scores = mutableLongMap(game.get("scores"));
+            Map<String, Object> updates = new HashMap<>();
             if (leftIndex == rightPairIndex) {
                 matched.add((long) leftIndex);
-                scores.put(playerId, scoreOf(scores, playerId) + 2L);
+                addToTotalScore(match, updates, playerId, 2);
             }
-
             if (matched.size() == MATCHING_PAIR_COUNT || attempted.size() >= turnPairCount) {
-                advanceMatching(transaction, game, matched, scores);
+                advanceMatching(transaction, match, matched, updates);
             } else {
-                Map<String, Object> updates = new HashMap<>();
-                updates.put("matchedPairs", matched);
-                updates.put("attemptedPairs", attempted);
-                updates.put("scores", scores);
-                transaction.update(matchingRef, updates);
+                updates.put("spMatchedPairs", matched);
+                updates.put("spAttemptedPairs", attempted);
+                transaction.set(matchRef, updates, SetOptions.merge());
             }
             return null;
         });
@@ -185,154 +157,46 @@ public class MultiplayerGameRepository {
 
     public void expireMatchingChance(int roundIndex, String expectedPlayer, boolean secondChance) {
         firestore.runTransaction(transaction -> {
-            DocumentSnapshot game = transaction.get(matchingRef);
-            if (isActive(game)
-                    && intValue(game.getLong("currentRound")) == roundIndex
-                    && expectedPlayer.equals(game.getString("currentPlayer"))
-                    && secondChance == Boolean.TRUE.equals(game.getBoolean("secondChance"))) {
-                advanceMatching(transaction, game, mutableLongList(game.get("matchedPairs")),
-                        mutableLongMap(game.get("scores")));
+            DocumentSnapshot match = transaction.get(matchRef);
+            if (isPhase(match, "spojnicePlaying")
+                    && intValue(match.getLong("spCurrentRound")) == roundIndex
+                    && expectedPlayer.equals(match.getString("spCurrentPlayer"))
+                    && secondChance == Boolean.TRUE.equals(match.getBoolean("spSecondChance"))) {
+                advanceMatching(transaction, match, mutableLongList(match.get("spMatchedPairs")),
+                        new HashMap<>());
             }
             return null;
         });
-    }
-
-    private <T> void joinRoomAndEnsureGame(boolean quiz, StateListener<T> listener) {
-        firestore.runTransaction(transaction -> {
-            DocumentSnapshot room = transaction.get(roomRef);
-            String player1 = room.getString("player1Id");
-            String player2 = room.getString("player2Id");
-
-            if (!playerId.equals(player1) && !playerId.equals(player2)) {
-                if (player1 == null || player1.isEmpty()) {
-                    player1 = playerId;
-                } else if (player2 == null || player2.isEmpty()) {
-                    player2 = playerId;
-                } else {
-                    throw new IllegalStateException("Test soba vec ima dva igraca.");
-                }
-            }
-
-            Map<String, Object> roomData = new HashMap<>();
-            roomData.put("player1Id", player1);
-            roomData.put("player2Id", player2);
-            transaction.set(roomRef, roomData);
-            return new RoomPlayers(player1, player2);
-        }).addOnSuccessListener(players -> {
-            if (players.isReady()) {
-                ensureGame(quiz, players);
-            }
-        }).addOnFailureListener(listener::onError);
-    }
-
-    private void ensureGame(boolean quiz, RoomPlayers players) {
-        DocumentReference gameRef = quiz ? quizRef : matchingRef;
-        firestore.runTransaction(transaction -> {
-            DocumentSnapshot game = transaction.get(gameRef);
-            if (game.exists()) {
-                if ("waiting".equals(game.getString("status"))) {
-                    List<String> readyPlayers = mutableStringList(game.get("readyPlayers"));
-                    if (!readyPlayers.contains(playerId)) {
-                        readyPlayers.add(playerId);
-                    }
-                    Map<String, Object> updates = new HashMap<>();
-                    updates.put("readyPlayers", readyPlayers);
-                    if (readyPlayers.contains(players.player1)
-                            && readyPlayers.contains(players.player2)) {
-                        updates.put("status", "playing");
-                        if (quiz) {
-                            updates.put("currentQuestion", 0);
-                            updates.put("answers", new HashMap<>());
-                        } else {
-                            updates.put("currentRound", 0);
-                            updates.put("currentPlayer", players.player1);
-                            updates.put("secondChance", false);
-                            updates.put("matchedPairs", new ArrayList<>());
-                            updates.put("attemptedPairs", new ArrayList<>());
-                            updates.put("turnPairCount", MATCHING_PAIR_COUNT);
-                        }
-                    }
-                    transaction.update(gameRef, updates);
-                }
-                if (!quiz && game.getLong("turnPairCount") == null) {
-                    List<Long> matched = mutableLongList(game.get("matchedPairs"));
-                    boolean secondChance = Boolean.TRUE.equals(game.getBoolean("secondChance"));
-                    int turnPairCount = secondChance
-                            ? MATCHING_PAIR_COUNT - matched.size()
-                            : MATCHING_PAIR_COUNT;
-                    transaction.update(gameRef, "turnPairCount", turnPairCount);
-                }
-                return null;
-            }
-
-            Map<String, Object> data = baseGame(players);
-            if (quiz) {
-                data.put("status", "waiting");
-                data.put("currentQuestion", 0);
-                data.put("answers", new HashMap<>());
-                data.put("readyPlayers", new ArrayList<>(Collections.singletonList(playerId)));
-            } else {
-                data.put("status", "waiting");
-                data.put("currentRound", 0);
-                data.put("currentPlayer", players.player1);
-                data.put("secondChance", false);
-                data.put("matchedPairs", new ArrayList<>());
-                data.put("attemptedPairs", new ArrayList<>());
-                data.put("turnPairCount", MATCHING_PAIR_COUNT);
-                data.put("readyPlayers", new ArrayList<>(Collections.singletonList(playerId)));
-            }
-            transaction.set(gameRef, data);
-            return null;
-        });
-    }
-
-    private Map<String, Object> baseGame(RoomPlayers players) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("status", "playing");
-        data.put("player1Id", players.player1);
-        data.put("player2Id", players.player2);
-        Map<String, Long> scores = new HashMap<>();
-        scores.put(players.player1, 0L);
-        scores.put(players.player2, 0L);
-        data.put("scores", scores);
-        return data;
     }
 
     private void advanceQuiz(com.google.firebase.firestore.Transaction transaction,
-                             DocumentSnapshot game, Map<String, Object> answers) {
-        Map<String, Long> scores = mutableLongMap(game.get("scores"));
-        String player1 = game.getString("player1Id");
-        String player2 = game.getString("player2Id");
-        applyQuizScores(scores, player1, player2, answers);
-
-        int nextQuestion = intValue(game.getLong("currentQuestion")) + 1;
+                             DocumentSnapshot match, Map<String, Object> answers) {
         Map<String, Object> updates = new HashMap<>();
-        updates.put("scores", scores);
-        updates.put("answers", new HashMap<>());
+        applyQuizCorrectScores(match, updates, answers);
+        int nextQuestion = intValue(match.getLong("kzzCurrentQuestion")) + 1;
+        updates.put("kzzAnswers", new HashMap<>());
         if (nextQuestion >= QUIZ_QUESTION_COUNT) {
-            updates.put("status", "finished");
-            updates.put("deadlineAt", 0L);
+            updates.putAll(newMatchingState(match));
         } else {
-            updates.put("currentQuestion", nextQuestion);
-            updates.put("deadlineAt", now() + QUIZ_DURATION_MS);
+            updates.put("kzzCurrentQuestion", nextQuestion);
         }
-        transaction.update(quizRef, updates);
+        transaction.set(matchRef, updates, SetOptions.merge());
     }
 
-    private void applyQuizScores(Map<String, Long> scores, String player1, String player2,
-                                 Map<String, Object> answers) {
+    private void applyQuizCorrectScores(DocumentSnapshot match, Map<String, Object> updates,
+                                        Map<String, Object> answers) {
+        String player1 = match.getString("player1Id");
+        String player2 = match.getString("player2Id");
         Map<String, Object> answer1 = nestedMap(answers.get(player1));
         Map<String, Object> answer2 = nestedMap(answers.get(player2));
         boolean correct1 = Boolean.TRUE.equals(answer1.get("correct"));
         boolean correct2 = Boolean.TRUE.equals(answer2.get("correct"));
-
         if (correct1 && correct2) {
-            String winner = earlierPlayer(player1, answer1, player2, answer2);
-            scores.put(winner, scoreOf(scores, winner) + 10L);
+            addToTotalScore(match, updates, earlierPlayer(player1, answer1, player2, answer2), 10);
         } else if (correct1) {
-            scores.put(player1, scoreOf(scores, player1) + 10L);
+            addToTotalScore(match, updates, player1, 10);
         } else if (correct2) {
-            scores.put(player2, scoreOf(scores, player2) + 10L);
+            addToTotalScore(match, updates, player2, 10);
         }
     }
 
@@ -346,45 +210,86 @@ public class MultiplayerGameRepository {
         return time1.compareTo(time2) < 0 ? player1 : player2;
     }
 
+    private Map<String, Object> newMatchingState(DocumentSnapshot match) {
+        Map<String, Object> state = new HashMap<>();
+        state.put("currentGame", "spojnice");
+        state.put("phase", "spojnicePlaying");
+        state.put("spCurrentRound", 0L);
+        state.put("spCurrentPlayer", match.getString("player1Id"));
+        state.put("spSecondChance", false);
+        state.put("spMatchedPairs", new ArrayList<>());
+        state.put("spAttemptedPairs", new ArrayList<>());
+        state.put("spTurnPairCount", MATCHING_PAIR_COUNT);
+        state.put("statusMessage", "Ko zna zna je zavrsen. Pokrecu se Spojnice.");
+        return state;
+    }
+
     private void advanceMatching(com.google.firebase.firestore.Transaction transaction,
-                                 DocumentSnapshot game, List<Long> matched,
-                                 Map<String, Long> scores) {
-        boolean secondChance = Boolean.TRUE.equals(game.getBoolean("secondChance"));
-        int currentRound = intValue(game.getLong("currentRound"));
-        String player1 = game.getString("player1Id");
-        String player2 = game.getString("player2Id");
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("scores", scores);
-
+                                 DocumentSnapshot match, List<Long> matched,
+                                 Map<String, Object> updates) {
+        boolean secondChance = Boolean.TRUE.equals(match.getBoolean("spSecondChance"));
+        int currentRound = intValue(match.getLong("spCurrentRound"));
         if (!secondChance && matched.size() < MATCHING_PAIR_COUNT) {
-            String currentPlayer = game.getString("currentPlayer");
-            updates.put("secondChance", true);
-            updates.put("currentPlayer", player1.equals(currentPlayer) ? player2 : player1);
-            updates.put("attemptedPairs", new ArrayList<>());
-            updates.put("matchedPairs", matched);
-            updates.put("turnPairCount", MATCHING_PAIR_COUNT - matched.size());
-            updates.put("deadlineAt", now() + MATCHING_DURATION_MS);
+            String currentPlayer = match.getString("spCurrentPlayer");
+            String nextPlayer = currentPlayer.equals(match.getString("player1Id"))
+                    ? match.getString("player2Id") : match.getString("player1Id");
+            updates.put("spSecondChance", true);
+            updates.put("spCurrentPlayer", nextPlayer);
+            updates.put("spAttemptedPairs", new ArrayList<>());
+            updates.put("spMatchedPairs", matched);
+            updates.put("spTurnPairCount", MATCHING_PAIR_COUNT - matched.size());
         } else if (currentRound + 1 < MATCHING_ROUND_COUNT) {
-            updates.put("currentRound", currentRound + 1);
-            updates.put("currentPlayer", player2);
-            updates.put("secondChance", false);
-            updates.put("matchedPairs", new ArrayList<>());
-            updates.put("attemptedPairs", new ArrayList<>());
-            updates.put("turnPairCount", MATCHING_PAIR_COUNT);
-            updates.put("deadlineAt", now() + MATCHING_DURATION_MS);
+            updates.put("spCurrentRound", currentRound + 1);
+            updates.put("spCurrentPlayer", match.getString("player2Id"));
+            updates.put("spSecondChance", false);
+            updates.put("spMatchedPairs", new ArrayList<>());
+            updates.put("spAttemptedPairs", new ArrayList<>());
+            updates.put("spTurnPairCount", MATCHING_PAIR_COUNT);
         } else {
-            updates.put("status", "finished");
-            updates.put("deadlineAt", 0L);
+            updates.putAll(newStepByStepState());
         }
-        transaction.update(matchingRef, updates);
+        transaction.set(matchRef, updates, SetOptions.merge());
     }
 
-    private boolean isActive(DocumentSnapshot game) {
-        return game.exists() && "playing".equals(game.getString("status"));
+    private Map<String, Object> newStepByStepState() {
+        Map<String, Object> state = new HashMap<>();
+        state.put("currentGame", "stepByStep");
+        state.put("phase", "round1");
+        state.put("round", 1L);
+        state.put("activePlayer", 1L);
+        state.put("stealPlayer", 0L);
+        state.put("roundStartedAt", FieldValue.serverTimestamp());
+        state.put("stealStartedAt", 0L);
+        state.put("visibleStepCount", 1L);
+        state.put("secondsLeft", StepByStepGameService.ROUND_DURATION_MS / 1000);
+        state.put("stepByStepFinished", false);
+        state.put("finished", false);
+        state.put("statusMessage", "Spojnice su zavrsene. Pokrece se Korak po korak.");
+        return state;
     }
 
-    private long now() {
-        return System.currentTimeMillis();
+    private void addToTotalScore(DocumentSnapshot match, Map<String, Object> updates,
+                                 String scoringPlayerId, long points) {
+        if (scoringPlayerId == null) {
+            return;
+        }
+        boolean player1 = scoringPlayerId.equals(match.getString("player1Id"));
+        String key = player1 ? "player1Score" : "player2Score";
+        long current = longValue(match.getLong(key));
+        Object pending = updates.get(key);
+        if (pending instanceof Number) {
+            current = ((Number) pending).longValue();
+        }
+        updates.put(key, current + points);
+    }
+
+    private boolean isParticipant(DocumentSnapshot match) {
+        return playerId.equals(match.getString("player1Id"))
+                || playerId.equals(match.getString("player2Id"));
+    }
+
+    private boolean isPhase(DocumentSnapshot match, String phase) {
+        return match.exists() && phase.equals(match.getString("phase"));
     }
 
     private static int intValue(Long value) {
@@ -395,19 +300,9 @@ public class MultiplayerGameRepository {
         return value == null ? 0L : value;
     }
 
-    private static long scoreOf(Map<String, Long> scores, String player) {
-        Long score = scores.get(player);
-        return score == null ? 0L : score;
-    }
-
     @SuppressWarnings("unchecked")
     private static Map<String, Object> mutableObjectMap(Object value) {
         return value instanceof Map ? new HashMap<>((Map<String, Object>) value) : new HashMap<>();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Long> mutableLongMap(Object value) {
-        return value instanceof Map ? new HashMap<>((Map<String, Long>) value) : new HashMap<>();
     }
 
     @SuppressWarnings("unchecked")
@@ -420,11 +315,6 @@ public class MultiplayerGameRepository {
         return value instanceof List ? new ArrayList<>((List<Long>) value) : new ArrayList<>();
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<String> mutableStringList(Object value) {
-        return value instanceof List ? new ArrayList<>((List<String>) value) : new ArrayList<>();
-    }
-
     public interface StateListener<T> {
         void onState(T state);
 
@@ -433,19 +323,5 @@ public class MultiplayerGameRepository {
 
     public interface Subscription {
         void remove();
-    }
-
-    private static class RoomPlayers {
-        private final String player1;
-        private final String player2;
-
-        private RoomPlayers(String player1, String player2) {
-            this.player1 = player1;
-            this.player2 = player2;
-        }
-
-        private boolean isReady() {
-            return player1 != null && !player1.isEmpty() && player2 != null && !player2.isEmpty();
-        }
     }
 }

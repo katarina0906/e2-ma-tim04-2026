@@ -96,9 +96,8 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         player1Text.setText("Igrac 1: " + playerLabel(state.getPlayer1Name(), state.isPlayer1Ready()));
         player2Text.setText("Igrac 2: " + playerLabel(state.getPlayer2Name(), state.isPlayer2Ready()));
 
-        if (StepByStepMatchState.PHASE_PLAYING.equals(state.getPhase())
-                || StepByStepMatchState.PHASE_ROUND1.equals(state.getPhase())) {
-            navigateToGame();
+        if ("koZnaZnaPlaying".equals(state.getPhase())) {
+            navigateToKoZnaZna();
             return;
         }
 
@@ -122,14 +121,14 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         return name + (ready ? " - spreman" : " - nije potvrdio");
     }
 
-    private void navigateToGame() {
+    private void navigateToKoZnaZna() {
         if (navigatedToGame || !isAdded()) {
             return;
         }
         navigatedToGame = true;
         Bundle args = new Bundle();
         args.putString("roomId", ROOM_ID);
-        Navigation.findNavController(requireView()).navigate(R.id.stepByStepFragment, args);
+        Navigation.findNavController(requireView()).navigate(R.id.koZnaZnaFragment, args);
     }
 
     private StepByStepPlayerSession resolveCurrentUser() {
@@ -148,7 +147,7 @@ public class StepByStepWaitingRoomFragment extends Fragment {
             userId = "guest";
             userName = "Gost";
         }
-        return new StepByStepPlayerSession(userId + "-" + deviceId(), userName);
+        return new StepByStepPlayerSession(userId, userName);
     }
 
     private String deviceId() {

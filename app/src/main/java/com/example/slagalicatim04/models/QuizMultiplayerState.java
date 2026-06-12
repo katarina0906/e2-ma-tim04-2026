@@ -15,13 +15,16 @@ public class QuizMultiplayerState {
     private final Map<String, Object> answers;
 
     public QuizMultiplayerState(DocumentSnapshot snapshot) {
-        status = stringValue(snapshot.getString("status"), "waiting");
-        currentQuestion = intValue(snapshot.getLong("currentQuestion"));
-        deadlineAt = longValue(snapshot.getLong("deadlineAt"));
+        String phase = stringValue(snapshot.getString("phase"), "waiting");
+        status = "koZnaZna".equals(snapshot.getString("currentGame"))
+                && "koZnaZnaPlaying".equals(phase) ? "playing"
+                : ("spojnice".equals(snapshot.getString("currentGame")) ? "next" : "waiting");
+        currentQuestion = intValue(snapshot.getLong("kzzCurrentQuestion"));
+        deadlineAt = 0L;
         player1Id = stringValue(snapshot.getString("player1Id"), "");
         player2Id = stringValue(snapshot.getString("player2Id"), "");
-        scores = mapValue(snapshot.get("scores"));
-        answers = objectMapValue(snapshot.get("answers"));
+        scores = scoreMap(snapshot);
+        answers = objectMapValue(snapshot.get("kzzAnswers"));
     }
 
     public String getStatus() {
@@ -72,6 +75,15 @@ public class QuizMultiplayerState {
     @SuppressWarnings("unchecked")
     private static Map<String, Long> mapValue(Object value) {
         return value instanceof Map ? (Map<String, Long>) value : Collections.emptyMap();
+    }
+
+    private static Map<String, Long> scoreMap(DocumentSnapshot snapshot) {
+        Map<String, Long> result = new java.util.HashMap<>();
+        result.put(stringValue(snapshot.getString("player1Id"), ""),
+                longValue(snapshot.getLong("player1Score")));
+        result.put(stringValue(snapshot.getString("player2Id"), ""),
+                longValue(snapshot.getLong("player2Score")));
+        return result;
     }
 
     @SuppressWarnings("unchecked")
