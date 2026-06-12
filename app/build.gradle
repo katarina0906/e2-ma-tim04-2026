@@ -35,6 +35,10 @@ android {
     }
 }
 
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}
+
 dependencies {
     implementation libs.recyclerview
     implementation libs.activity.ktx
@@ -43,6 +47,9 @@ dependencies {
     implementation libs.material
     implementation libs.navigation.fragment
     implementation libs.navigation.ui
+    implementation platform(libs.firebase.bom)
+    implementation libs.firebase.auth
+    implementation libs.firebase.firestore
     testImplementation libs.junit
     androidTestImplementation libs.espresso.core
     androidTestImplementation libs.ext.junit

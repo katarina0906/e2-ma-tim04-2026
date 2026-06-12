@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "99811637305",
+    "project_id": "slagalica-dd3af",
+    "storage_bucket": "slagalica-dd3af.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:99811637305:android:62ec4ec23ffef42eb3f5e8",
+        "android_client_info": {
+          "package_name": "com.example.slagalicatim04"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD125GcG3yXL_07uhIEa1MiO4WZGQvUsZc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
