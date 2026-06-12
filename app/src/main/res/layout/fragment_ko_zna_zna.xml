@@ -33,14 +33,14 @@
                     android:layout_weight="1"
                     android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/questionCounterText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Pitanje 1 / 5"
-                android:textColor="#1E1E2F"
-                android:textSize="17sp"
-                android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/questionCounterText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Pitanje 1 / 5"
+                        android:textColor="#1E1E2F"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -51,16 +51,16 @@
                         android:textSize="13sp" />
                 </LinearLayout>
 
-            <TextView
-                android:id="@+id/timerText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="#EFEAF8"
-                android:paddingHorizontal="10dp"
-                android:paddingVertical="6dp"
-                android:text="⏱ 5s"
-                android:textColor="#6F4BB2"
-                android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/timerText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="#EFEAF8"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="6dp"
+                    android:text="⏱ 5s"
+                    android:textColor="#6F4BB2"
+                    android:textStyle="bold" />
 
             </LinearLayout>
 
