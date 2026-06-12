@@ -71,7 +71,7 @@ public class SpojniceFragment extends Fragment {
     private int selectedLeftIndex = -1;
     private String timerChanceKey = "";
     private boolean submitting;
-    private boolean navigatedToSkocko;
+    private boolean navigatedToAssociations;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -154,7 +154,7 @@ public class SpojniceFragment extends Fragment {
         updateScores(state);
 
         if ("next".equals(state.getStatus())) {
-            navigateToSkocko();
+            navigateToAssociations();
             return;
         }
         if ("finished".equals(state.getStatus())) {
@@ -305,14 +305,14 @@ public class SpojniceFragment extends Fragment {
         }
     }
 
-    private void navigateToSkocko() {
-        if (navigatedToSkocko || getView() == null) {
+    private void navigateToAssociations() {
+        if (navigatedToAssociations || getView() == null) {
             return;
         }
-        navigatedToSkocko = true;
+        navigatedToAssociations = true;
         Bundle args = new Bundle();
         args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
-        Navigation.findNavController(requireView()).navigate(R.id.skockoFragment, args);
+        Navigation.findNavController(requireView()).navigate(R.id.asocijacijeFragment, args);
     }
 
     @Override
