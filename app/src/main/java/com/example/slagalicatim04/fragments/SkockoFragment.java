@@ -9,8 +9,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.GridLayout;
-import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -20,9 +18,11 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.slagalicatim04.R;
+import com.example.slagalicatim04.repositories.FirebaseSkockoRepository;
+import com.example.slagalicatim04.repositories.SkockoRepository;
+import com.example.slagalicatim04.services.SkockoGameService;
 
 import java.util.Arrays;
-import java.util.Random;
 
 /**
  * Skočko: 2 runde. U svakoj rundi samo igrač koji je započeo rundu ima do 6 pokušaja u 30 s;
@@ -36,14 +36,10 @@ public class SkockoFragment extends Fragment {
     private static final int MAX_ATTEMPTS = 6;
     private static final long TURN_MS = 30_000L;
     private static final long STEAL_MS = 10_000L;
+    private static final int SYMBOL_COLOR = 0xFF7E57C2;
 
-    private static final int[] SYMBOL_DRAWABLES = {
-            R.drawable.skocko_znak_skocko,
-            R.drawable.skocko_znak_herc,
-            R.drawable.skocko_znak_krug,
-            R.drawable.skocko_znak_zvezda,
-            R.drawable.skocko_znak_kvadrat,
-            R.drawable.skocko_znak_trougao,
+    private static final String[] SYMBOLS = {
+            "\u263A", "\u25A0", "\u25CF", "\u2665", "\u25B2", "\u2605",
     };
 
     private static final int[] PALETTE_IDS = {
@@ -59,34 +55,25 @@ public class SkockoFragment extends Fragment {
     private TextView resultText;
     private LinearLayout skHistoryBlock;
     private View stealCard;
-    private ImageView[] draftSlots = new ImageView[CODE_LEN];
+    private final TextView[] draftSlots = new TextView[CODE_LEN];
     private Button clearButton;
     private Button submitButton;
     private Button nextRoundButton;
     private Button newGameButton;
 
-    private final ImageView[][] guessSlots = new ImageView[MAX_ATTEMPTS][CODE_LEN];
+    private final TextView[][] guessSlots = new TextView[MAX_ATTEMPTS][CODE_LEN];
     private final View[][] pegViews = new View[MAX_ATTEMPTS][CODE_LEN];
 
-    private final int[][] secrets = new int[2][CODE_LEN];
-    private final int[] totalScores = new int[2];
-
     private final int[] draft = new int[]{-1, -1, -1, -1};
-    private final int[][] committedGuess = new int[MAX_ATTEMPTS][CODE_LEN];
-    private final int[][] feedbackBw = new int[MAX_ATTEMPTS][2];
-    private int numCommitted;
 
-    private int roundIndex;
-    private int roundStarter;
-    /** Ko trenutno pogađa svoju kombinaciju (uvek igrač koji je započeo rundu). */
-    private int solvingPlayer;
-    /** Čija tajna kombinacija se pogađa u ukradenom pokušaju (onaj koji nije pogodio svoju). */
-    private int stealVictim;
     private boolean stealPhase;
     private boolean stealAttemptDone;
     private boolean gameOver;
+    private boolean resultSaved;
 
     private CountDownTimer phaseTimer;
+    private SkockoGameService gameService;
+    private SkockoRepository repository;
 
     public SkockoFragment() {
     }
@@ -117,6 +104,8 @@ public class SkockoFragment extends Fragment {
         submitButton = view.findViewById(R.id.skSubmitButton);
         nextRoundButton = view.findViewById(R.id.skNextRoundButton);
         newGameButton = view.findViewById(R.id.skNewGameButton);
+        gameService = new SkockoGameService();
+        repository = new FirebaseSkockoRepository();
 
         buildHistoryRows();
         for (int i = 0; i < NUM_SYMBOLS; i++) {
@@ -126,7 +115,7 @@ public class SkockoFragment extends Fragment {
         clearButton.setOnClickListener(v -> clearDraft());
         submitButton.setOnClickListener(v -> onSubmit());
         nextRoundButton.setOnClickListener(v -> {
-            roundIndex++;
+            gameService.startNextRound();
             nextRoundButton.setVisibility(View.GONE);
             startRound();
         });
@@ -159,14 +148,14 @@ public class SkockoFragment extends Fragment {
             row.addView(num);
 
             for (int c = 0; c < CODE_LEN; c++) {
-                ImageView iv = new ImageView(ctx);
+                TextView iv = new TextView(ctx);
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, slotH, 1f);
                 lp.setMarginEnd(m / 2);
                 iv.setLayoutParams(lp);
                 iv.setBackgroundResource(R.drawable.skocko_slot_bg);
-                int pad = Math.round(6 * d);
-                iv.setPadding(pad, pad, pad, pad);
-                iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                iv.setGravity(Gravity.CENTER);
+                iv.setTextColor(SYMBOL_COLOR);
+                iv.setTextSize(24);
                 row.addView(iv);
                 guessSlots[r][c] = iv;
             }
@@ -192,10 +181,9 @@ public class SkockoFragment extends Fragment {
 
     private void startNewGame() {
         cancelTimer();
-        totalScores[0] = 0;
-        totalScores[1] = 0;
-        roundIndex = 0;
+        gameService.startNewGame();
         gameOver = false;
+        resultSaved = false;
         newGameButton.setVisibility(View.GONE);
         nextRoundButton.setVisibility(View.GONE);
         updateScoreUi();
@@ -209,34 +197,23 @@ public class SkockoFragment extends Fragment {
         stealCard.setVisibility(View.GONE);
         nextRoundButton.setVisibility(View.GONE);
         newGameButton.setVisibility(View.GONE);
-        roundStarter = roundIndex % 2;
-        generateSecrets();
         clearHistoryUi();
-        numCommitted = 0;
         clearDraft();
-        solvingPlayer = roundStarter;
-        roundText.setText(getString(R.string.sk_round_fmt, roundIndex + 1, 2));
+        roundText.setText(getString(
+                R.string.sk_round_fmt,
+                gameService.getRoundIndex() + 1,
+                SkockoGameService.ROUND_COUNT
+        ));
         resultText.setText("");
         updateStatus();
         enableInputs(true);
         startPhaseTimer(TURN_MS);
     }
 
-    private void generateSecrets() {
-        Random rnd = new Random();
-        for (int p = 0; p < 2; p++) {
-            for (int i = 0; i < CODE_LEN; i++) {
-                secrets[p][i] = rnd.nextInt(NUM_SYMBOLS);
-            }
-        }
-    }
-
     private void clearHistoryUi() {
         for (int r = 0; r < MAX_ATTEMPTS; r++) {
-            Arrays.fill(committedGuess[r], -1);
-            feedbackBw[r][0] = feedbackBw[r][1] = -1;
             for (int c = 0; c < CODE_LEN; c++) {
-                guessSlots[r][c].setImageDrawable(null);
+                guessSlots[r][c].setText("");
             }
             setPegs(r, 0, 0, false);
         }
@@ -278,9 +255,9 @@ public class SkockoFragment extends Fragment {
     private void updateDraftUi() {
         for (int i = 0; i < CODE_LEN; i++) {
             if (draft[i] < 0) {
-                draftSlots[i].setImageDrawable(null);
+                draftSlots[i].setText("");
             } else {
-                draftSlots[i].setImageResource(SYMBOL_DRAWABLES[draft[i]]);
+                draftSlots[i].setText(SYMBOLS[draft[i]]);
             }
         }
     }
@@ -308,39 +285,33 @@ public class SkockoFragment extends Fragment {
             stealAttemptDone = true;
             int[] g = draftToArray();
             cancelTimer();
-            int stealer = 1 - roundStarter;
-            if (Arrays.equals(g, secrets[stealVictim])) {
-                totalScores[stealer] += 10;
-                updateScoreUi();
+            SkockoGameService.MoveResult move = gameService.submitGuess(g);
+            if (move.isSolved()) {
                 Toast.makeText(requireContext(), R.string.sk_steal_ok, Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(requireContext(), R.string.sk_steal_fail, Toast.LENGTH_SHORT).show();
             }
+            updateScoreUi();
             finishRound();
             return;
         }
 
         int[] guess = draftToArray();
-        int secretIdx = solvingPlayer;
-        int[] fb = mastermindFeedback(secrets[secretIdx], guess);
-        System.arraycopy(guess, 0, committedGuess[numCommitted], 0, CODE_LEN);
-        feedbackBw[numCommitted][0] = fb[0];
-        feedbackBw[numCommitted][1] = fb[1];
+        SkockoGameService.MoveResult move = gameService.submitGuess(guess);
+        int row = move.getAttempt() - 1;
         for (int c = 0; c < CODE_LEN; c++) {
-            guessSlots[numCommitted][c].setImageResource(SYMBOL_DRAWABLES[guess[c]]);
+            guessSlots[row][c].setText(SYMBOLS[guess[c]]);
         }
-        setPegs(numCommitted, fb[0], fb[1], true);
-        numCommitted++;
+        setPegs(row, move.getFeedback().getExact(), move.getFeedback().getPartial(), true);
         clearDraft();
 
-        if (fb[0] == CODE_LEN) {
+        if (move.isSolved()) {
             cancelTimer();
-            awardSolve(solvingPlayer, numCommitted);
             updateScoreUi();
             finishRound();
             return;
         }
-        if (numCommitted >= MAX_ATTEMPTS) {
+        if (move.getResultingPhase() == SkockoGameService.Phase.STEAL) {
             cancelTimer();
             beginSteal();
         }
@@ -348,11 +319,9 @@ public class SkockoFragment extends Fragment {
 
     private void beginSteal() {
         stealPhase = true;
-        stealVictim = roundStarter;
         stealAttemptDone = false;
         stealCard.setVisibility(View.VISIBLE);
         clearDraft();
-        numCommitted = 0;
         clearHistoryUi();
         updateStatus();
         timerText.setText("");
@@ -366,10 +335,15 @@ public class SkockoFragment extends Fragment {
         stealPhase = false;
         stealCard.setVisibility(View.GONE);
         enableInputs(false);
-        if (roundIndex >= 1) {
+        if (gameService.getPhase() == SkockoGameService.Phase.GAME_FINISHED) {
             gameOver = true;
-            resultText.setText(getString(R.string.sk_game_over_fmt, totalScores[0], totalScores[1]));
+            resultText.setText(getString(
+                    R.string.sk_game_over_fmt,
+                    gameService.getScore(0),
+                    gameService.getScore(1)
+            ));
             newGameButton.setVisibility(View.VISIBLE);
+            saveResult();
         } else {
             resultText.setText(R.string.sk_round_done);
             nextRoundButton.setVisibility(View.VISIBLE);
@@ -378,52 +352,16 @@ public class SkockoFragment extends Fragment {
     }
 
     private void onPhaseTimeUp() {
-        if (stealPhase) {
-            if (!stealAttemptDone) {
-                stealAttemptDone = true;
-                finishRound();
-            }
-            return;
+        if (!stealPhase) {
+            Toast.makeText(requireContext(), R.string.sk_time_turn, Toast.LENGTH_SHORT).show();
         }
-        if (numCommitted > 0 && feedbackBw[numCommitted - 1][0] == CODE_LEN) {
-            return;
+        SkockoGameService.Phase phase = gameService.expireCurrentPhase();
+        if (phase == SkockoGameService.Phase.STEAL) {
+            beginSteal();
+        } else {
+            stealAttemptDone = true;
+            finishRound();
         }
-        Toast.makeText(requireContext(), R.string.sk_time_turn, Toast.LENGTH_SHORT).show();
-        beginSteal();
-    }
-
-    private void awardSolve(int player, int attemptCount) {
-        int pts;
-        if (attemptCount <= 2) pts = 20;
-        else if (attemptCount <= 4) pts = 15;
-        else pts = 10;
-        totalScores[player] += pts;
-    }
-
-    private static int[] mastermindFeedback(int[] secret, int[] guess) {
-        int black = 0;
-        boolean[] secU = new boolean[CODE_LEN];
-        boolean[] gueU = new boolean[CODE_LEN];
-        for (int i = 0; i < CODE_LEN; i++) {
-            if (secret[i] == guess[i]) {
-                black++;
-                secU[i] = true;
-                gueU[i] = true;
-            }
-        }
-        int white = 0;
-        for (int i = 0; i < CODE_LEN; i++) {
-            if (gueU[i]) continue;
-            for (int j = 0; j < CODE_LEN; j++) {
-                if (secU[j]) continue;
-                if (guess[i] == secret[j]) {
-                    white++;
-                    secU[j] = true;
-                    break;
-                }
-            }
-        }
-        return new int[]{black, white};
     }
 
     private boolean draftComplete() {
@@ -488,16 +426,41 @@ public class SkockoFragment extends Fragment {
             return;
         }
         if (stealPhase) {
-            int stealer = 1 - roundStarter;
-            statusText.setText(getString(R.string.sk_status_steal, stealer + 1, stealVictim + 1));
+            statusText.setText(getString(
+                    R.string.sk_status_steal,
+                    gameService.getStealingPlayer() + 1,
+                    gameService.getRoundStarter() + 1
+            ));
             return;
         }
-        statusText.setText(getString(R.string.sk_status_solve, solvingPlayer + 1, roundStarter + 1));
+        statusText.setText(getString(
+                R.string.sk_status_solve,
+                gameService.getRoundStarter() + 1,
+                gameService.getRoundStarter() + 1
+        ));
     }
 
     private void updateScoreUi() {
-        score0.setText(getString(R.string.sk_player_pts, 1, totalScores[0]));
-        score1.setText(getString(R.string.sk_player_pts, 2, totalScores[1]));
+        score0.setText(getString(R.string.sk_player_pts, 1, gameService.getScore(0)));
+        score1.setText(getString(R.string.sk_player_pts, 2, gameService.getScore(1)));
+    }
+
+    private void saveResult() {
+        if (resultSaved) {
+            return;
+        }
+        resultSaved = true;
+        repository.saveCompletedGame(gameService.getGameResult())
+                .addOnFailureListener(error -> {
+                    resultSaved = false;
+                    if (isAdded()) {
+                        Toast.makeText(
+                                requireContext(),
+                                "Rezultat trenutno nije sacuvan u Firebase.",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                });
     }
 
     @Override
