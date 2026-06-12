@@ -192,7 +192,7 @@ public class StepByStepFragment extends Fragment {
             userId = "guest";
             userName = "Gost";
         }
-        return new StepByStepPlayerSession(userId + "-" + deviceId(), userName);
+        return new StepByStepPlayerSession(userId, userName);
     }
 
     private String deviceId() {

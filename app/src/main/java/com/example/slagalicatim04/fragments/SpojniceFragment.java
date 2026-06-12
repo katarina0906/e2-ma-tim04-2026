@@ -11,6 +11,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.models.MatchingMultiplayerState;
@@ -66,6 +67,7 @@ public class SpojniceFragment extends Fragment {
     private int selectedLeftIndex = -1;
     private String timerChanceKey = "";
     private boolean submitting;
+    private boolean navigatedToStepByStep;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -145,6 +147,10 @@ public class SpojniceFragment extends Fragment {
         selectedLeftIndex = -1;
         updateScores(state);
 
+        if ("next".equals(state.getStatus())) {
+            navigateToStepByStep();
+            return;
+        }
         if ("finished".equals(state.getStatus())) {
             finishGame(state);
             return;
@@ -282,6 +288,16 @@ public class SpojniceFragment extends Fragment {
             timer.cancel();
             timer = null;
         }
+    }
+
+    private void navigateToStepByStep() {
+        if (navigatedToStepByStep || getView() == null) {
+            return;
+        }
+        navigatedToStepByStep = true;
+        Bundle args = new Bundle();
+        args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
+        Navigation.findNavController(requireView()).navigate(R.id.stepByStepFragment, args);
     }
 
     @Override
