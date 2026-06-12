@@ -91,7 +91,7 @@ public class ProfileFragment extends Fragment {
         usernameText.setText(user.getUsername());
         emailText.setText(user.getEmail());
         regionText.setText(user.getRegion());
-        AvatarImageLoader.load(avatarImage, user.getAvatarUrl());
+        AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }
 
     private void uploadAvatar(Uri imageUri) {

@@ -27,7 +27,6 @@ recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
-firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

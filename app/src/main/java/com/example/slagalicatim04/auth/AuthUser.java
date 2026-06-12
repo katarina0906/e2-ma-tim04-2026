@@ -10,7 +10,7 @@ public class AuthUser {
     private final String passwordSalt;
     private final boolean emailVerified;
     private final String verificationToken;
-    private final String avatarUrl;
+    private final String avatarData;
 
     public AuthUser(String id, String email, String username, String region, String passwordHash,
                     String passwordSalt, boolean emailVerified, String verificationToken) {
@@ -20,7 +20,7 @@ public class AuthUser {
 
     public AuthUser(String id, String email, String username, String region, String passwordHash,
                     String passwordSalt, boolean emailVerified, String verificationToken,
-                    String avatarUrl) {
+                    String avatarData) {
         this.id = id;
         this.email = email;
         this.username = username;
@@ -29,7 +29,7 @@ public class AuthUser {
         this.passwordSalt = passwordSalt;
         this.emailVerified = emailVerified;
         this.verificationToken = verificationToken;
-        this.avatarUrl = avatarUrl;
+        this.avatarData = avatarData;
     }
 
     public String getId() {
@@ -64,22 +64,22 @@ public class AuthUser {
         return verificationToken;
     }
 
-    public String getAvatarUrl() {
-        return avatarUrl;
+    public String getAvatarData() {
+        return avatarData;
     }
 
     public AuthUser verified() {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, true, "",
-                avatarUrl);
+                avatarData);
     }
 
     public AuthUser withPassword(String passwordHash, String passwordSalt) {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified,
-                verificationToken, avatarUrl);
+                verificationToken, avatarData);
     }
 
     public AuthUser withVerificationToken(String verificationToken) {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified,
-                verificationToken, avatarUrl);
+                verificationToken, avatarData);
     }
 }

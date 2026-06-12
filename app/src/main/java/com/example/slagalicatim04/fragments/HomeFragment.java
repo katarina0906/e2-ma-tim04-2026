@@ -72,6 +72,6 @@ public class HomeFragment extends Fragment {
     private void showProfile(AuthUser user) {
         usernameText.setText(user.getUsername());
         regionText.setText(user.getRegion());
-        AvatarImageLoader.load(avatarImage, user.getAvatarUrl());
+        AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }
 }
