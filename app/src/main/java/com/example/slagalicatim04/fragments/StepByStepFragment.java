@@ -15,6 +15,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
@@ -46,8 +48,10 @@ public class StepByStepFragment extends Fragment {
     private ListenerRegistration listenerRegistration;
     private StepByStepPlayerSession playerSession;
     private StepByStepMatchState currentState;
+    private String roomId = StepByStepMatchRepository.DEFAULT_MATCH_ID;
     private long lastClockTickAt;
     private String lastRenderedPhase = "";
+    private boolean navigatedToMyNumber;
 
     private ScrollView scrollView;
     private TextView roundLabelText;
@@ -77,7 +81,6 @@ public class StepByStepFragment extends Fragment {
 
         bindViews(view);
         playerSession = resolveCurrentUser();
-        String roomId = StepByStepMatchRepository.DEFAULT_MATCH_ID;
         if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
             roomId = getArguments().getString("roomId");
         }
@@ -203,6 +206,11 @@ public class StepByStepFragment extends Fragment {
     private void renderCurrentState() {
         uiHandler.removeCallbacks(ticker);
         if (currentState == null || !isAdded()) {
+            return;
+        }
+
+        if (currentState.effectivePhase().startsWith("myNumber")) {
+            navigateToMyNumber();
             return;
         }
 
@@ -424,5 +432,16 @@ public class StepByStepFragment extends Fragment {
 
     private void scrollToTop() {
         scrollView.post(() -> scrollView.smoothScrollTo(0, 0));
+    }
+
+    private void navigateToMyNumber() {
+        if (navigatedToMyNumber || getView() == null) {
+            return;
+        }
+        navigatedToMyNumber = true;
+        Bundle args = new Bundle();
+        args.putString("roomId", roomId);
+        NavController navController = Navigation.findNavController(requireView());
+        navController.navigate(R.id.myNumberFragment, args);
     }
 }
