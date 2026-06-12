@@ -140,9 +140,8 @@
 
             <TextView
                 android:id="@+id/currentStepValue"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:background="#F6F2FF"
                 android:gravity="center"
                 android:padding="8dp"
@@ -156,6 +155,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
+                android:visibility="gone"
                 android:background="#FDF4E7"
                 android:gravity="center"
                 android:padding="8dp"
@@ -365,54 +365,6 @@
                     android:text="Otvori sledeci korak"
                     android:textAllCaps="false"
                     android:textColor="#6F4BB2" />
-
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="22dp"
-            app:cardElevation="6dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="#FFFFFF"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Bodovanje"
-                    android:textColor="#1E1E2F"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="1. korak: 20 bodova"
-                    android:textColor="#1E1E2F"
-                    android:textSize="15sp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Svaki sledeci korak: -2 boda"
-                    android:textColor="#1E1E2F"
-                    android:textSize="15sp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Ako igrac ne pogodi, protivnik dobija sansu za 5 bodova"
-                    android:textColor="#1E1E2F"
-                    android:textSize="15sp" />
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>

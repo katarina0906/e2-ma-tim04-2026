@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -39,9 +40,9 @@ public class StepByStepFragment extends Fragment {
     private final Runnable ticker = this::renderCurrentState;
     private final StepByStepRoundRepository roundRepository = new StepByStepRoundRepository();
     private final StepByStepGameService gameService = new StepByStepGameService();
-    private final StepByStepMatchRepository matchRepository = new StepByStepMatchRepository(gameService);
     private final List<StepByStepRound> rounds = new ArrayList<>();
 
+    private StepByStepMatchRepository matchRepository;
     private ListenerRegistration listenerRegistration;
     private StepByStepPlayerSession playerSession;
     private StepByStepMatchState currentState;
@@ -73,6 +74,11 @@ public class StepByStepFragment extends Fragment {
 
         bindViews(view);
         playerSession = resolveCurrentUser();
+        String roomId = StepByStepMatchRepository.DEFAULT_MATCH_ID;
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
+        matchRepository = new StepByStepMatchRepository(gameService, roomId);
 
         resultBanner.setVisibility(View.GONE);
         newGameButton.setVisibility(View.GONE);
@@ -104,6 +110,7 @@ public class StepByStepFragment extends Fragment {
         timerValue = view.findViewById(R.id.timerValue);
         currentStepValue = view.findViewById(R.id.currentStepValue);
         currentPointsValue = view.findViewById(R.id.currentPointsValue);
+        currentPointsValue.setVisibility(View.GONE);
         player1ScoreText = view.findViewById(R.id.player1ScoreText);
         player2ScoreText = view.findViewById(R.id.player2ScoreText);
         resultBanner = view.findViewById(R.id.stepByStepResultBanner);
@@ -141,7 +148,7 @@ public class StepByStepFragment extends Fragment {
     }
 
     private void joinAndListen() {
-        matchRepository.joinMatch(playerSession, this::listenToMatch, this::showError);
+        matchRepository.ensureParticipant(playerSession, this::listenToMatch, this::showError);
     }
 
     private void listenToMatch() {
@@ -204,6 +211,7 @@ public class StepByStepFragment extends Fragment {
         }
 
         int myPlayer = currentState.playerNumber(playerSession.getId());
+        publishSharedClock(myPlayer);
         int openedSteps = gameService.openedSteps(currentState);
         int secondsLeft = gameService.secondsLeft(currentState);
         boolean waitingForServerTime = gameService.waitingForServerTime(currentState);
@@ -213,9 +221,9 @@ public class StepByStepFragment extends Fragment {
         roundLabelText.setText("Runda " + currentState.getRound() + " / 2");
         timerValue.setText(timerText(currentState, phase, waitingForServerTime, secondsLeft));
         currentStepValue.setText(openedSteps + " / 7");
-        currentPointsValue.setText(pointsText(phase, waitingForServerTime, openedSteps));
         player1ScoreText.setText("Igrac 1: " + currentState.getPlayer1Score());
         player2ScoreText.setText("Igrac 2: " + currentState.getPlayer2Score());
+        updatePlayerScoreStyle(myPlayer);
         statusText.setText(waitingForServerTime
                 ? "Sinhronizuje se pocetak runde..."
                 : gameService.statusText(currentState, myPlayer));
@@ -245,6 +253,24 @@ public class StepByStepFragment extends Fragment {
             return "--";
         }
         return gameService.pointsForStep(openedSteps) + " bodova";
+    }
+
+    private void publishSharedClock(int myPlayer) {
+        if (currentState.isFinished()
+                || gameService.waitingForServerTime(currentState)
+                || !gameService.isMyTurn(currentState, myPlayer)) {
+            return;
+        }
+        int visibleSteps = gameService.computedOpenedSteps(currentState);
+        int secondsLeft = gameService.computedSecondsLeft(currentState);
+        matchRepository.publishClockDisplay(playerSession, currentState, visibleSteps, secondsLeft);
+    }
+
+    private void updatePlayerScoreStyle(int myPlayer) {
+        player1ScoreText.setTypeface(null, myPlayer == 1 ? Typeface.BOLD : Typeface.NORMAL);
+        player2ScoreText.setTypeface(null, myPlayer == 2 ? Typeface.BOLD : Typeface.NORMAL);
+        player1ScoreText.setBackgroundColor(myPlayer == 1 ? 0xFFEFEAF8 : 0xFFF5F5F5);
+        player2ScoreText.setBackgroundColor(myPlayer == 2 ? 0xFFEFEAF8 : 0xFFF5F5F5);
     }
 
     private void updateStepCards(StepByStepRound roundData, int openedSteps) {

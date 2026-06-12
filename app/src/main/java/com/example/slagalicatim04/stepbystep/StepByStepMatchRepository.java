@@ -19,15 +19,19 @@ public class StepByStepMatchRepository {
     }
 
     private static final String COLLECTION = "stepByStepMatches";
-    private static final String MATCH_ID = "demo-step-by-step";
+    public static final String DEFAULT_MATCH_ID = "step-by-step-test-room";
 
     private final FirebaseFirestore firestore;
     private final DocumentReference matchRef;
     private final StepByStepGameService gameService;
 
     public StepByStepMatchRepository(StepByStepGameService gameService) {
+        this(gameService, DEFAULT_MATCH_ID);
+    }
+
+    public StepByStepMatchRepository(StepByStepGameService gameService, String matchId) {
         this.firestore = FirebaseFirestore.getInstance();
-        this.matchRef = firestore.collection(COLLECTION).document(MATCH_ID);
+        this.matchRef = firestore.collection(COLLECTION).document(matchId);
         this.gameService = gameService;
     }
 
@@ -54,7 +58,7 @@ public class StepByStepMatchRepository {
                 updates.put("player2Id", player.getId());
                 updates.put("player2Name", player.getName());
                 updates.put("phase", StepByStepMatchState.PHASE_PLAYING);
-                updates.put("roundStartedAt", FieldValue.serverTimestamp());
+                updates.put("roundStartedAt", System.currentTimeMillis());
                 updates.put("statusMessage", "Igrac 2 se pridruzio. Runda 1 je na igracu 1.");
             }
 
@@ -77,6 +81,18 @@ public class StepByStepMatchRepository {
             }
             listener.onStateChanged(new StepByStepMatchState(snapshot));
         });
+    }
+
+    public void ensureParticipant(StepByStepPlayerSession player, Runnable onSuccess, ErrorCallback onError) {
+        matchRef.get()
+                .addOnSuccessListener(snapshot -> {
+                    if (snapshot.exists() && new StepByStepMatchState(snapshot).isParticipant(player.getId())) {
+                        onSuccess.run();
+                    } else {
+                        joinMatch(player, onSuccess, onError);
+                    }
+                })
+                .addOnFailureListener(onError::onError);
     }
 
     public void submitAnswer(StepByStepPlayerSession player, StepByStepRound roundData,
@@ -140,6 +156,21 @@ public class StepByStepMatchRepository {
         }
     }
 
+    public void publishClockDisplay(StepByStepPlayerSession player, StepByStepMatchState state,
+                                    int visibleStepCount, int secondsLeft) {
+        if (!isClockOwner(player, state) || state.isFinished()) {
+            return;
+        }
+        if (state.getVisibleStepCount() == visibleStepCount && state.getSecondsLeft() == secondsLeft) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("visibleStepCount", visibleStepCount);
+        updates.put("secondsLeft", secondsLeft);
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        matchRef.set(updates, SetOptions.merge());
+    }
+
     public void resetMatch(StepByStepPlayerSession player) {
         matchRef.set(newMatchState(player));
     }
@@ -165,12 +196,16 @@ public class StepByStepMatchRepository {
         state.put("player2Name", "");
         state.put("player1Score", 0L);
         state.put("player2Score", 0L);
+        state.put("player1Ready", false);
+        state.put("player2Ready", false);
         state.put("round", 1L);
         state.put("phase", StepByStepMatchState.PHASE_WAITING);
         state.put("activePlayer", 1L);
         state.put("stealPlayer", 0L);
         state.put("roundStartedAt", 0L);
         state.put("stealStartedAt", 0L);
+        state.put("visibleStepCount", 0L);
+        state.put("secondsLeft", 0L);
         state.put("finished", false);
         state.put("statusMessage", "Ceka se igrac 2. Runda 1 je na igracu 1.");
         state.put("updatedAt", FieldValue.serverTimestamp());
@@ -196,7 +231,9 @@ public class StepByStepMatchRepository {
         int opponent = activePlayer == 1 ? 2 : 1;
         updates.put("phase", StepByStepMatchState.PHASE_STEAL);
         updates.put("stealPlayer", opponent);
-        updates.put("stealStartedAt", FieldValue.serverTimestamp());
+        updates.put("stealStartedAt", System.currentTimeMillis());
+        updates.put("visibleStepCount", 7L);
+        updates.put("secondsLeft", StepByStepGameService.STEAL_DURATION_MS / 1000);
         updates.put("statusMessage", "Igrac " + activePlayer + " nije pogodio. Igrac "
                 + opponent + " ima 10 sekundi za 5 bodova.");
         updates.put("updatedAt", FieldValue.serverTimestamp());
@@ -208,14 +245,19 @@ public class StepByStepMatchRepository {
             updates.put("phase", StepByStepMatchState.PHASE_FINISHED);
             updates.put("activePlayer", 0);
             updates.put("stealPlayer", 0);
+            updates.put("visibleStepCount", 7L);
+            updates.put("secondsLeft", 0L);
             return;
         }
         updates.put("round", currentRound + 1);
         updates.put("phase", StepByStepMatchState.PHASE_PLAYING);
         updates.put("activePlayer", 2);
         updates.put("stealPlayer", 0);
-        updates.put("roundStartedAt", FieldValue.serverTimestamp());
+        updates.put("roundStartedAt", System.currentTimeMillis());
         updates.put("stealStartedAt", 0L);
+        updates.put("visibleStepCount", 1L);
+        updates.put("secondsLeft", StepByStepGameService.ROUND_DURATION_MS / 1000);
+        updates.put("statusMessage", "Runda 2 je pocela. Na potezu je igrac 2.");
     }
 
     private void addScore(StepByStepMatchState state, Map<String, Object> updates,
@@ -223,5 +265,17 @@ public class StepByStepMatchRepository {
         String key = player == 1 ? "player1Score" : "player2Score";
         long current = player == 1 ? state.getPlayer1Score() : state.getPlayer2Score();
         updates.put(key, current + points);
+    }
+
+    private boolean isClockOwner(StepByStepPlayerSession player, StepByStepMatchState state) {
+        int myPlayer = state.playerNumber(player.getId());
+        String phase = state.effectivePhase();
+        if (StepByStepMatchState.PHASE_PLAYING.equals(phase)) {
+            return myPlayer == state.getActivePlayer();
+        }
+        if (StepByStepMatchState.PHASE_STEAL.equals(phase)) {
+            return myPlayer == state.getStealPlayer();
+        }
+        return false;
     }
 }

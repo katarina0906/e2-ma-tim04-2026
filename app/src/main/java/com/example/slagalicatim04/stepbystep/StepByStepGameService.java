@@ -8,6 +8,13 @@ public class StepByStepGameService {
     public static final int STEAL_DURATION_MS = 10_000;
 
     public int openedSteps(StepByStepMatchState state) {
+        if (state.getVisibleStepCount() > 0) {
+            return state.getVisibleStepCount();
+        }
+        return computedOpenedSteps(state);
+    }
+
+    public int computedOpenedSteps(StepByStepMatchState state) {
         String phase = state.effectivePhase();
         long roundStartedAt = state.getRoundStartedAt();
         if (StepByStepMatchState.PHASE_WAITING.equals(phase) || roundStartedAt <= 0) {
@@ -22,6 +29,13 @@ public class StepByStepGameService {
     }
 
     public int secondsLeft(StepByStepMatchState state) {
+        if (state.getVisibleStepCount() > 0 || state.isFinished()) {
+            return state.getSecondsLeft();
+        }
+        return computedSecondsLeft(state);
+    }
+
+    public int computedSecondsLeft(StepByStepMatchState state) {
         String phase = state.effectivePhase();
         long now = System.currentTimeMillis();
         if (StepByStepMatchState.PHASE_WAITING.equals(phase) || state.getRoundStartedAt() <= 0) {
@@ -59,15 +73,19 @@ public class StepByStepGameService {
     }
 
     public boolean shouldStartSteal(StepByStepMatchState state) {
+        long elapsed = System.currentTimeMillis() - state.getRoundStartedAt();
         return StepByStepMatchState.PHASE_PLAYING.equals(state.effectivePhase())
                 && state.getRoundStartedAt() > 0
-                && System.currentTimeMillis() - state.getRoundStartedAt() >= ROUND_DURATION_MS;
+                && elapsed >= ROUND_DURATION_MS
+                && elapsed < ROUND_DURATION_MS + 20_000;
     }
 
     public boolean shouldFinishSteal(StepByStepMatchState state) {
+        long elapsed = System.currentTimeMillis() - state.getStealStartedAt();
         return StepByStepMatchState.PHASE_STEAL.equals(state.effectivePhase())
                 && state.getStealStartedAt() > 0
-                && System.currentTimeMillis() - state.getStealStartedAt() >= STEAL_DURATION_MS;
+                && elapsed >= STEAL_DURATION_MS
+                && elapsed < STEAL_DURATION_MS + 20_000;
     }
 
     public String statusText(StepByStepMatchState state, int myPlayer) {
