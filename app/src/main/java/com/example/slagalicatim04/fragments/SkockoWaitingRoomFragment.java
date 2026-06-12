@@ -1,7 +1,6 @@
 package com.example.slagalicatim04.fragments;
 
 import android.os.Bundle;
-import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +15,7 @@ import androidx.navigation.Navigation;
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.skocko.SkockoMatchRepository;
 import com.example.slagalicatim04.skocko.SkockoMatchState;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
@@ -124,29 +124,18 @@ public class SkockoWaitingRoomFragment extends Fragment {
     private StepByStepPlayerSession resolveCurrentUser() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        String userId;
+        String userId = new TestRoomPlayerProvider(requireContext()).getPlayerId();
         String userName;
         if (authUser != null) {
-            userId = authUser.getId();
             userName = authUser.getUsername().isEmpty()
                     ? authUser.getEmail() : authUser.getUsername();
         } else if (firebaseUser != null) {
-            userId = firebaseUser.getUid();
             userName = firebaseUser.getEmail() == null
                     ? firebaseUser.getUid() : firebaseUser.getEmail();
         } else {
-            userId = "guest";
             userName = "Gost";
         }
-        return new StepByStepPlayerSession(userId + "-" + deviceId(), userName);
-    }
-
-    private String deviceId() {
-        String id = Settings.Secure.getString(
-                requireContext().getContentResolver(),
-                Settings.Secure.ANDROID_ID
-        );
-        return isEmpty(id) ? String.valueOf(System.currentTimeMillis()) : id;
+        return new StepByStepPlayerSession(userId, userName);
     }
 
     private String playerLabel(String name, boolean ready) {

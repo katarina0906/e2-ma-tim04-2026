@@ -24,13 +24,16 @@ public class SkockoMatchState {
     private final long player2Score;
     private final int round;
     private final String phase;
+    private final String phaseToken;
     private final int activePlayer;
     private final long phaseStartedAt;
+    private final long phaseDeadlineAt;
     private final List<Integer> secret;
     private final List<List<Integer>> guesses;
     private final List<List<Integer>> feedback;
     private final boolean finished;
     private final String statusMessage;
+    private final String currentGame;
 
     public SkockoMatchState(DocumentSnapshot snapshot) {
         player1Id = stringValue(snapshot, "player1Id");
@@ -43,8 +46,10 @@ public class SkockoMatchState {
         player2Score = longValue(snapshot, "player2Score", 0);
         round = (int) longValue(snapshot, "round", 1);
         phase = stringValue(snapshot, "phase", PHASE_WAITING);
+        phaseToken = stringValue(snapshot, "phaseToken");
         activePlayer = (int) longValue(snapshot, "activePlayer", 1);
         phaseStartedAt = timeMillis(snapshot, "phaseStartedAt");
+        phaseDeadlineAt = timeMillis(snapshot, "phaseDeadlineAt");
         secret = intList(snapshot.get("secret"));
         List<List<Integer>> parsedGuesses = new ArrayList<>();
         List<List<Integer>> parsedFeedback = new ArrayList<>();
@@ -53,6 +58,7 @@ public class SkockoMatchState {
         feedback = Collections.unmodifiableList(parsedFeedback);
         finished = Boolean.TRUE.equals(snapshot.getBoolean("finished"));
         statusMessage = stringValue(snapshot, "statusMessage");
+        currentGame = stringValue(snapshot, "currentGame");
     }
 
     public String getPlayer1Id() {
@@ -99,12 +105,20 @@ public class SkockoMatchState {
         return phase;
     }
 
+    public String getPhaseToken() {
+        return phaseToken;
+    }
+
     public int getActivePlayer() {
         return activePlayer;
     }
 
     public long getPhaseStartedAt() {
         return phaseStartedAt;
+    }
+
+    public long getPhaseDeadlineAt() {
+        return phaseDeadlineAt;
     }
 
     public List<Integer> getSecret() {
@@ -125,6 +139,10 @@ public class SkockoMatchState {
 
     public String getStatusMessage() {
         return statusMessage;
+    }
+
+    public String getCurrentGame() {
+        return currentGame;
     }
 
     public boolean hasSecondPlayer() {
@@ -150,6 +168,10 @@ public class SkockoMatchState {
     }
 
     public int secondsLeft(long durationMs) {
+        if (phaseDeadlineAt > 0) {
+            long remaining = phaseDeadlineAt - System.currentTimeMillis();
+            return (int) Math.max(0, (remaining + 999) / 1000);
+        }
         if (phaseStartedAt <= 0) {
             return 0;
         }

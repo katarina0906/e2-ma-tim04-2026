@@ -1,6 +1,8 @@
 package com.example.slagalicatim04.skocko;
 
 import com.example.slagalicatim04.services.SkockoGameService;
+import com.example.slagalicatim04.stepbystep.StepByStepGameService;
+import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -17,7 +19,7 @@ import java.util.Map;
 import java.util.Random;
 
 public class SkockoMatchRepository {
-    public static final String DEFAULT_MATCH_ID = "skocko-test-room";
+    public static final String DEFAULT_MATCH_ID = StepByStepMatchRepository.DEFAULT_MATCH_ID;
     public static final long ROUND_DURATION_MS = 30_000L;
     public static final long STEAL_DURATION_MS = 10_000L;
 
@@ -36,7 +38,7 @@ public class SkockoMatchRepository {
 
     public SkockoMatchRepository(String roomId) {
         matchRef = FirebaseFirestore.getInstance()
-                .collection("skockoMatches")
+                .collection("stepByStepMatches")
                 .document(roomId);
     }
 
@@ -102,6 +104,7 @@ public class SkockoMatchRepository {
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
             if (otherReady) {
                 applyRoundStart(updates, 1);
+                updates.put("currentGame", "skocko");
                 updates.put("player1Score", 0L);
                 updates.put("player2Score", 0L);
                 updates.put("finished", false);
@@ -120,25 +123,13 @@ public class SkockoMatchRepository {
             }
             SkockoMatchState state = new SkockoMatchState(snapshot);
             int myPlayer = state.playerNumber(player.getId());
-            if (myPlayer == 0 || myPlayer != state.getActivePlayer() || state.isFinished()) {
+            if (!"skocko".equals(state.getCurrentGame())
+                    || myPlayer == 0
+                    || myPlayer != state.getActivePlayer()
+                    || state.isFinished()) {
                 return null;
             }
             if (guess == null || guess.length != SkockoGameService.CODE_LENGTH) {
-                return null;
-            }
-
-            long duration = SkockoMatchState.PHASE_STEAL.equals(state.getPhase())
-                    ? STEAL_DURATION_MS : ROUND_DURATION_MS;
-            if (state.getPhaseStartedAt() > 0 && state.secondsLeft(duration) <= 0) {
-                Map<String, Object> timeoutUpdates = new HashMap<>();
-                if (SkockoMatchState.PHASE_ROUND.equals(state.getPhase())) {
-                    applyStealStart(timeoutUpdates, state.roundStarter());
-                } else if (SkockoMatchState.PHASE_STEAL.equals(state.getPhase())) {
-                    finishOrStartNextRound(
-                            timeoutUpdates, state, "Ukradeni pokusaj je istekao.");
-                }
-                timeoutUpdates.put("updatedAt", FieldValue.serverTimestamp());
-                transaction.set(matchRef, timeoutUpdates, SetOptions.merge());
                 return null;
             }
 
@@ -183,14 +174,15 @@ public class SkockoMatchRepository {
         }).addOnFailureListener(onError::onError);
     }
 
-    public void expireIfNeeded(StepByStepPlayerSession player, SkockoMatchState state) {
+    public void expirePhase(StepByStepPlayerSession player, SkockoMatchState state) {
         int myPlayer = state.playerNumber(player.getId());
-        if (myPlayer == 0 || myPlayer != state.getActivePlayer() || state.getPhaseStartedAt() == 0) {
-            return;
-        }
-        long duration = SkockoMatchState.PHASE_STEAL.equals(state.getPhase())
-                ? STEAL_DURATION_MS : ROUND_DURATION_MS;
-        if (state.secondsLeft(duration) > 0) {
+        String expectedPhaseToken = state.getPhaseToken();
+        if (!"skocko".equals(state.getCurrentGame())
+                || myPlayer == 0
+                || myPlayer != state.getActivePlayer()
+                || expectedPhaseToken.isEmpty()
+                || (!SkockoMatchState.PHASE_ROUND.equals(state.getPhase())
+                && !SkockoMatchState.PHASE_STEAL.equals(state.getPhase()))) {
             return;
         }
         matchRef.getFirestore().runTransaction((Transaction.Function<Void>) transaction -> {
@@ -201,7 +193,8 @@ public class SkockoMatchRepository {
             SkockoMatchState fresh = new SkockoMatchState(freshSnapshot);
             if (fresh.getActivePlayer() != myPlayer
                     || !fresh.getPhase().equals(state.getPhase())
-                    || fresh.getPhaseStartedAt() != state.getPhaseStartedAt()) {
+                    || fresh.getRound() != state.getRound()
+                    || !fresh.getPhaseToken().equals(expectedPhaseToken)) {
                 return null;
             }
             Map<String, Object> updates = new HashMap<>();
@@ -223,11 +216,9 @@ public class SkockoMatchRepository {
     private void finishOrStartNextRound(Map<String, Object> updates, SkockoMatchState state,
                                         String message) {
         if (state.getRound() >= 2) {
-            updates.put("phase", SkockoMatchState.PHASE_FINISHED);
-            updates.put("finished", true);
-            updates.put("activePlayer", 0L);
-            updates.put("phaseStartedAt", 0L);
-            updates.put("statusMessage", message + " Igra je zavrsena.");
+            applyStepByStepStart(updates);
+            updates.put("statusMessage", message
+                    + " Skočko je završen. Pokrece se Korak po korak.");
         } else {
             applyRoundStart(updates, 2);
             updates.put("statusMessage", message + " Pocinje runda 2, igra igrac 2.");
@@ -237,17 +228,22 @@ public class SkockoMatchRepository {
     private void applyStealStart(Map<String, Object> updates, int roundStarter) {
         int stealer = roundStarter == 1 ? 2 : 1;
         updates.put("phase", SkockoMatchState.PHASE_STEAL);
+        updates.put("phaseToken", newPhaseToken());
         updates.put("activePlayer", (long) stealer);
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
+        updates.put("phaseDeadlineAt", System.currentTimeMillis() + STEAL_DURATION_MS);
         updates.put("statusMessage", "Igrac " + stealer
                 + " ima jedan ukradeni pokusaj i 10 sekundi.");
     }
 
     private void applyRoundStart(Map<String, Object> updates, int round) {
+        updates.put("currentGame", "skocko");
         updates.put("round", (long) round);
         updates.put("phase", SkockoMatchState.PHASE_ROUND);
+        updates.put("phaseToken", newPhaseToken());
         updates.put("activePlayer", (long) round);
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
+        updates.put("phaseDeadlineAt", System.currentTimeMillis() + ROUND_DURATION_MS);
         updates.put("secret", randomSecret());
         updates.put("attempts", new ArrayList<>());
         updates.put("statusMessage", "Runda " + round + " je na igracu " + round + ".");
@@ -263,16 +259,36 @@ public class SkockoMatchRepository {
         state.put("player2Ready", false);
         state.put("player1Score", 0L);
         state.put("player2Score", 0L);
+        state.put("currentGame", "waiting");
         state.put("round", 1L);
         state.put("phase", SkockoMatchState.PHASE_WAITING);
+        state.put("phaseToken", "");
         state.put("activePlayer", 1L);
         state.put("phaseStartedAt", 0L);
+        state.put("phaseDeadlineAt", 0L);
         state.put("secret", new ArrayList<>());
         state.put("attempts", new ArrayList<>());
         state.put("finished", false);
         state.put("statusMessage", "Ceka se igrac 2.");
         state.put("updatedAt", FieldValue.serverTimestamp());
         return state;
+    }
+
+    private void applyStepByStepStart(Map<String, Object> updates) {
+        updates.put("currentGame", "stepByStep");
+        updates.put("phase", "round1");
+        updates.put("phaseToken", "");
+        updates.put("round", 1L);
+        updates.put("activePlayer", 1L);
+        updates.put("stealPlayer", 0L);
+        updates.put("roundStartedAt", FieldValue.serverTimestamp());
+        updates.put("stealStartedAt", 0L);
+        updates.put("visibleStepCount", 1L);
+        updates.put("secondsLeft", StepByStepGameService.ROUND_DURATION_MS / 1000);
+        updates.put("stepByStepFinished", false);
+        updates.put("finished", false);
+        updates.put("phaseStartedAt", 0L);
+        updates.put("phaseDeadlineAt", 0L);
     }
 
     private boolean needsFreshRoom(SkockoMatchState state, String playerId) {
@@ -295,6 +311,10 @@ public class SkockoMatchRepository {
             result.add(random.nextInt(SkockoGameService.SYMBOL_COUNT));
         }
         return result;
+    }
+
+    private String newPhaseToken() {
+        return System.currentTimeMillis() + "-" + random.nextLong();
     }
 
     private static int[] toArray(List<Integer> values) {

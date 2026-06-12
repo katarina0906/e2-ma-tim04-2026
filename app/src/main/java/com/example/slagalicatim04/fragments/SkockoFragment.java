@@ -4,7 +4,7 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,10 +18,12 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.skocko.SkockoMatchRepository;
 import com.example.slagalicatim04.skocko.SkockoMatchState;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
@@ -72,6 +74,11 @@ public class SkockoFragment extends Fragment {
     private String roomId = SkockoMatchRepository.DEFAULT_MATCH_ID;
     private int lastRenderedRound = -1;
     private String lastRenderedPhase = "";
+    private String lastPhaseToken = "";
+    private int lastActivePlayer = -1;
+    private long localPhaseStartedAt;
+    private boolean phaseExpirySent;
+    private boolean navigatedToStepByStep;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -204,13 +211,23 @@ public class SkockoFragment extends Fragment {
         if (currentState == null || !isAdded()) {
             return;
         }
+        if ("stepByStep".equals(currentState.getCurrentGame())) {
+            navigateToStepByStep();
+            return;
+        }
 
         int myPlayer = currentState.playerNumber(playerSession.getId());
         boolean phaseChanged = currentState.getRound() != lastRenderedRound
-                || !currentState.getPhase().equals(lastRenderedPhase);
+                || !currentState.getPhase().equals(lastRenderedPhase)
+                || currentState.getActivePlayer() != lastActivePlayer
+                || !currentState.getPhaseToken().equals(lastPhaseToken);
         if (phaseChanged) {
             lastRenderedRound = currentState.getRound();
             lastRenderedPhase = currentState.getPhase();
+            lastPhaseToken = currentState.getPhaseToken();
+            lastActivePlayer = currentState.getActivePlayer();
+            localPhaseStartedAt = SystemClock.elapsedRealtime();
+            phaseExpirySent = false;
             clearDraft();
         }
 
@@ -223,9 +240,9 @@ public class SkockoFragment extends Fragment {
 
         boolean steal = SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase());
         stealCard.setVisibility(steal ? View.VISIBLE : View.GONE);
-        int secondsLeft = currentState.secondsLeft(
-                steal ? SkockoMatchRepository.STEAL_DURATION_MS
-                        : SkockoMatchRepository.ROUND_DURATION_MS);
+        long duration = steal ? SkockoMatchRepository.STEAL_DURATION_MS
+                : SkockoMatchRepository.ROUND_DURATION_MS;
+        int secondsLeft = localSecondsLeft(duration);
         if (steal || SkockoMatchState.PHASE_ROUND.equals(currentState.getPhase())) {
             timerText.setText(getString(R.string.sk_timer_fmt, 0, secondsLeft));
         } else {
@@ -249,7 +266,11 @@ public class SkockoFragment extends Fragment {
             resultText.setText(currentState.getStatusMessage());
         }
 
-        repository.expireIfNeeded(playerSession, currentState);
+        if (secondsLeft <= 0 && myTurn && !phaseExpirySent) {
+            phaseExpirySent = true;
+            setInputsEnabled(false);
+            repository.expirePhase(playerSession, currentState);
+        }
         if (!currentState.isFinished()
                 && !SkockoMatchState.PHASE_WAITING.equals(currentState.getPhase())) {
             uiHandler.postDelayed(ticker, 500);
@@ -258,9 +279,6 @@ public class SkockoFragment extends Fragment {
 
     private void renderHistory() {
         clearHistory();
-        if (SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase())) {
-            return;
-        }
         List<List<Integer>> guesses = currentState.getGuesses();
         List<List<Integer>> feedback = currentState.getFeedback();
         int rows = Math.min(MAX_ATTEMPTS, guesses.size());
@@ -383,29 +401,36 @@ public class SkockoFragment extends Fragment {
     private StepByStepPlayerSession resolveCurrentUser() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        String userId;
+        String userId = new TestRoomPlayerProvider(requireContext()).getPlayerId();
         String userName;
         if (authUser != null) {
-            userId = authUser.getId();
             userName = authUser.getUsername().isEmpty()
                     ? authUser.getEmail() : authUser.getUsername();
         } else if (firebaseUser != null) {
-            userId = firebaseUser.getUid();
             userName = firebaseUser.getEmail() == null
                     ? firebaseUser.getUid() : firebaseUser.getEmail();
         } else {
-            userId = "guest";
             userName = "Gost";
         }
-        return new StepByStepPlayerSession(userId + "-" + deviceId(), userName);
+        return new StepByStepPlayerSession(userId, userName);
     }
 
-    private String deviceId() {
-        String id = Settings.Secure.getString(
-                requireContext().getContentResolver(),
-                Settings.Secure.ANDROID_ID
-        );
-        return isEmpty(id) ? String.valueOf(System.currentTimeMillis()) : id;
+    private int localSecondsLeft(long durationMs) {
+        if (localPhaseStartedAt <= 0) {
+            return (int) (durationMs / 1000);
+        }
+        long elapsed = SystemClock.elapsedRealtime() - localPhaseStartedAt;
+        return (int) Math.max(0, (durationMs - elapsed + 999) / 1000);
+    }
+
+    private void navigateToStepByStep() {
+        if (navigatedToStepByStep || getView() == null) {
+            return;
+        }
+        navigatedToStepByStep = true;
+        Bundle args = new Bundle();
+        args.putString("roomId", roomId);
+        Navigation.findNavController(requireView()).navigate(R.id.stepByStepFragment, args);
     }
 
     private void showError(Exception error) {
