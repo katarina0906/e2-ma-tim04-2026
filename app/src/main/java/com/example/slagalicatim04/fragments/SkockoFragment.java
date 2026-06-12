@@ -2,7 +2,9 @@ package com.example.slagalicatim04.fragments;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.os.CountDownTimer;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,24 +20,22 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.slagalicatim04.R;
-import com.example.slagalicatim04.repositories.FirebaseSkockoRepository;
-import com.example.slagalicatim04.repositories.SkockoRepository;
-import com.example.slagalicatim04.services.SkockoGameService;
+import com.example.slagalicatim04.auth.AuthService;
+import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.skocko.SkockoMatchRepository;
+import com.example.slagalicatim04.skocko.SkockoMatchState;
+import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.Arrays;
+import java.util.List;
 
-/**
- * Skočko: 2 runde. U svakoj rundi samo igrač koji je započeo rundu ima do 6 pokušaja u 30 s;
- * ako ne pogodi, protivnik dobija jedan ukradeni pokušaj (10 s, 10 bodova) na njegovu kombinaciju.
- * Znakovi: skocko, herc, krug, zvezda, kvadrat, trougao.
- */
 public class SkockoFragment extends Fragment {
-
     private static final int CODE_LEN = 4;
     private static final int NUM_SYMBOLS = 6;
     private static final int MAX_ATTEMPTS = 6;
-    private static final long TURN_MS = 30_000L;
-    private static final long STEAL_MS = 10_000L;
     private static final int SYMBOL_COLOR = 0xFF7E57C2;
 
     private static final String[] SYMBOLS = {
@@ -46,37 +46,32 @@ public class SkockoFragment extends Fragment {
             R.id.skPal0, R.id.skPal1, R.id.skPal2, R.id.skPal3, R.id.skPal4, R.id.skPal5,
     };
 
-    private TextView roundText;
-    private TextView statusText;
-    private TextView timerText;
-    private TextView stealTimerText;
-    private TextView score0;
-    private TextView score1;
-    private TextView resultText;
-    private LinearLayout skHistoryBlock;
-    private View stealCard;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final Runnable ticker = this::renderCurrentState;
+    private final int[] draft = {-1, -1, -1, -1};
     private final TextView[] draftSlots = new TextView[CODE_LEN];
-    private Button clearButton;
-    private Button submitButton;
-    private Button nextRoundButton;
-    private Button newGameButton;
-
     private final TextView[][] guessSlots = new TextView[MAX_ATTEMPTS][CODE_LEN];
     private final View[][] pegViews = new View[MAX_ATTEMPTS][CODE_LEN];
 
-    private final int[] draft = new int[]{-1, -1, -1, -1};
+    private TextView roundText;
+    private TextView statusText;
+    private TextView timerText;
+    private TextView score0;
+    private TextView score1;
+    private TextView resultText;
+    private LinearLayout historyBlock;
+    private View stealCard;
+    private Button clearButton;
+    private Button submitButton;
+    private Button nextRoundButton;
 
-    private boolean stealPhase;
-    private boolean stealAttemptDone;
-    private boolean gameOver;
-    private boolean resultSaved;
-
-    private CountDownTimer phaseTimer;
-    private SkockoGameService gameService;
-    private SkockoRepository repository;
-
-    public SkockoFragment() {
-    }
+    private SkockoMatchRepository repository;
+    private SkockoMatchState currentState;
+    private StepByStepPlayerSession playerSession;
+    private ListenerRegistration listenerRegistration;
+    private String roomId = SkockoMatchRepository.DEFAULT_MATCH_ID;
+    private int lastRenderedRound = -1;
+    private String lastRenderedPhase = "";
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -87,14 +82,57 @@ public class SkockoFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        bindViews(view);
+        buildHistoryRows();
+
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
+        playerSession = resolveCurrentUser();
+        repository = new SkockoMatchRepository(roomId);
+
+        for (int i = 0; i < NUM_SYMBOLS; i++) {
+            final int symbol = i;
+            view.findViewById(PALETTE_IDS[i]).setOnClickListener(v -> onPaletteTap(symbol));
+        }
+        clearButton.setOnClickListener(v -> clearDraft());
+        submitButton.setOnClickListener(v -> submitGuess());
+        nextRoundButton.setVisibility(View.GONE);
+
+        setInputsEnabled(false);
+        statusText.setText("Povezivanje sa Skočko test sobom...");
+        listenerRegistration = repository.listen(new SkockoMatchRepository.Listener() {
+            @Override
+            public void onStateChanged(SkockoMatchState state) {
+                currentState = state;
+                renderCurrentState();
+            }
+
+            @Override
+            public void onError(Exception error) {
+                showError(error);
+            }
+        });
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (listenerRegistration != null) {
+            listenerRegistration.remove();
+            listenerRegistration = null;
+        }
+        uiHandler.removeCallbacks(ticker);
+        super.onDestroyView();
+    }
+
+    private void bindViews(View view) {
         roundText = view.findViewById(R.id.skRoundText);
         statusText = view.findViewById(R.id.skStatusText);
         timerText = view.findViewById(R.id.skTimerText);
-        stealTimerText = view.findViewById(R.id.skStealTimer);
         score0 = view.findViewById(R.id.skScore0);
         score1 = view.findViewById(R.id.skScore1);
         resultText = view.findViewById(R.id.skResultText);
-        skHistoryBlock = view.findViewById(R.id.skHistoryBlock);
+        historyBlock = view.findViewById(R.id.skHistoryBlock);
         stealCard = view.findViewById(R.id.skStealCard);
         draftSlots[0] = view.findViewById(R.id.skDraft0);
         draftSlots[1] = view.findViewById(R.id.skDraft1);
@@ -103,139 +141,186 @@ public class SkockoFragment extends Fragment {
         clearButton = view.findViewById(R.id.skClearButton);
         submitButton = view.findViewById(R.id.skSubmitButton);
         nextRoundButton = view.findViewById(R.id.skNextRoundButton);
-        newGameButton = view.findViewById(R.id.skNewGameButton);
-        gameService = new SkockoGameService();
-        repository = new FirebaseSkockoRepository();
-
-        buildHistoryRows();
-        for (int i = 0; i < NUM_SYMBOLS; i++) {
-            final int sym = i;
-            view.findViewById(PALETTE_IDS[i]).setOnClickListener(v -> onPaletteTap(sym));
-        }
-        clearButton.setOnClickListener(v -> clearDraft());
-        submitButton.setOnClickListener(v -> onSubmit());
-        nextRoundButton.setOnClickListener(v -> {
-            gameService.startNextRound();
-            nextRoundButton.setVisibility(View.GONE);
-            startRound();
-        });
-        newGameButton.setOnClickListener(v -> startNewGame());
-
-        startNewGame();
     }
 
     private void buildHistoryRows() {
-        Context ctx = requireContext();
-        float d = ctx.getResources().getDisplayMetrics().density;
-        int m = Math.round(4 * d);
-        int slotH = Math.round(40 * d);
-        int pegS = Math.round(12 * d);
+        Context context = requireContext();
+        float density = context.getResources().getDisplayMetrics().density;
+        int margin = Math.round(4 * density);
+        int slotHeight = Math.round(40 * density);
+        int pegSize = Math.round(12 * density);
 
-        for (int r = 0; r < MAX_ATTEMPTS; r++) {
-            LinearLayout row = new LinearLayout(ctx);
+        for (int rowIndex = 0; rowIndex < MAX_ATTEMPTS; rowIndex++) {
+            LinearLayout row = new LinearLayout(context);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            rowLp.bottomMargin = m;
-            row.setLayoutParams(rowLp);
+            rowParams.bottomMargin = margin;
+            row.setLayoutParams(rowParams);
 
-            TextView num = new TextView(ctx);
-            num.setText(String.valueOf(r + 1));
-            num.setWidth(Math.round(26 * d));
-            num.setGravity(Gravity.CENTER);
-            num.setTextColor(0xFF888888);
-            row.addView(num);
+            TextView number = new TextView(context);
+            number.setText(String.valueOf(rowIndex + 1));
+            number.setWidth(Math.round(26 * density));
+            number.setGravity(Gravity.CENTER);
+            number.setTextColor(0xFF888888);
+            row.addView(number);
 
-            for (int c = 0; c < CODE_LEN; c++) {
-                TextView iv = new TextView(ctx);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, slotH, 1f);
-                lp.setMarginEnd(m / 2);
-                iv.setLayoutParams(lp);
-                iv.setBackgroundResource(R.drawable.skocko_slot_bg);
-                iv.setGravity(Gravity.CENTER);
-                iv.setTextColor(SYMBOL_COLOR);
-                iv.setTextSize(24);
-                row.addView(iv);
-                guessSlots[r][c] = iv;
+            for (int column = 0; column < CODE_LEN; column++) {
+                TextView slot = new TextView(context);
+                LinearLayout.LayoutParams params =
+                        new LinearLayout.LayoutParams(0, slotHeight, 1f);
+                params.setMarginEnd(margin / 2);
+                slot.setLayoutParams(params);
+                slot.setBackgroundResource(R.drawable.skocko_slot_bg);
+                slot.setGravity(Gravity.CENTER);
+                slot.setTextColor(SYMBOL_COLOR);
+                slot.setTextSize(24);
+                row.addView(slot);
+                guessSlots[rowIndex][column] = slot;
             }
 
-            GridLayout pegGrid = new GridLayout(ctx);
+            GridLayout pegGrid = new GridLayout(context);
             pegGrid.setColumnCount(2);
             pegGrid.setRowCount(2);
             for (int i = 0; i < CODE_LEN; i++) {
-                View peg = new View(ctx);
-                GridLayout.LayoutParams plp = new GridLayout.LayoutParams();
-                plp.width = pegS;
-                plp.height = pegS;
-                plp.setMargins(2, 2, 2, 2);
-                peg.setLayoutParams(plp);
+                View peg = new View(context);
+                GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+                params.width = pegSize;
+                params.height = pegSize;
+                params.setMargins(2, 2, 2, 2);
+                peg.setLayoutParams(params);
                 peg.setBackgroundResource(R.drawable.skocko_peg_empty);
                 pegGrid.addView(peg);
-                pegViews[r][i] = peg;
+                pegViews[rowIndex][i] = peg;
             }
             row.addView(pegGrid);
-            skHistoryBlock.addView(row);
+            historyBlock.addView(row);
         }
     }
 
-    private void startNewGame() {
-        cancelTimer();
-        gameService.startNewGame();
-        gameOver = false;
-        resultSaved = false;
-        newGameButton.setVisibility(View.GONE);
-        nextRoundButton.setVisibility(View.GONE);
-        updateScoreUi();
-        startRound();
+    private void renderCurrentState() {
+        uiHandler.removeCallbacks(ticker);
+        if (currentState == null || !isAdded()) {
+            return;
+        }
+
+        int myPlayer = currentState.playerNumber(playerSession.getId());
+        boolean phaseChanged = currentState.getRound() != lastRenderedRound
+                || !currentState.getPhase().equals(lastRenderedPhase);
+        if (phaseChanged) {
+            lastRenderedRound = currentState.getRound();
+            lastRenderedPhase = currentState.getPhase();
+            clearDraft();
+        }
+
+        roundText.setText(getString(R.string.sk_round_fmt, currentState.getRound(), 2));
+        score0.setText(getString(
+                R.string.sk_player_pts, 1, (int) currentState.getPlayer1Score()));
+        score1.setText(getString(
+                R.string.sk_player_pts, 2, (int) currentState.getPlayer2Score()));
+        renderHistory();
+
+        boolean steal = SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase());
+        stealCard.setVisibility(steal ? View.VISIBLE : View.GONE);
+        int secondsLeft = currentState.secondsLeft(
+                steal ? SkockoMatchRepository.STEAL_DURATION_MS
+                        : SkockoMatchRepository.ROUND_DURATION_MS);
+        if (steal || SkockoMatchState.PHASE_ROUND.equals(currentState.getPhase())) {
+            timerText.setText(getString(R.string.sk_timer_fmt, 0, secondsLeft));
+        } else {
+            timerText.setText("");
+        }
+
+        boolean myTurn = !currentState.isFinished()
+                && myPlayer != 0
+                && myPlayer == currentState.getActivePlayer()
+                && (SkockoMatchState.PHASE_ROUND.equals(currentState.getPhase()) || steal);
+        setInputsEnabled(myTurn);
+        statusText.setText(statusForPlayer(myPlayer, myTurn));
+
+        if (currentState.isFinished()) {
+            resultText.setText(getString(
+                    R.string.sk_game_over_fmt,
+                    (int) currentState.getPlayer1Score(),
+                    (int) currentState.getPlayer2Score()
+            ));
+        } else {
+            resultText.setText(currentState.getStatusMessage());
+        }
+
+        repository.expireIfNeeded(playerSession, currentState);
+        if (!currentState.isFinished()
+                && !SkockoMatchState.PHASE_WAITING.equals(currentState.getPhase())) {
+            uiHandler.postDelayed(ticker, 500);
+        }
     }
 
-    private void startRound() {
-        cancelTimer();
-        stealPhase = false;
-        stealAttemptDone = false;
-        stealCard.setVisibility(View.GONE);
-        nextRoundButton.setVisibility(View.GONE);
-        newGameButton.setVisibility(View.GONE);
-        clearHistoryUi();
-        clearDraft();
-        roundText.setText(getString(
-                R.string.sk_round_fmt,
-                gameService.getRoundIndex() + 1,
-                SkockoGameService.ROUND_COUNT
-        ));
-        resultText.setText("");
-        updateStatus();
-        enableInputs(true);
-        startPhaseTimer(TURN_MS);
-    }
-
-    private void clearHistoryUi() {
-        for (int r = 0; r < MAX_ATTEMPTS; r++) {
-            for (int c = 0; c < CODE_LEN; c++) {
-                guessSlots[r][c].setText("");
+    private void renderHistory() {
+        clearHistory();
+        if (SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase())) {
+            return;
+        }
+        List<List<Integer>> guesses = currentState.getGuesses();
+        List<List<Integer>> feedback = currentState.getFeedback();
+        int rows = Math.min(MAX_ATTEMPTS, guesses.size());
+        for (int row = 0; row < rows; row++) {
+            List<Integer> guess = guesses.get(row);
+            for (int column = 0; column < Math.min(CODE_LEN, guess.size()); column++) {
+                int symbol = guess.get(column);
+                if (symbol >= 0 && symbol < SYMBOLS.length) {
+                    guessSlots[row][column].setText(SYMBOLS[symbol]);
+                }
             }
-            setPegs(r, 0, 0, false);
+            if (row < feedback.size() && feedback.get(row).size() >= 2) {
+                setPegs(row, feedback.get(row).get(0), feedback.get(row).get(1), true);
+            }
         }
     }
 
-    private void setPegs(int row, int black, int white, boolean active) {
-        View[] pegs = pegViews[row];
+    private void clearHistory() {
+        for (int row = 0; row < MAX_ATTEMPTS; row++) {
+            for (int column = 0; column < CODE_LEN; column++) {
+                guessSlots[row][column].setText("");
+            }
+            setPegs(row, 0, 0, false);
+        }
+    }
+
+    private void setPegs(int row, int exact, int partial, boolean active) {
         for (int i = 0; i < CODE_LEN; i++) {
             if (!active) {
-                pegs[i].setBackgroundResource(R.drawable.skocko_peg_empty);
-            } else if (i < black) {
-                pegs[i].setBackgroundResource(R.drawable.skocko_peg_exact);
-            } else if (i < black + white) {
-                pegs[i].setBackgroundResource(R.drawable.skocko_peg_partial);
+                pegViews[row][i].setBackgroundResource(R.drawable.skocko_peg_empty);
+            } else if (i < exact) {
+                pegViews[row][i].setBackgroundResource(R.drawable.skocko_peg_exact);
+            } else if (i < exact + partial) {
+                pegViews[row][i].setBackgroundResource(R.drawable.skocko_peg_partial);
             } else {
-                pegs[i].setBackgroundResource(R.drawable.skocko_peg_empty);
+                pegViews[row][i].setBackgroundResource(R.drawable.skocko_peg_empty);
             }
         }
+    }
+
+    private String statusForPlayer(int myPlayer, boolean myTurn) {
+        if (currentState.isFinished()) {
+            return "Skočko je završen.";
+        }
+        if (myPlayer == 0) {
+            return "Ova test soba je popunjena.";
+        }
+        if (myTurn) {
+            return SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase())
+                    ? "Tvoj ukradeni pokušaj. Imaš jednu šansu."
+                    : "Tvoj red. Složi kombinaciju i pošalji.";
+        }
+        return "Igrač " + currentState.getActivePlayer()
+                + " je na potezu. Čekaj svoj red.";
     }
 
     private void onPaletteTap(int symbolIndex) {
-        if (gameOver || !canAcceptInput()) return;
+        if (!canAcceptInput()) {
+            return;
+        }
         for (int i = 0; i < CODE_LEN; i++) {
             if (draft[i] < 0) {
                 draft[i] = symbolIndex;
@@ -247,6 +332,33 @@ public class SkockoFragment extends Fragment {
         updateDraftUi();
     }
 
+    private void submitGuess() {
+        if (!canAcceptInput()) {
+            return;
+        }
+        for (int symbol : draft) {
+            if (symbol < 0) {
+                Toast.makeText(
+                        requireContext(), R.string.sk_draft_incomplete, Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+        int[] guess = Arrays.copyOf(draft, draft.length);
+        setInputsEnabled(false);
+        repository.submitGuess(playerSession, guess, this::showError);
+        clearDraft();
+    }
+
+    private boolean canAcceptInput() {
+        if (currentState == null || currentState.isFinished()) {
+            return false;
+        }
+        int myPlayer = currentState.playerNumber(playerSession.getId());
+        return myPlayer != 0 && myPlayer == currentState.getActivePlayer()
+                && (SkockoMatchState.PHASE_ROUND.equals(currentState.getPhase())
+                || SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase()));
+    }
+
     private void clearDraft() {
         Arrays.fill(draft, -1);
         updateDraftUi();
@@ -254,218 +366,56 @@ public class SkockoFragment extends Fragment {
 
     private void updateDraftUi() {
         for (int i = 0; i < CODE_LEN; i++) {
-            if (draft[i] < 0) {
-                draftSlots[i].setText("");
-            } else {
-                draftSlots[i].setText(SYMBOLS[draft[i]]);
+            draftSlots[i].setText(draft[i] < 0 ? "" : SYMBOLS[draft[i]]);
+        }
+    }
+
+    private void setInputsEnabled(boolean enabled) {
+        clearButton.setEnabled(enabled);
+        submitButton.setEnabled(enabled);
+        if (getView() != null) {
+            for (int id : PALETTE_IDS) {
+                getView().findViewById(id).setEnabled(enabled);
             }
         }
     }
 
-    private boolean canAcceptInput() {
-        return !gameOver && phaseTimer != null;
-    }
-
-    private void enableInputs(boolean on) {
-        clearButton.setEnabled(on);
-        submitButton.setEnabled(on);
-        for (int id : PALETTE_IDS) {
-            requireView().findViewById(id).setEnabled(on);
-        }
-    }
-
-    private void onSubmit() {
-        if (gameOver || !canAcceptInput()) return;
-        if (!draftComplete()) {
-            Toast.makeText(requireContext(), R.string.sk_draft_incomplete, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (stealPhase) {
-            if (stealAttemptDone) return;
-            stealAttemptDone = true;
-            int[] g = draftToArray();
-            cancelTimer();
-            SkockoGameService.MoveResult move = gameService.submitGuess(g);
-            if (move.isSolved()) {
-                Toast.makeText(requireContext(), R.string.sk_steal_ok, Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(requireContext(), R.string.sk_steal_fail, Toast.LENGTH_SHORT).show();
-            }
-            updateScoreUi();
-            finishRound();
-            return;
-        }
-
-        int[] guess = draftToArray();
-        SkockoGameService.MoveResult move = gameService.submitGuess(guess);
-        int row = move.getAttempt() - 1;
-        for (int c = 0; c < CODE_LEN; c++) {
-            guessSlots[row][c].setText(SYMBOLS[guess[c]]);
-        }
-        setPegs(row, move.getFeedback().getExact(), move.getFeedback().getPartial(), true);
-        clearDraft();
-
-        if (move.isSolved()) {
-            cancelTimer();
-            updateScoreUi();
-            finishRound();
-            return;
-        }
-        if (move.getResultingPhase() == SkockoGameService.Phase.STEAL) {
-            cancelTimer();
-            beginSteal();
-        }
-    }
-
-    private void beginSteal() {
-        stealPhase = true;
-        stealAttemptDone = false;
-        stealCard.setVisibility(View.VISIBLE);
-        clearDraft();
-        clearHistoryUi();
-        updateStatus();
-        timerText.setText("");
-        stealTimerText.setText(getString(R.string.sk_timer_fmt, 0, 10));
-        enableInputs(true);
-        startStealTimer();
-    }
-
-    private void finishRound() {
-        cancelTimer();
-        stealPhase = false;
-        stealCard.setVisibility(View.GONE);
-        enableInputs(false);
-        if (gameService.getPhase() == SkockoGameService.Phase.GAME_FINISHED) {
-            gameOver = true;
-            resultText.setText(getString(
-                    R.string.sk_game_over_fmt,
-                    gameService.getScore(0),
-                    gameService.getScore(1)
-            ));
-            newGameButton.setVisibility(View.VISIBLE);
-            saveResult();
+    private StepByStepPlayerSession resolveCurrentUser() {
+        AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        String userId;
+        String userName;
+        if (authUser != null) {
+            userId = authUser.getId();
+            userName = authUser.getUsername().isEmpty()
+                    ? authUser.getEmail() : authUser.getUsername();
+        } else if (firebaseUser != null) {
+            userId = firebaseUser.getUid();
+            userName = firebaseUser.getEmail() == null
+                    ? firebaseUser.getUid() : firebaseUser.getEmail();
         } else {
-            resultText.setText(R.string.sk_round_done);
-            nextRoundButton.setVisibility(View.VISIBLE);
+            userId = "guest";
+            userName = "Gost";
         }
-        phaseTimer = null;
+        return new StepByStepPlayerSession(userId + "-" + deviceId(), userName);
     }
 
-    private void onPhaseTimeUp() {
-        if (!stealPhase) {
-            Toast.makeText(requireContext(), R.string.sk_time_turn, Toast.LENGTH_SHORT).show();
-        }
-        SkockoGameService.Phase phase = gameService.expireCurrentPhase();
-        if (phase == SkockoGameService.Phase.STEAL) {
-            beginSteal();
-        } else {
-            stealAttemptDone = true;
-            finishRound();
-        }
+    private String deviceId() {
+        String id = Settings.Secure.getString(
+                requireContext().getContentResolver(),
+                Settings.Secure.ANDROID_ID
+        );
+        return isEmpty(id) ? String.valueOf(System.currentTimeMillis()) : id;
     }
 
-    private boolean draftComplete() {
-        for (int v : draft) {
-            if (v < 0) return false;
-        }
-        return true;
-    }
-
-    private int[] draftToArray() {
-        return new int[]{draft[0], draft[1], draft[2], draft[3]};
-    }
-
-    private void startPhaseTimer(long ms) {
-        cancelTimer();
-        phaseTimer = new CountDownTimer(ms, 250) {
-            @Override
-            public void onTick(long left) {
-                long sec = (left + 999) / 1000;
-                long m = sec / 60;
-                long s = sec % 60;
-                timerText.setText(getString(R.string.sk_timer_fmt, m, s));
-            }
-
-            @Override
-            public void onFinish() {
-                timerText.setText(getString(R.string.sk_timer_fmt, 0, 0));
-                onPhaseTimeUp();
-            }
-        };
-        phaseTimer.start();
-    }
-
-    private void startStealTimer() {
-        cancelTimer();
-        phaseTimer = new CountDownTimer(STEAL_MS, 250) {
-            @Override
-            public void onTick(long left) {
-                long sec = (left + 999) / 1000;
-                stealTimerText.setText(getString(R.string.sk_timer_fmt, 0, sec));
-            }
-
-            @Override
-            public void onFinish() {
-                stealTimerText.setText(getString(R.string.sk_timer_fmt, 0, 0));
-                onPhaseTimeUp();
-            }
-        };
-        phaseTimer.start();
-    }
-
-    private void cancelTimer() {
-        if (phaseTimer != null) {
-            phaseTimer.cancel();
-            phaseTimer = null;
+    private void showError(Exception error) {
+        if (isAdded()) {
+            setInputsEnabled(canAcceptInput());
+            Toast.makeText(requireContext(), error.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
-    private void updateStatus() {
-        if (gameOver) {
-            statusText.setText("");
-            return;
-        }
-        if (stealPhase) {
-            statusText.setText(getString(
-                    R.string.sk_status_steal,
-                    gameService.getStealingPlayer() + 1,
-                    gameService.getRoundStarter() + 1
-            ));
-            return;
-        }
-        statusText.setText(getString(
-                R.string.sk_status_solve,
-                gameService.getRoundStarter() + 1,
-                gameService.getRoundStarter() + 1
-        ));
-    }
-
-    private void updateScoreUi() {
-        score0.setText(getString(R.string.sk_player_pts, 1, gameService.getScore(0)));
-        score1.setText(getString(R.string.sk_player_pts, 2, gameService.getScore(1)));
-    }
-
-    private void saveResult() {
-        if (resultSaved) {
-            return;
-        }
-        resultSaved = true;
-        repository.saveCompletedGame(gameService.getGameResult())
-                .addOnFailureListener(error -> {
-                    resultSaved = false;
-                    if (isAdded()) {
-                        Toast.makeText(
-                                requireContext(),
-                                "Rezultat trenutno nije sacuvan u Firebase.",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    }
-                });
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        cancelTimer();
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

@@ -143,15 +143,6 @@
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/skStealTimer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="⏱ 0:10"
-                    android:textColor="#BF360C"
-                    android:textStyle="bold" />
-
-                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
@@ -358,13 +349,5 @@
             android:textAllCaps="false"
             android:visibility="gone" />
 
-        <Button
-            android:id="@+id/skNewGameButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/sk_new_game"
-            android:textAllCaps="false"
-            android:visibility="gone" />
     </LinearLayout>
 </ScrollView>

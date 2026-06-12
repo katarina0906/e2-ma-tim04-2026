@@ -119,6 +119,12 @@
         tools:layout="@layout/fragment_skocko" />
 
     <fragment
+        android:id="@+id/skockoWaitingRoomFragment"
+        android:name="com.example.slagalicatim04.fragments.SkockoWaitingRoomFragment"
+        android:label="Skočko"
+        tools:layout="@layout/fragment_step_by_step_waiting_room" />
+
+    <fragment
         android:id="@+id/stepByStepFragment"
         android:name="com.example.slagalicatim04.fragments.StepByStepFragment"
         android:label="Korak po korak"
