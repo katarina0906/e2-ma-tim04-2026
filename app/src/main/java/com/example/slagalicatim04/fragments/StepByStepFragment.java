@@ -305,7 +305,7 @@ public class StepByStepFragment extends Fragment {
     }
 
     private void updateBanner() {
-        String message = currentState.getStatusMessage();
+        String message = bannerMessage();
         if (message.isEmpty()) {
             resultBanner.setVisibility(View.GONE);
             return;
@@ -314,6 +314,43 @@ public class StepByStepFragment extends Fragment {
         resultBanner.setBackgroundColor(0xFFF6F2FF);
         resultBannerTitle.setText("Stanje igre");
         resultBannerMessage.setText(message);
+    }
+
+    private String bannerMessage() {
+        if (currentState.isFinished()) {
+            return finalScoreMessage();
+        }
+        if (!isEmpty(currentState.getStatusMessage())) {
+            return currentState.getStatusMessage();
+        }
+        if (currentState.getRound() == 2 && !isEmpty(currentState.getRound1Result())) {
+            return currentState.getRound1Result();
+        }
+        return "";
+    }
+
+    private String finalScoreMessage() {
+        long p1 = currentState.getPlayer1Score();
+        long p2 = currentState.getPlayer2Score();
+        String winner;
+        if (p1 > p2) {
+            winner = "Pobednik: Igrac 1";
+        } else if (p2 > p1) {
+            winner = "Pobednik: Igrac 2";
+        } else {
+            winner = "Nereseno";
+        }
+        StringBuilder builder = new StringBuilder();
+        if (!isEmpty(currentState.getRound1Result())) {
+            builder.append(currentState.getRound1Result()).append("\n");
+        }
+        if (!isEmpty(currentState.getRound2Result())) {
+            builder.append(currentState.getRound2Result()).append("\n");
+        }
+        builder.append("Konacno - Igrac 1: ").append(p1)
+                .append(", Igrac 2: ").append(p2)
+                .append("\n").append(winner);
+        return builder.toString();
     }
 
     private void submitAnswer() {

@@ -143,11 +143,20 @@ public class StepByStepMatchRepository {
         if (!state.hasSecondPlayer() || gameService.waitingForServerTime(state)) {
             return;
         }
+        if (StepByStepMatchState.PHASE_PLAYING.equals(state.effectivePhase())
+                && state.getSecondsLeft() > 0) {
+            return;
+        }
+        if (StepByStepMatchState.PHASE_STEAL.equals(state.effectivePhase())
+                && state.getSecondsLeft() > 0) {
+            return;
+        }
         Map<String, Object> updates = new HashMap<>();
         if (gameService.shouldStartSteal(state)) {
             startStealUpdates(updates, state.getActivePlayer());
         } else if (gameService.shouldFinishSteal(state)) {
             updates.put("statusMessage", "Ukradeni pokusaj je istekao bez bodova.");
+            putRoundResult(updates, state.getRound(), "Runda je zavrsena bez osvojenih bodova.");
             applyNextRound(updates, state.getRound());
             updates.put("updatedAt", FieldValue.serverTimestamp());
         }
@@ -206,6 +215,9 @@ public class StepByStepMatchRepository {
         state.put("stealStartedAt", 0L);
         state.put("visibleStepCount", 0L);
         state.put("secondsLeft", 0L);
+        state.put("round1Result", "");
+        state.put("round2Result", "");
+        state.put("finalResult", "");
         state.put("finished", false);
         state.put("statusMessage", "Ceka se igrac 2. Runda 1 je na igracu 1.");
         state.put("updatedAt", FieldValue.serverTimestamp());
@@ -215,12 +227,16 @@ public class StepByStepMatchRepository {
     private void applyCorrectAnswer(StepByStepMatchState state, Map<String, Object> updates) {
         if (StepByStepMatchState.PHASE_STEAL.equals(state.effectivePhase())) {
             addScore(state, updates, state.getStealPlayer(), 5);
+            putRoundResult(updates, state.getRound(), "Igrac " + state.getStealPlayer()
+                    + " je ukrao rundu za 5 bodova.");
             updates.put("statusMessage", "Igrac " + state.getStealPlayer()
                     + " je ukrao rundu i osvojio 5 bodova.");
         } else {
             int openedSteps = gameService.openedSteps(state);
             int points = gameService.pointsForStep(openedSteps);
             addScore(state, updates, state.getActivePlayer(), points);
+            putRoundResult(updates, state.getRound(), "Igrac " + state.getActivePlayer()
+                    + " je pogodio u " + openedSteps + ". koraku za " + points + " bodova.");
             updates.put("statusMessage", "Igrac " + state.getActivePlayer() + " je pogodio u "
                     + openedSteps + ". koraku i osvojio " + points + " bodova.");
         }
@@ -247,6 +263,7 @@ public class StepByStepMatchRepository {
             updates.put("stealPlayer", 0);
             updates.put("visibleStepCount", 7L);
             updates.put("secondsLeft", 0L);
+            updates.put("finalResult", "Konacan rezultat je sacuvan.");
             return;
         }
         updates.put("round", currentRound + 1);
@@ -265,6 +282,10 @@ public class StepByStepMatchRepository {
         String key = player == 1 ? "player1Score" : "player2Score";
         long current = player == 1 ? state.getPlayer1Score() : state.getPlayer2Score();
         updates.put(key, current + points);
+    }
+
+    private void putRoundResult(Map<String, Object> updates, int round, String result) {
+        updates.put(round == 1 ? "round1Result" : "round2Result", result);
     }
 
     private boolean isClockOwner(StepByStepPlayerSession player, StepByStepMatchState state) {

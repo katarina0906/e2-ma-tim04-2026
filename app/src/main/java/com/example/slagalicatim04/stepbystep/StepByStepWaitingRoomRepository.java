@@ -147,6 +147,9 @@ public class StepByStepWaitingRoomRepository {
         state.put("stealStartedAt", 0L);
         state.put("visibleStepCount", 0L);
         state.put("secondsLeft", 0L);
+        state.put("round1Result", "");
+        state.put("round2Result", "");
+        state.put("finalResult", "");
         state.put("finished", false);
         state.put("statusMessage", "Ceka se igrac 2.");
         state.put("updatedAt", FieldValue.serverTimestamp());
