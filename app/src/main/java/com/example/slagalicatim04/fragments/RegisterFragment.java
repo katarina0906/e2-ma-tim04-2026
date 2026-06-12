@@ -5,6 +5,7 @@ import android.text.Editable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Toast;
 
@@ -36,6 +37,12 @@ public class RegisterFragment extends Fragment {
         TextInputEditText passwordInput = view.findViewById(R.id.registerPasswordInput);
         TextInputEditText confirmPasswordInput = view.findViewById(R.id.registerConfirmPasswordInput);
         AuthService authService = AuthService.getInstance(requireContext());
+        ArrayAdapter<CharSequence> regionAdapter = ArrayAdapter.createFromResource(
+                requireContext(),
+                R.array.serbia_regions,
+                android.R.layout.simple_list_item_1
+        );
+        regionInput.setAdapter(regionAdapter);
 
         view.findViewById(R.id.registerButton).setOnClickListener(v -> {
             String email = textOf(emailInput);
