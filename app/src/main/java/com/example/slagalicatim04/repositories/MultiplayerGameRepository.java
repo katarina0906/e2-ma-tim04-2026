@@ -2,10 +2,12 @@ package com.example.slagalicatim04.repositories;
 
 import android.content.Context;
 
+import com.example.slagalicatim04.associations.AssociationGameService;
+import com.example.slagalicatim04.associations.AssociationMatchState;
+import com.example.slagalicatim04.associations.AssociationPuzzle;
 import com.example.slagalicatim04.models.MatchingMultiplayerState;
 import com.example.slagalicatim04.models.QuizMultiplayerState;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
-import com.example.slagalicatim04.services.SkockoGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
@@ -20,7 +22,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 public class MultiplayerGameRepository {
     public static final String TEST_ROOM_ID = StepByStepMatchRepository.DEFAULT_MATCH_ID;
@@ -28,8 +29,6 @@ public class MultiplayerGameRepository {
     private static final int QUIZ_QUESTION_COUNT = 5;
     private static final int MATCHING_PAIR_COUNT = 5;
     private static final int MATCHING_ROUND_COUNT = 2;
-    private final Random random = new Random();
-
     private final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
     private final String playerId;
     private final DocumentReference matchRef;
@@ -248,34 +247,37 @@ public class MultiplayerGameRepository {
             updates.put("spAttemptedPairs", new ArrayList<>());
             updates.put("spTurnPairCount", MATCHING_PAIR_COUNT);
         } else {
-            updates.putAll(newSkockoState());
+            updates.putAll(newAssociationState());
         }
         transaction.set(matchRef, updates, SetOptions.merge());
     }
 
-    private Map<String, Object> newSkockoState() {
+    private Map<String, Object> newAssociationState() {
         Map<String, Object> state = new HashMap<>();
-        state.put("currentGame", "skocko");
-        state.put("phase", "round");
-        state.put("phaseToken", System.currentTimeMillis() + "-" + random.nextLong());
-        state.put("round", 1L);
-        state.put("activePlayer", 1L);
-        state.put("phaseStartedAt", FieldValue.serverTimestamp());
-        state.put("phaseDeadlineAt",
-                System.currentTimeMillis() + com.example.slagalicatim04.skocko.SkockoMatchRepository.ROUND_DURATION_MS);
-        state.put("secret", randomSkockoSecret());
-        state.put("attempts", new ArrayList<>());
+        state.put("currentGame", AssociationMatchState.GAME);
+        state.put("phase", AssociationMatchState.PHASE_ROUND);
+        state.put("associationRound", 1L);
+        state.put("associationActivePlayer", 1L);
+        state.put("associationOpenPhase", true);
+        state.put("associationSecondsLeft", AssociationGameService.ROUND_SECONDS);
+        state.put("associationPuzzleId", "association-1");
+        state.put("associationRevealed", falseList(
+                AssociationPuzzle.COLUMN_COUNT * AssociationPuzzle.CLUES_PER_COLUMN));
+        state.put("associationSolvedColumns", falseList(AssociationPuzzle.COLUMN_COUNT));
+        state.put("associationFinalSolved", false);
+        state.put("associationRoundPlayer1Score", 0L);
+        state.put("associationRoundPlayer2Score", 0L);
         state.put("finished", false);
-        state.put("statusMessage", "Spojnice su zavrsene. Pokrece se Skočko.");
+        state.put("statusMessage", "Spojnice su zavrsene. Pokrecu se Asocijacije.");
         return state;
     }
 
-    private List<Integer> randomSkockoSecret() {
-        List<Integer> secret = new ArrayList<>();
-        for (int i = 0; i < SkockoGameService.CODE_LENGTH; i++) {
-            secret.add(random.nextInt(SkockoGameService.SYMBOL_COUNT));
+    private List<Boolean> falseList(int size) {
+        List<Boolean> values = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            values.add(false);
         }
-        return secret;
+        return values;
     }
 
     private void addToTotalScore(DocumentSnapshot match, Map<String, Object> updates,
