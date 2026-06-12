@@ -81,10 +81,11 @@
                     android:textSize="14sp" />
 
                 <TextView
+                    android:id="@+id/profileRegion"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="📍 Južnobački okrug"
+                    android:text="Region"
                     android:textColor="#6F4BB2"
                     android:textSize="14sp"
                     android:textStyle="bold" />

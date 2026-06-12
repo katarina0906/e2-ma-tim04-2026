@@ -38,6 +38,7 @@
                     android:padding="4dp">
 
                     <ImageView
+                        android:id="@+id/homeProfileAvatar"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:background="#FFFFFF"
@@ -53,9 +54,10 @@
                     android:layout_marginStart="14dp">
 
                     <TextView
+                        android:id="@+id/homeProfileUsername"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="teodora_m"
+                        android:text="Korisnik"
                         android:textColor="#1E1E2F"
                         android:textSize="22sp"
                         android:textStyle="bold" />
@@ -90,6 +92,7 @@
             android:layout_marginBottom="16dp">
 
             <TextView
+                android:id="@+id/homeProfileRegion"
                 android:layout_width="0dp"
                 android:layout_height="78dp"
                 android:layout_weight="1"

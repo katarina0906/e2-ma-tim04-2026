@@ -125,6 +125,12 @@
         tools:layout="@layout/fragment_step_by_step" />
 
     <fragment
+        android:id="@+id/stepByStepWaitingRoomFragment"
+        android:name="com.example.slagalicatim04.fragments.StepByStepWaitingRoomFragment"
+        android:label="Korak po korak"
+        tools:layout="@layout/fragment_step_by_step_waiting_room" />
+
+    <fragment
         android:id="@+id/myNumberFragment"
         android:name="com.example.slagalicatim04.fragments.MyNumberFragment"
         android:label="Moj broj"

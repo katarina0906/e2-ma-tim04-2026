@@ -2,6 +2,7 @@ package com.example.slagalicatim04.auth;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Patterns;
 
@@ -13,6 +14,8 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -25,21 +28,25 @@ public class AuthService {
     private static final String KEY_CURRENT_USER_EMAIL = "current_user_email";
     private static final String KEY_CURRENT_USERNAME = "current_username";
     private static final String KEY_CURRENT_REGION = "current_region";
+    private static final String KEY_CURRENT_AVATAR_URL = "current_avatar_url";
 
     private static AuthService instance;
 
     private final SharedPreferences preferences;
     private final FirebaseAuth firebaseAuth;
     private final FirebaseFirestore firestore;
+    private final FirebaseStorage storage;
 
     private AuthService(Context context) {
         preferences = context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         if (FirebaseApp.getApps(context.getApplicationContext()).isEmpty()) {
             firebaseAuth = null;
             firestore = null;
+            storage = null;
         } else {
             firebaseAuth = FirebaseAuth.getInstance();
             firestore = FirebaseFirestore.getInstance();
+            storage = FirebaseStorage.getInstance();
         }
     }
 
@@ -194,8 +201,14 @@ public class AuthService {
     }
 
     public AuthUser getCurrentUser() {
+        if (!isFirebaseConfigured()) {
+            return null;
+        }
+        FirebaseUser firebaseUser = firebaseAuth.getCurrentUser();
         String currentUserId = preferences.getString(KEY_CURRENT_USER_ID, "");
-        if (currentUserId.isEmpty()) {
+        if (firebaseUser == null || currentUserId.isEmpty()
+                || !firebaseUser.getUid().equals(currentUserId)) {
+            clearCurrentUser();
             return null;
         }
         return new AuthUser(
@@ -206,8 +219,63 @@ public class AuthService {
                 "",
                 "",
                 true,
-                ""
+                "",
+                preferences.getString(KEY_CURRENT_AVATAR_URL, "")
         );
+    }
+
+    public AuthResult<AuthUser> refreshCurrentUser() {
+        if (!isFirebaseConfigured()) {
+            return firebaseNotConfigured();
+        }
+        FirebaseUser firebaseUser = firebaseAuth.getCurrentUser();
+        if (firebaseUser == null) {
+            clearCurrentUser();
+            return AuthResult.error("Korisnik nije prijavljen.");
+        }
+        try {
+            AuthUser authUser = loadProfile(firebaseUser);
+            saveCurrentUser(authUser);
+            return AuthResult.success(authUser, "Profil je ucitan.");
+        } catch (ExecutionException e) {
+            return AuthResult.error(firebaseMessage(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return AuthResult.error("Ucitavanje profila je prekinuto.");
+        }
+    }
+
+    public void logout() {
+        if (firebaseAuth != null) {
+            firebaseAuth.signOut();
+        }
+        clearCurrentUser();
+    }
+
+    public AuthResult<AuthUser> updateAvatar(Uri imageUri) {
+        if (!isFirebaseConfigured() || storage == null) {
+            return firebaseNotConfigured();
+        }
+        FirebaseUser firebaseUser = firebaseAuth.getCurrentUser();
+        if (firebaseUser == null) {
+            return AuthResult.error("Korisnik nije prijavljen.");
+        }
+        try {
+            StorageReference avatarRef = storage.getReference()
+                    .child("profile_avatars/" + firebaseUser.getUid() + ".jpg");
+            Tasks.await(avatarRef.putFile(imageUri));
+            String avatarUrl = Tasks.await(avatarRef.getDownloadUrl()).toString();
+            Tasks.await(firestore.collection("users").document(firebaseUser.getUid())
+                    .update("avatarUrl", avatarUrl));
+            AuthUser user = loadProfile(firebaseUser);
+            saveCurrentUser(user);
+            return AuthResult.success(user, "Profilna slika je sacuvana.");
+        } catch (ExecutionException e) {
+            return AuthResult.error(firebaseMessage(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return AuthResult.error("Cuvanje slike je prekinuto.");
+        }
     }
 
     private void saveProfile(AuthUser authUser) throws ExecutionException, InterruptedException {
@@ -215,6 +283,7 @@ public class AuthService {
         userData.put("email", authUser.getEmail());
         userData.put("username", authUser.getUsername());
         userData.put("region", authUser.getRegion());
+        userData.put("avatarUrl", authUser.getAvatarUrl());
 
         Map<String, Object> usernameData = new HashMap<>();
         usernameData.put("email", authUser.getEmail());
@@ -239,10 +308,12 @@ public class AuthService {
         String email = firebaseUser.getEmail() == null ? "" : firebaseUser.getEmail();
         String username = userDoc.getString("username");
         String region = userDoc.getString("region");
+        String avatarUrl = userDoc.getString("avatarUrl");
         return new AuthUser(firebaseUser.getUid(), email,
                 username == null ? "" : username,
                 region == null ? "" : region,
-                "", "", firebaseUser.isEmailVerified(), "");
+                "", "", firebaseUser.isEmailVerified(), "",
+                avatarUrl == null ? "" : avatarUrl);
     }
 
     private AuthUser firebaseUserOnly(FirebaseUser firebaseUser) {
@@ -271,6 +342,17 @@ public class AuthService {
                 .putString(KEY_CURRENT_USER_EMAIL, user.getEmail())
                 .putString(KEY_CURRENT_USERNAME, user.getUsername())
                 .putString(KEY_CURRENT_REGION, user.getRegion())
+                .putString(KEY_CURRENT_AVATAR_URL, user.getAvatarUrl())
+                .apply();
+    }
+
+    private void clearCurrentUser() {
+        preferences.edit()
+                .remove(KEY_CURRENT_USER_ID)
+                .remove(KEY_CURRENT_USER_EMAIL)
+                .remove(KEY_CURRENT_USERNAME)
+                .remove(KEY_CURRENT_REGION)
+                .remove(KEY_CURRENT_AVATAR_URL)
                 .apply();
     }
 
