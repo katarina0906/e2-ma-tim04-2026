@@ -14,7 +14,9 @@ public class MatchingMultiplayerState {
     private final boolean secondChance;
     private final long deadlineAt;
     private final String player1Id;
+    private final String player1Name;
     private final String player2Id;
+    private final String player2Name;
     private final List<Long> matchedPairs;
     private final List<Long> attemptedPairs;
     private final Map<String, Long> scores;
@@ -29,7 +31,9 @@ public class MatchingMultiplayerState {
         secondChance = Boolean.TRUE.equals(snapshot.getBoolean("spSecondChance"));
         deadlineAt = 0L;
         player1Id = stringValue(snapshot.getString("player1Id"), "");
+        player1Name = stringValue(snapshot.getString("player1Name"), "Igrac 1");
         player2Id = stringValue(snapshot.getString("player2Id"), "");
+        player2Name = stringValue(snapshot.getString("player2Name"), "Igrac 2");
         matchedPairs = listValue(snapshot.get("spMatchedPairs"));
         attemptedPairs = listValue(snapshot.get("spAttemptedPairs"));
         scores = scoreMap(snapshot);
@@ -61,6 +65,14 @@ public class MatchingMultiplayerState {
 
     public String getPlayer2Id() {
         return player2Id;
+    }
+
+    public String getPlayer1Name() {
+        return player1Name;
+    }
+
+    public String getPlayer2Name() {
+        return player2Name;
     }
 
     public boolean isMatched(int pairIndex) {

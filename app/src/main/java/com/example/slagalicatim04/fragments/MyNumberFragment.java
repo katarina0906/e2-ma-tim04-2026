@@ -9,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ScrollView;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -19,6 +20,7 @@ import androidx.fragment.app.Fragment;
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.mynumber.MyNumberGameService;
 import com.example.slagalicatim04.mynumber.MyNumberMatchState;
 import com.example.slagalicatim04.mynumber.MyNumberRepository;
@@ -55,6 +57,8 @@ public class MyNumberFragment extends Fragment {
     private TextView statusValue;
     private TextView player1ScoreText;
     private TextView player2ScoreText;
+    private ImageView player1Avatar;
+    private ImageView player2Avatar;
     private View resultBanner;
     private TextView resultBannerTitle;
     private TextView resultBannerMessage;
@@ -106,6 +110,8 @@ public class MyNumberFragment extends Fragment {
         statusValue = view.findViewById(R.id.myNumberStatusValue);
         player1ScoreText = view.findViewById(R.id.myNumberPlayer1ScoreText);
         player2ScoreText = view.findViewById(R.id.myNumberPlayer2ScoreText);
+        player1Avatar = view.findViewById(R.id.myNumberPlayer1Avatar);
+        player2Avatar = view.findViewById(R.id.myNumberPlayer2Avatar);
         resultBanner = view.findViewById(R.id.myNumberResultBanner);
         resultBannerTitle = view.findViewById(R.id.myNumberResultTitle);
         resultBannerMessage = view.findViewById(R.id.myNumberResultMessage);
@@ -193,8 +199,12 @@ public class MyNumberFragment extends Fragment {
 
         roundText.setText(finished ? "Moj broj - kraj" : "Runda " + currentState.getRound() + " / 2");
         timerValue.setText(timerText(finished));
-        player1ScoreText.setText("Igrac 1: " + currentState.getPlayer1Score());
-        player2ScoreText.setText("Igrac 2: " + currentState.getPlayer2Score());
+        player1ScoreText.setText(playerName(currentState.getPlayer1Name(), "Igrac 1") + ": "
+                + currentState.getPlayer1Score());
+        player2ScoreText.setText(playerName(currentState.getPlayer2Name(), "Igrac 2") + ": "
+                + currentState.getPlayer2Score());
+        PlayerHeaderLoader.loadAvatar(currentState.getPlayer1Id(), player1Avatar);
+        PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
         updatePlayerScoreStyle(myPlayer);
         targetValue.setText(currentState.isTargetShown() ? String.valueOf(currentState.getTarget()) : "?");
         updateNumberViews(canUseExpression);
@@ -441,6 +451,10 @@ public class MyNumberFragment extends Fragment {
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String playerName(String name, String fallback) {
+        return isEmpty(name) ? fallback : name;
     }
 
     private void scrollToTop() {

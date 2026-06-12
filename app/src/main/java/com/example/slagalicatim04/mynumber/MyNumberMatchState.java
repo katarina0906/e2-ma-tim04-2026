@@ -8,7 +8,9 @@ import java.util.List;
 public class MyNumberMatchState {
     private final String phase;
     private final String player1Id;
+    private final String player1Name;
     private final String player2Id;
+    private final String player2Name;
     private final int round;
     private final int activePlayer;
     private final int target;
@@ -31,7 +33,9 @@ public class MyNumberMatchState {
     public MyNumberMatchState(DocumentSnapshot snapshot) {
         phase = stringValue(snapshot, "phase");
         player1Id = stringValue(snapshot, "player1Id");
+        player1Name = stringValue(snapshot, "player1Name");
         player2Id = stringValue(snapshot, "player2Id");
+        player2Name = stringValue(snapshot, "player2Name");
         round = (int) longValue(snapshot, "myNumberRound", 1);
         activePlayer = (int) longValue(snapshot, "myNumberActivePlayer", 1);
         target = (int) longValue(snapshot, "myNumberTarget", 0);
@@ -54,7 +58,9 @@ public class MyNumberMatchState {
 
     public String getPhase() { return phase; }
     public String getPlayer1Id() { return player1Id; }
+    public String getPlayer1Name() { return player1Name; }
     public String getPlayer2Id() { return player2Id; }
+    public String getPlayer2Name() { return player2Name; }
     public int getRound() { return round; }
     public int getActivePlayer() { return activePlayer; }
     public int getTarget() { return target; }
