@@ -20,16 +20,19 @@ public class MatchingMultiplayerState {
     private final Map<String, Long> scores;
 
     public MatchingMultiplayerState(DocumentSnapshot snapshot) {
-        status = stringValue(snapshot.getString("status"), "waiting");
-        currentRound = intValue(snapshot.getLong("currentRound"));
-        currentPlayer = stringValue(snapshot.getString("currentPlayer"), "");
-        secondChance = Boolean.TRUE.equals(snapshot.getBoolean("secondChance"));
-        deadlineAt = longValue(snapshot.getLong("deadlineAt"));
+        String phase = stringValue(snapshot.getString("phase"), "waiting");
+        status = "spojnice".equals(snapshot.getString("currentGame"))
+                && "spojnicePlaying".equals(phase) ? "playing"
+                : (phase.startsWith("round") ? "next" : "waiting");
+        currentRound = intValue(snapshot.getLong("spCurrentRound"));
+        currentPlayer = stringValue(snapshot.getString("spCurrentPlayer"), "");
+        secondChance = Boolean.TRUE.equals(snapshot.getBoolean("spSecondChance"));
+        deadlineAt = 0L;
         player1Id = stringValue(snapshot.getString("player1Id"), "");
         player2Id = stringValue(snapshot.getString("player2Id"), "");
-        matchedPairs = listValue(snapshot.get("matchedPairs"));
-        attemptedPairs = listValue(snapshot.get("attemptedPairs"));
-        scores = mapValue(snapshot.get("scores"));
+        matchedPairs = listValue(snapshot.get("spMatchedPairs"));
+        attemptedPairs = listValue(snapshot.get("spAttemptedPairs"));
+        scores = scoreMap(snapshot);
     }
 
     public String getStatus() {
@@ -93,5 +96,14 @@ public class MatchingMultiplayerState {
     @SuppressWarnings("unchecked")
     private static Map<String, Long> mapValue(Object value) {
         return value instanceof Map ? (Map<String, Long>) value : Collections.emptyMap();
+    }
+
+    private static Map<String, Long> scoreMap(DocumentSnapshot snapshot) {
+        Map<String, Long> result = new java.util.HashMap<>();
+        result.put(stringValue(snapshot.getString("player1Id"), ""),
+                longValue(snapshot.getLong("player1Score")));
+        result.put(stringValue(snapshot.getString("player2Id"), ""),
+                longValue(snapshot.getLong("player2Score")));
+        return result;
     }
 }

@@ -95,18 +95,14 @@ public class StepByStepWaitingRoomRepository {
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
 
             if (otherReady) {
-                updates.put("phase", StepByStepMatchState.PHASE_ROUND1);
+                updates.put("phase", "koZnaZnaPlaying");
+                updates.put("currentGame", "koZnaZna");
                 updates.put("finished", false);
-                updates.put("round", 1L);
-                updates.put("activePlayer", 1L);
-                updates.put("stealPlayer", 0L);
                 updates.put("player1Score", 0L);
                 updates.put("player2Score", 0L);
-                updates.put("roundStartedAt", FieldValue.serverTimestamp());
-                updates.put("stealStartedAt", 0L);
-                updates.put("visibleStepCount", 1L);
-                updates.put("secondsLeft", StepByStepGameService.ROUND_DURATION_MS / 1000);
-                updates.put("statusMessage", "Oba igraca su spremna. Runda 1 je na igracu 1.");
+                updates.put("kzzCurrentQuestion", 0L);
+                updates.put("kzzAnswers", new HashMap<>());
+                updates.put("statusMessage", "Oba igraca su spremna. Pokrece se Ko zna zna.");
             }
             updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(roomRef, updates, SetOptions.merge());
@@ -120,6 +116,8 @@ public class StepByStepWaitingRoomRepository {
 
     private boolean needsFreshRoom(StepByStepMatchState state, String playerId) {
         boolean gameAlreadyStarted = StepByStepMatchState.PHASE_PLAYING.equals(state.getPhase())
+                || "koZnaZnaPlaying".equals(state.getPhase())
+                || "spojnicePlaying".equals(state.getPhase())
                 || StepByStepMatchState.PHASE_STEAL.equals(state.getPhase())
                 || StepByStepMatchState.PHASE_ROUND1.equals(state.getPhase())
                 || StepByStepMatchState.PHASE_STEAL1.equals(state.getPhase())
@@ -145,6 +143,7 @@ public class StepByStepWaitingRoomRepository {
         state.put("player2Ready", false);
         state.put("round", 1L);
         state.put("phase", StepByStepMatchState.PHASE_WAITING);
+        state.put("currentGame", "waiting");
         state.put("activePlayer", 1L);
         state.put("stealPlayer", 0L);
         state.put("roundStartedAt", 0L);

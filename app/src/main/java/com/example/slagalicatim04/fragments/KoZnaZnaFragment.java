@@ -11,6 +11,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.models.Answer;
@@ -42,6 +43,7 @@ public class KoZnaZnaFragment extends Fragment {
     private QuizMultiplayerState currentState;
     private int renderedQuestion = -1;
     private int timerQuestion = -1;
+    private boolean navigatedToSpojnice;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -93,6 +95,10 @@ public class KoZnaZnaFragment extends Fragment {
         currentState = state;
         updateScores(state);
 
+        if ("next".equals(state.getStatus())) {
+            navigateToSpojnice();
+            return;
+        }
         if ("finished".equals(state.getStatus())) {
             finishGame(state);
             return;
@@ -218,6 +224,16 @@ public class KoZnaZnaFragment extends Fragment {
             timer.cancel();
             timer = null;
         }
+    }
+
+    private void navigateToSpojnice() {
+        if (navigatedToSpojnice || getView() == null) {
+            return;
+        }
+        navigatedToSpojnice = true;
+        Bundle args = new Bundle();
+        args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
+        Navigation.findNavController(requireView()).navigate(R.id.spojniceFragment, args);
     }
 
     @Override

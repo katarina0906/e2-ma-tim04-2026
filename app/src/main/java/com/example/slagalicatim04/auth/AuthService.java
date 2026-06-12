@@ -2,9 +2,12 @@ package com.example.slagalicatim04.auth;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Patterns;
+import android.util.Base64;
 
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.FirebaseApp;
@@ -14,9 +17,9 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
-
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -28,25 +31,25 @@ public class AuthService {
     private static final String KEY_CURRENT_USER_EMAIL = "current_user_email";
     private static final String KEY_CURRENT_USERNAME = "current_username";
     private static final String KEY_CURRENT_REGION = "current_region";
-    private static final String KEY_CURRENT_AVATAR_URL = "current_avatar_url";
+    private static final String KEY_CURRENT_AVATAR_DATA = "current_avatar_data";
+    private static final int AVATAR_MAX_SIZE = 512;
 
     private static AuthService instance;
 
     private final SharedPreferences preferences;
+    private final Context appContext;
     private final FirebaseAuth firebaseAuth;
     private final FirebaseFirestore firestore;
-    private final FirebaseStorage storage;
 
     private AuthService(Context context) {
-        preferences = context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (FirebaseApp.getApps(context.getApplicationContext()).isEmpty()) {
+        appContext = context.getApplicationContext();
+        preferences = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (FirebaseApp.getApps(appContext).isEmpty()) {
             firebaseAuth = null;
             firestore = null;
-            storage = null;
         } else {
             firebaseAuth = FirebaseAuth.getInstance();
             firestore = FirebaseFirestore.getInstance();
-            storage = FirebaseStorage.getInstance();
         }
     }
 
@@ -220,7 +223,7 @@ public class AuthService {
                 "",
                 true,
                 "",
-                preferences.getString(KEY_CURRENT_AVATAR_URL, "")
+                preferences.getString(KEY_CURRENT_AVATAR_DATA, "")
         );
     }
 
@@ -253,7 +256,7 @@ public class AuthService {
     }
 
     public AuthResult<AuthUser> updateAvatar(Uri imageUri) {
-        if (!isFirebaseConfigured() || storage == null) {
+        if (!isFirebaseConfigured()) {
             return firebaseNotConfigured();
         }
         FirebaseUser firebaseUser = firebaseAuth.getCurrentUser();
@@ -261,15 +264,14 @@ public class AuthService {
             return AuthResult.error("Korisnik nije prijavljen.");
         }
         try {
-            StorageReference avatarRef = storage.getReference()
-                    .child("profile_avatars/" + firebaseUser.getUid() + ".jpg");
-            Tasks.await(avatarRef.putFile(imageUri));
-            String avatarUrl = Tasks.await(avatarRef.getDownloadUrl()).toString();
+            String avatarData = encodeAvatar(imageUri);
             Tasks.await(firestore.collection("users").document(firebaseUser.getUid())
-                    .update("avatarUrl", avatarUrl));
+                    .update("avatarData", avatarData));
             AuthUser user = loadProfile(firebaseUser);
             saveCurrentUser(user);
             return AuthResult.success(user, "Profilna slika je sacuvana.");
+        } catch (IOException e) {
+            return AuthResult.error("Izabrana slika ne moze da se procita.");
         } catch (ExecutionException e) {
             return AuthResult.error(firebaseMessage(e));
         } catch (InterruptedException e) {
@@ -283,7 +285,7 @@ public class AuthService {
         userData.put("email", authUser.getEmail());
         userData.put("username", authUser.getUsername());
         userData.put("region", authUser.getRegion());
-        userData.put("avatarUrl", authUser.getAvatarUrl());
+        userData.put("avatarData", authUser.getAvatarData());
 
         Map<String, Object> usernameData = new HashMap<>();
         usernameData.put("email", authUser.getEmail());
@@ -308,12 +310,12 @@ public class AuthService {
         String email = firebaseUser.getEmail() == null ? "" : firebaseUser.getEmail();
         String username = userDoc.getString("username");
         String region = userDoc.getString("region");
-        String avatarUrl = userDoc.getString("avatarUrl");
+        String avatarData = userDoc.getString("avatarData");
         return new AuthUser(firebaseUser.getUid(), email,
                 username == null ? "" : username,
                 region == null ? "" : region,
                 "", "", firebaseUser.isEmailVerified(), "",
-                avatarUrl == null ? "" : avatarUrl);
+                avatarData == null ? "" : avatarData);
     }
 
     private AuthUser firebaseUserOnly(FirebaseUser firebaseUser) {
@@ -342,7 +344,7 @@ public class AuthService {
                 .putString(KEY_CURRENT_USER_EMAIL, user.getEmail())
                 .putString(KEY_CURRENT_USERNAME, user.getUsername())
                 .putString(KEY_CURRENT_REGION, user.getRegion())
-                .putString(KEY_CURRENT_AVATAR_URL, user.getAvatarUrl())
+                .putString(KEY_CURRENT_AVATAR_DATA, user.getAvatarData())
                 .apply();
     }
 
@@ -352,8 +354,32 @@ public class AuthService {
                 .remove(KEY_CURRENT_USER_EMAIL)
                 .remove(KEY_CURRENT_USERNAME)
                 .remove(KEY_CURRENT_REGION)
-                .remove(KEY_CURRENT_AVATAR_URL)
+                .remove(KEY_CURRENT_AVATAR_DATA)
                 .apply();
+    }
+
+    private String encodeAvatar(Uri imageUri) throws IOException {
+        Bitmap bitmap;
+        try (InputStream input = appContext.getContentResolver().openInputStream(imageUri)) {
+            if (input == null) {
+                throw new IOException("Slika nije dostupna.");
+            }
+            bitmap = BitmapFactory.decodeStream(input);
+        }
+        if (bitmap == null) {
+            throw new IOException("Slika nije ispravna.");
+        }
+
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        float scale = Math.min(1f, AVATAR_MAX_SIZE / (float) Math.max(width, height));
+        Bitmap resized = scale < 1f
+                ? Bitmap.createScaledBitmap(bitmap, Math.round(width * scale),
+                Math.round(height * scale), true)
+                : bitmap;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        resized.compress(Bitmap.CompressFormat.JPEG, 75, output);
+        return Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP);
     }
 
     private String validateRegistration(String email, String username, String region,

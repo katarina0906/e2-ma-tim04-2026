@@ -47,6 +47,8 @@ public class HomeFragment extends Fragment {
         view.findViewById(R.id.homeQuickNotifications).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
                         .navigate(R.id.action_homeFragment_to_notificationsFragment));
+        view.findViewById(R.id.startGameCard).setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.stepByStepWaitingRoomFragment));
 
         AuthUser user = authService.getCurrentUser();
         if (user != null) {
@@ -72,6 +74,6 @@ public class HomeFragment extends Fragment {
     private void showProfile(AuthUser user) {
         usernameText.setText(user.getUsername());
         regionText.setText(user.getRegion());
-        AvatarImageLoader.load(avatarImage, user.getAvatarUrl());
+        AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }
 }
