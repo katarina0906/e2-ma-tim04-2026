@@ -41,6 +41,7 @@
             app:boxCornerRadiusTopStart="18dp">
 
             <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/registerEmailInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textEmailAddress" />
@@ -58,6 +59,7 @@
             app:boxCornerRadiusTopStart="18dp">
 
             <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/registerUsernameInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="text" />
@@ -76,6 +78,7 @@
             app:boxCornerRadiusTopStart="18dp">
 
             <AutoCompleteTextView
+                android:id="@+id/registerRegionInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:completionThreshold="1"
@@ -96,6 +99,7 @@
             app:boxCornerRadiusTopStart="18dp">
 
             <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/registerPasswordInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textPassword" />
@@ -114,6 +118,7 @@
             app:boxCornerRadiusTopStart="18dp">
 
             <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/registerConfirmPasswordInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textPassword" />
