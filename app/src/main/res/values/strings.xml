@@ -111,4 +111,7 @@
     <string name="notif_channel_other_desc">Pozivi za prijatelje i druge aplikacije koje nemaju svoj kanal.</string>
 
     <string name="profile_open_notifications">Notifikacije</string>
+    <string name="profile_change_password">Promeni lozinku</string>
+    <string name="profile_change_password_toggle_open">Prikaži formu</string>
+    <string name="profile_change_password_toggle_close">Sakrij formu</string>
 </resources>

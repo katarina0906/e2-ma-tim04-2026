@@ -2,6 +2,7 @@ package com.example.slagalicatim04.fragments;
 
 import android.os.Bundle;
 import android.net.Uri;
+import android.text.Editable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +24,8 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
 
 public class ProfileFragment extends Fragment {
 
@@ -31,6 +34,7 @@ public class ProfileFragment extends Fragment {
     private TextView regionText;
     private ImageView avatarImage;
     private AuthService authService;
+    private AuthUser currentUser;
     private final ActivityResultLauncher<String> avatarPicker =
             registerForActivityResult(new ActivityResultContracts.GetContent(), this::uploadAvatar);
 
@@ -48,6 +52,11 @@ public class ProfileFragment extends Fragment {
         emailText = view.findViewById(R.id.profileEmail);
         regionText = view.findViewById(R.id.profileRegion);
         avatarImage = view.findViewById(R.id.profileAvatar);
+        View changePasswordForm = view.findViewById(R.id.changePasswordForm);
+        MaterialButton toggleChangePasswordButton = view.findViewById(R.id.toggleChangePasswordButton);
+        TextInputEditText oldPasswordInput = view.findViewById(R.id.profileOldPasswordInput);
+        TextInputEditText newPasswordInput = view.findViewById(R.id.profileNewPasswordInput);
+        TextInputEditText confirmPasswordInput = view.findViewById(R.id.profileConfirmPasswordInput);
 
         view.findViewById(R.id.notifications_card).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
@@ -57,13 +66,22 @@ public class ProfileFragment extends Fragment {
                 .setOnClickListener(v -> avatarPicker.launch("image/*"));
         view.findViewById(R.id.editAvatarIcon)
                 .setOnClickListener(v -> avatarPicker.launch("image/*"));
+        toggleChangePasswordButton.setOnClickListener(v -> togglePasswordForm(changePasswordForm, toggleChangePasswordButton));
+        view.findViewById(R.id.saveProfilePasswordButton).setOnClickListener(v ->
+                changePassword(
+                        changePasswordForm,
+                        toggleChangePasswordButton,
+                        oldPasswordInput,
+                        newPasswordInput,
+                        confirmPasswordInput
+                ));
 
-        AuthUser cachedUser = authService.getCurrentUser();
-        if (cachedUser == null) {
+        currentUser = authService.getCurrentUser();
+        if (currentUser == null) {
             navigateToLogin(view);
             return;
         }
-        showProfile(cachedUser);
+        showProfile(currentUser);
         loadProfileFromFirestore();
     }
 
@@ -78,6 +96,7 @@ public class ProfileFragment extends Fragment {
                     return;
                 }
                 if (result.isSuccess() && result.getData() != null) {
+                    currentUser = result.getData();
                     showProfile(result.getData());
                 } else {
                     Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
@@ -112,7 +131,57 @@ public class ProfileFragment extends Fragment {
                 }
                 Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
                 if (result.isSuccess() && result.getData() != null) {
+                    currentUser = result.getData();
                     showProfile(result.getData());
+                }
+            });
+        }).start();
+    }
+
+    private void togglePasswordForm(View form, MaterialButton toggleButton) {
+        boolean show = form.getVisibility() != View.VISIBLE;
+        form.setVisibility(show ? View.VISIBLE : View.GONE);
+        toggleButton.setText(show
+                ? R.string.profile_change_password_toggle_close
+                : R.string.profile_change_password_toggle_open);
+    }
+
+    private void changePassword(View form,
+                                MaterialButton toggleButton,
+                                TextInputEditText oldPasswordInput,
+                                TextInputEditText newPasswordInput,
+                                TextInputEditText confirmPasswordInput) {
+        if (currentUser == null) {
+            Toast.makeText(requireContext(), "Korisnik nije prijavljen.", Toast.LENGTH_LONG).show();
+            navigateToLogin(requireView());
+            return;
+        }
+
+        String oldPassword = textOf(oldPasswordInput);
+        String newPassword = textOf(newPasswordInput);
+        String confirmPassword = textOf(confirmPasswordInput);
+
+        new Thread(() -> {
+            AuthResult<AuthUser> result = authService.changePassword(
+                    currentUser.getEmail(),
+                    oldPassword,
+                    newPassword,
+                    confirmPassword
+            );
+            if (!isAdded()) {
+                return;
+            }
+            requireActivity().runOnUiThread(() -> {
+                if (!isAdded()) {
+                    return;
+                }
+                Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
+                if (result.isSuccess()) {
+                    oldPasswordInput.setText("");
+                    newPasswordInput.setText("");
+                    confirmPasswordInput.setText("");
+                    form.setVisibility(View.GONE);
+                    toggleButton.setText(R.string.profile_change_password_toggle_open);
                 }
             });
         }).start();
@@ -130,5 +199,10 @@ public class ProfileFragment extends Fragment {
                 .setPopUpTo(R.id.nav_graph, true)
                 .build();
         navController.navigate(R.id.loginFragment, null, options);
+    }
+
+    private String textOf(TextInputEditText input) {
+        Editable text = input.getText();
+        return text == null ? "" : text.toString();
     }
 }
