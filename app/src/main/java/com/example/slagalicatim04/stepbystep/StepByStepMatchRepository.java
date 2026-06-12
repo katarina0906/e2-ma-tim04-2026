@@ -263,13 +263,16 @@ public class StepByStepMatchRepository {
 
     private void applyNextRound(Map<String, Object> updates, int currentRound) {
         if (currentRound >= 2) {
-            updates.put("finished", true);
-            updates.put("phase", StepByStepMatchState.PHASE_FINISHED);
+            updates.put("finished", false);
+            updates.put("stepByStepFinished", true);
+            updates.put("currentGame", "myNumber");
+            updates.put("phase", "myNumberSetup");
             updates.put("activePlayer", 0);
             updates.put("stealPlayer", 0);
             updates.put("visibleStepCount", 7L);
             updates.put("secondsLeft", 0L);
-            updates.put("finalResult", "Konacan rezultat je sacuvan.");
+            updates.put("finalResult", "Korak po korak je zavrsen. Pokrece se Moj broj.");
+            updates.put("statusMessage", "Korak po korak je zavrsen. Pokrece se Moj broj.");
             return;
         }
         updates.put("round", currentRound + 1);
