@@ -92,6 +92,12 @@
     <string name="notifications_filter_unread">Nepročitane</string>
     <string name="notifications_filter_read">Pročitane</string>
     <string name="notifications_empty">Nema notifikacija u ovoj kategoriji.</string>
+    <string name="notifications_load_error">Notifikacije nisu učitane: %1$s</string>
+    <string name="notifications_update_error">Izmena notifikacije nije uspela: %1$s</string>
+    <string name="notifications_send_demo">Pošalji test notifikacije</string>
+    <string name="notifications_demo_sent">Test notifikacije su poslate. Proveri i notification bar.</string>
+    <string name="notifications_demo_saved_permission">Test notifikacije su sačuvane. Dozvoli sistemske notifikacije da bi se videle i u notification baru.</string>
+    <string name="notifications_demo_error">Test notifikacije nisu poslate: %1$s</string>
     <string name="notif_action_mark_read">Pročitano</string>
     <string name="notif_action_open">Otvori</string>
     <string name="notif_marked_read">Označeno kao pročitano.</string>
