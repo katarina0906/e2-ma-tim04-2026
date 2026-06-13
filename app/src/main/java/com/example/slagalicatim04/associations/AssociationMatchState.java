@@ -21,6 +21,7 @@ public class AssociationMatchState {
     private final int round;
     private final int activePlayer;
     private final boolean openPhase;
+    private final boolean canContinueAfterCorrect;
     private final int secondsLeft;
     private final String puzzleId;
     private final List<Boolean> revealed;
@@ -42,6 +43,9 @@ public class AssociationMatchState {
         round = (int) longValue(snapshot, "associationRound", 1);
         activePlayer = (int) longValue(snapshot, "associationActivePlayer", 1);
         openPhase = !Boolean.FALSE.equals(snapshot.getBoolean("associationOpenPhase"));
+        canContinueAfterCorrect =
+                Boolean.TRUE.equals(snapshot.getBoolean("associationCanContinueAfterCorrect"))
+                        || (!openPhase && statusMessageIndicatesCorrect(snapshot));
         secondsLeft = (int) longValue(snapshot, "associationSecondsLeft",
                 AssociationGameService.ROUND_SECONDS);
         puzzleId = stringValue(snapshot, "associationPuzzleId");
@@ -66,6 +70,7 @@ public class AssociationMatchState {
     public int getRound() { return round; }
     public int getActivePlayer() { return activePlayer; }
     public boolean isOpenPhase() { return openPhase; }
+    public boolean canContinueAfterCorrect() { return canContinueAfterCorrect; }
     public int getSecondsLeft() { return secondsLeft; }
     public String getPuzzleId() { return puzzleId; }
     public List<Boolean> getRevealed() { return revealed; }
@@ -121,5 +126,10 @@ public class AssociationMatchState {
     private static long longValue(DocumentSnapshot snapshot, String key, long fallback) {
         Long value = snapshot.getLong(key);
         return value == null ? fallback : value;
+    }
+
+    private static boolean statusMessageIndicatesCorrect(DocumentSnapshot snapshot) {
+        String message = snapshot.getString("statusMessage");
+        return message != null && message.contains("nastavlja da pogadja");
     }
 }

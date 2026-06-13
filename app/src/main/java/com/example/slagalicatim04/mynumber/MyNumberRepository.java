@@ -153,8 +153,11 @@ public class MyNumberRepository {
         if (state.getRound() == 1) {
             updates.putAll(newRoundState(2, nextP1Score, nextP2Score));
         } else {
-            updates.put("phase", MyNumberGameService.PHASE_FINISHED);
-            updates.put("myNumberStatusMessage", score.message + " Moj broj je zavrsen.");
+            updates.put("currentGame", "matchResult");
+            updates.put("phase", "matchFinished");
+            updates.put("myNumberStatusMessage",
+                    score.message + " Moj broj i cela partija su zavrseni.");
+            updates.put("statusMessage", "Partija je zavrsena.");
             updates.put("finished", true);
         }
     }

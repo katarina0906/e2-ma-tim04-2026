@@ -4,7 +4,6 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +15,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
@@ -24,6 +24,7 @@ import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.mynumber.MyNumberGameService;
 import com.example.slagalicatim04.mynumber.MyNumberMatchState;
 import com.example.slagalicatim04.mynumber.MyNumberRepository;
+import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
 import com.google.android.material.button.MaterialButton;
@@ -50,6 +51,7 @@ public class MyNumberFragment extends Fragment {
     private String roomId = StepByStepMatchRepository.DEFAULT_MATCH_ID;
     private long lastClockTickAt;
     private int lastRenderedRound = -1;
+    private boolean navigatedToMatchResult;
 
     private ScrollView scrollView;
     private TextView roundText;
@@ -180,6 +182,13 @@ public class MyNumberFragment extends Fragment {
     private void renderCurrentState() {
         uiHandler.removeCallbacks(ticker);
         if (currentState == null || !isAdded()) {
+            return;
+        }
+        if (currentState.isMatchResult()) {
+            navigateToMatchResult();
+            return;
+        }
+        if (!currentState.isMyNumberGame()) {
             return;
         }
 
@@ -419,28 +428,27 @@ public class MyNumberFragment extends Fragment {
     private StepByStepPlayerSession resolveCurrentUser() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        String userId;
+        String userId = new TestRoomPlayerProvider(requireContext()).getPlayerId();
         String userName;
 
         if (authUser != null) {
-            userId = authUser.getId();
             userName = authUser.getUsername().isEmpty() ? authUser.getEmail() : authUser.getUsername();
         } else if (firebaseUser != null) {
-            userId = firebaseUser.getUid();
             userName = firebaseUser.getEmail() == null ? firebaseUser.getUid() : firebaseUser.getEmail();
         } else {
-            userId = "guest";
             userName = "Gost";
         }
         return new StepByStepPlayerSession(userId, userName);
     }
 
-    private String deviceId() {
-        String id = Settings.Secure.getString(
-                requireContext().getContentResolver(),
-                Settings.Secure.ANDROID_ID
-        );
-        return isEmpty(id) ? String.valueOf(System.currentTimeMillis()) : id;
+    private void navigateToMatchResult() {
+        if (navigatedToMatchResult || getView() == null) {
+            return;
+        }
+        navigatedToMatchResult = true;
+        Bundle args = new Bundle();
+        args.putString("roomId", roomId);
+        Navigation.findNavController(requireView()).navigate(R.id.matchResultFragment, args);
     }
 
     private void showError(Exception error) {

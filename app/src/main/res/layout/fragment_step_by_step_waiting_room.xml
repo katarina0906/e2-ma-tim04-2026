@@ -16,7 +16,7 @@
             android:id="@+id/waitingRoomTitleText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Korak po korak"
+            android:text="Čekaonica"
             android:textColor="#1E1E2F"
             android:textSize="28sp"
             android:textStyle="bold" />
