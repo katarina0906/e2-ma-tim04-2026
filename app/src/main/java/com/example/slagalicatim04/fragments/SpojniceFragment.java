@@ -7,161 +7,325 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
-
-import java.util.HashMap;
-import java.util.Map;
+import com.example.slagalicatim04.auth.PlayerHeaderLoader;
+import com.example.slagalicatim04.models.MatchingMultiplayerState;
+import com.example.slagalicatim04.models.MatchingPair;
+import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 
 public class SpojniceFragment extends Fragment {
 
-    private TextView timerText, resultText;
+    private static final long CHANCE_DURATION_MS = 30_000L;
+    private static final int COLOR_DEFAULT = Color.rgb(111, 75, 178);
+    private static final int COLOR_SELECTED = Color.rgb(249, 168, 37);
+    private static final int COLOR_CORRECT = Color.rgb(76, 175, 80);
+
+    private final MatchingPair[][] rounds = {
+            {
+                    new MatchingPair("Dino Merlin", "Nedostajes"),
+                    new MatchingPair("Zdravko Colic", "Ti si mi u krvi"),
+                    new MatchingPair("Adele", "Easy On Me"),
+                    new MatchingPair("Ceca", "Vreteno"),
+                    new MatchingPair("Bajaga", "Moji drugovi")
+            },
+            {
+                    new MatchingPair("Francuska", "Pariz"),
+                    new MatchingPair("Italija", "Rim"),
+                    new MatchingPair("Spanija", "Madrid"),
+                    new MatchingPair("Portugal", "Lisabon"),
+                    new MatchingPair("Austrija", "Bec")
+            }
+    };
+    private final int[][] rightOrder = {
+            {1, 4, 0, 2, 3},
+            {3, 0, 4, 1, 2}
+    };
+    private final int[] leftIds = {
+            R.id.left0, R.id.left1, R.id.left2, R.id.left3, R.id.left4
+    };
+    private final int[] rightIds = {
+            R.id.right0, R.id.right1, R.id.right2, R.id.right3, R.id.right4
+    };
+    private final Button[] leftButtons = new Button[5];
+    private final Button[] rightButtons = new Button[5];
+
+    private TextView roundText;
+    private TextView turnText;
+    private TextView timerText;
+    private TextView resultText;
+    private TextView playerOneScoreText;
+    private TextView playerTwoScoreText;
+    private ImageView playerOneAvatar;
+    private ImageView playerTwoAvatar;
     private CountDownTimer timer;
-
-    private Button selectedLeftButton = null;
-    private int score = 0;
-
-    private final Map<Integer, Integer> correctPairs = new HashMap<>();
-
-    public SpojniceFragment() {
-    }
+    private MultiplayerGameRepository multiplayerRepository;
+    private MultiplayerGameRepository.Subscription stateRegistration;
+    private MatchingMultiplayerState currentState;
+    private int selectedLeftIndex = -1;
+    private String timerChanceKey = "";
+    private boolean submitting;
+    private boolean navigatedToAssociations;
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-
         View view = inflater.inflate(R.layout.fragment_spojnice, container, false);
-
+        roundText = view.findViewById(R.id.roundText);
+        turnText = view.findViewById(R.id.turnText);
         timerText = view.findViewById(R.id.timerText);
         resultText = view.findViewById(R.id.resultText);
+        playerOneScoreText = view.findViewById(R.id.spScore0);
+        playerTwoScoreText = view.findViewById(R.id.spScore1);
+        playerOneAvatar = view.findViewById(R.id.spAvatar0);
+        playerTwoAvatar = view.findViewById(R.id.spAvatar1);
+        view.findViewById(R.id.newSpojniceGameButton).setVisibility(View.GONE);
 
-        correctPairs.put(R.id.leftDino, R.id.rightNedostajes);
-        correctPairs.put(R.id.leftColic, R.id.rightTiSiMiUKrvi);
-        correctPairs.put(R.id.leftAdele, R.id.rightEasyOnMe);
-        correctPairs.put(R.id.leftCeca, R.id.rightVreteno);
+        for (int index = 0; index < leftButtons.length; index++) {
+            leftButtons[index] = view.findViewById(leftIds[index]);
+            rightButtons[index] = view.findViewById(rightIds[index]);
+            setupLeftButton(index);
+            setupRightButton(index);
+        }
 
+        multiplayerRepository = new MultiplayerGameRepository(requireContext());
+        showWaitingState();
+        stateRegistration = multiplayerRepository.joinMatching(
+                new MultiplayerGameRepository.StateListener<MatchingMultiplayerState>() {
+                    @Override
+                    public void onState(MatchingMultiplayerState state) {
+                        if (isAdded()) {
+                            renderState(state);
+                        }
+                    }
 
-        setupLeftButton(view, R.id.leftDino);
-        setupLeftButton(view, R.id.leftColic);
-        setupLeftButton(view, R.id.leftAdele);
-        setupLeftButton(view, R.id.leftCeca);
-
-
-        setupRightButton(view, R.id.rightNedostajes);
-        setupRightButton(view, R.id.rightTiSiMiUKrvi);
-        setupRightButton(view, R.id.rightEasyOnMe);
-        setupRightButton(view, R.id.rightVreteno);
-
-
-        startTimer();
-
+                    @Override
+                    public void onError(Exception error) {
+                        if (isAdded()) {
+                            showError(error);
+                        }
+                    }
+                });
         return view;
     }
 
-    private void setupLeftButton(View view, int buttonId) {
-        Button button = view.findViewById(buttonId);
-
-        button.setOnClickListener(v -> {
-            if (selectedLeftButton != null && selectedLeftButton.isEnabled()) {
-                selectedLeftButton.setBackgroundColor(Color.parseColor("#6F4BB2"));
+    private void setupLeftButton(int index) {
+        leftButtons[index].setOnClickListener(v -> {
+            if (!canPlay() || currentState.isMatched(index) || currentState.isAttempted(index)) {
+                return;
             }
-
-            selectedLeftButton = button;
-            button.setBackgroundColor(Color.parseColor("#F9A825"));
-            resultText.setText("Izaberi pesmu za: " + button.getText());
+            clearSelection();
+            selectedLeftIndex = index;
+            leftButtons[index].setBackgroundColor(COLOR_SELECTED);
+            resultText.setText("Izaberi pojam iz desne kolone za: " + leftButtons[index].getText());
         });
     }
 
-    private void setupRightButton(View view, int buttonId) {
-        Button button = view.findViewById(buttonId);
-
-        button.setOnClickListener(v -> {
-            if (selectedLeftButton == null) {
-                resultText.setText("Prvo izaberi izvođača iz leve kolone.");
+    private void setupRightButton(int displayedRightIndex) {
+        rightButtons[displayedRightIndex].setOnClickListener(v -> {
+            if (!canPlay() || selectedLeftIndex < 0) {
+                resultText.setText(canPlay()
+                        ? "Prvo izaberi pojam iz leve kolone."
+                        : "Sacekaj svoj potez.");
                 return;
             }
 
-            int selectedLeftId = selectedLeftButton.getId();
-            Integer correctRightId = correctPairs.get(selectedLeftId);
-
-            if (correctRightId != null && correctRightId == buttonId) {
-                selectedLeftButton.setBackgroundColor(Color.parseColor("#4CAF50"));
-                button.setBackgroundColor(Color.parseColor("#4CAF50"));
-
-                selectedLeftButton.setEnabled(false);
-                button.setEnabled(false);
-
-                score += 2;
-                resultText.setText("Tačno! +" + score + " bodova ukupno");
-
-                selectedLeftButton = null;
-
-                if (score == 10) {
-                    if (timer != null) timer.cancel();
-                    timerText.setText("Završeno");
-                    resultText.setText("Sve spojnice su tačne! Osvojeno: 10 bodova");
-                }
-
-            } else {
-                button.setBackgroundColor(Color.parseColor("#E53935"));
-                selectedLeftButton.setBackgroundColor(Color.parseColor("#E53935"));
-                resultText.setText("Netačno. Pokušaj drugi par.");
-
-                Button wrongLeft = selectedLeftButton;
-                Button wrongRight = button;
-
-                wrongLeft.postDelayed(() -> {
-                    if (wrongLeft.isEnabled()) {
-                        wrongLeft.setBackgroundColor(Color.parseColor("#6F4BB2"));
-                    }
-                    if (wrongRight.isEnabled()) {
-                        wrongRight.setBackgroundColor(Color.parseColor("#6F4BB2"));
-                    }
-                }, 700);
-
-                selectedLeftButton = null;
-            }
+            int leftIndex = selectedLeftIndex;
+            int pairIndex = rightOrder[currentState.getCurrentRound()][displayedRightIndex];
+            selectedLeftIndex = -1;
+            submitting = true;
+            setButtonsForState(currentState);
+            resultText.setText("Slanje pokusaja...");
+            multiplayerRepository.submitMatchingAttempt(
+                    currentState.getCurrentRound(), leftIndex, pairIndex);
         });
     }
 
-    private void startTimer() {
-        timer = new CountDownTimer(30000, 1000) {
+    private void renderState(MatchingMultiplayerState state) {
+        currentState = state;
+        submitting = false;
+        selectedLeftIndex = -1;
+        updateScores(state);
+
+        if ("next".equals(state.getStatus())) {
+            navigateToAssociations();
+            return;
+        }
+        if ("finished".equals(state.getStatus())) {
+            finishGame(state);
+            return;
+        }
+        if (!"playing".equals(state.getStatus())) {
+            showWaitingState();
+            return;
+        }
+
+        MatchingPair[] currentRound = rounds[state.getCurrentRound()];
+        for (int index = 0; index < leftButtons.length; index++) {
+            leftButtons[index].setText(currentRound[index].getLeft());
+            int pairIndex = rightOrder[state.getCurrentRound()][index];
+            rightButtons[index].setText(currentRound[pairIndex].getRight());
+        }
+
+        roundText.setText("Runda " + (state.getCurrentRound() + 1) + " / 2");
+        String playerLabel = state.getCurrentPlayer().equals(state.getPlayer1Id())
+                ? playerName(state.getPlayer1Name(), "Igrac 1")
+                : playerName(state.getPlayer2Name(), "Igrac 2");
+        turnText.setText("Na potezu: " + playerLabel
+                + (state.isSecondChance() ? " (preostali parovi)" : " (pocinje rundu)"));
+        if (state.getCurrentPlayer().equals(multiplayerRepository.getPlayerId())) {
+            resultText.setText("Tvoj potez.");
+        } else {
+            resultText.setText("Sacekaj potez drugog igraca.");
+        }
+
+        setButtonsForState(state);
+        startTimerForChance(state);
+    }
+
+    private void setButtonsForState(MatchingMultiplayerState state) {
+        boolean myTurn = canPlay();
+        for (int leftIndex = 0; leftIndex < leftButtons.length; leftIndex++) {
+            boolean matched = state.isMatched(leftIndex);
+            boolean attempted = state.isAttempted(leftIndex);
+            leftButtons[leftIndex].setEnabled(myTurn && !matched && !attempted);
+            leftButtons[leftIndex].setBackgroundColor(matched ? COLOR_CORRECT : COLOR_DEFAULT);
+        }
+
+        for (int displayedRightIndex = 0; displayedRightIndex < rightButtons.length;
+             displayedRightIndex++) {
+            int pairIndex = rightOrder[state.getCurrentRound()][displayedRightIndex];
+            boolean matched = state.isMatched(pairIndex);
+            rightButtons[displayedRightIndex].setEnabled(myTurn && !matched);
+            rightButtons[displayedRightIndex].setBackgroundColor(matched ? COLOR_CORRECT : COLOR_DEFAULT);
+        }
+    }
+
+    private boolean canPlay() {
+        return currentState != null
+                && "playing".equals(currentState.getStatus())
+                && currentState.getCurrentPlayer().equals(multiplayerRepository.getPlayerId())
+                && !submitting;
+    }
+
+    private void clearSelection() {
+        if (selectedLeftIndex >= 0 && currentState != null
+                && !currentState.isMatched(selectedLeftIndex)) {
+            leftButtons[selectedLeftIndex].setBackgroundColor(COLOR_DEFAULT);
+        }
+        selectedLeftIndex = -1;
+    }
+
+    private void startTimerForChance(MatchingMultiplayerState state) {
+        String chanceKey = state.getCurrentRound() + ":" + state.getCurrentPlayer()
+                + ":" + state.isSecondChance();
+        if (chanceKey.equals(timerChanceKey) && timer != null) {
+            return;
+        }
+        cancelTimer();
+        timerChanceKey = chanceKey;
+        int roundIndex = state.getCurrentRound();
+        String expectedPlayer = state.getCurrentPlayer();
+        boolean secondChance = state.isSecondChance();
+
+        timer = new CountDownTimer(CHANCE_DURATION_MS, 250L) {
             @Override
             public void onTick(long millisUntilFinished) {
-                timerText.setText("⏱ " + millisUntilFinished / 1000 + "s");
+                timerText.setText(Math.max(1L, (millisUntilFinished + 999L) / 1000L) + "s");
             }
 
             @Override
             public void onFinish() {
-                timerText.setText("⏱ 0s");
-                resultText.setText("Vreme je isteklo! Osvojeno: " + score + " bodova");
+                timerText.setText("0s");
                 disableAllButtons();
+                multiplayerRepository.expireMatchingChance(
+                        roundIndex, expectedPlayer, secondChance);
             }
         }.start();
     }
 
+    private void updateScores(MatchingMultiplayerState state) {
+        playerOneScoreText.setText(playerName(state.getPlayer1Name(), "Igrac 1") + ": "
+                + state.getScore(state.getPlayer1Id()));
+        playerTwoScoreText.setText(playerName(state.getPlayer2Name(), "Igrac 2") + ": "
+                + state.getScore(state.getPlayer2Id()));
+        PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
+        PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+    }
+
+    private String playerName(String name, String fallback) {
+        return name == null || name.trim().isEmpty() ? fallback : name;
+    }
+
+    private void showWaitingState() {
+        cancelTimer();
+        timerChanceKey = "";
+        roundText.setText("Test soba: " + MultiplayerGameRepository.TEST_ROOM_ID);
+        turnText.setText("Ceka se drugi igrac");
+        timerText.setText("30s");
+        resultText.setText("Oba uredjaja treba da otvore igru Spojnice.");
+        disableAllButtons();
+    }
+
+    private void finishGame(MatchingMultiplayerState state) {
+        cancelTimer();
+        roundText.setText("Spojnice zavrsene");
+        turnText.setText("Kraj igre");
+        timerText.setText("0s");
+        resultText.setText("Igrac 1: " + state.getScore(state.getPlayer1Id())
+                + " | Igrac 2: " + state.getScore(state.getPlayer2Id()));
+        disableAllButtons();
+    }
+
+    private void showError(Exception error) {
+        cancelTimer();
+        resultText.setText("Firestore greska: " + error.getMessage());
+        disableAllButtons();
+    }
+
     private void disableAllButtons() {
-        if (getView() == null) return;
-
-        int[] ids = {
-                R.id.leftDino, R.id.leftColic, R.id.leftAdele, R.id.leftCeca,
-                R.id.rightNedostajes, R.id.rightTiSiMiUKrvi, R.id.rightEasyOnMe, R.id.rightVreteno
-        };
-
-        for (int id : ids) {
-            Button button = getView().findViewById(id);
+        for (Button button : leftButtons) {
+            button.setEnabled(false);
+        }
+        for (Button button : rightButtons) {
             button.setEnabled(false);
         }
     }
 
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
+    private void cancelTimer() {
         if (timer != null) {
             timer.cancel();
+            timer = null;
         }
+    }
+
+    private void navigateToAssociations() {
+        if (navigatedToAssociations || getView() == null) {
+            return;
+        }
+        navigatedToAssociations = true;
+        Bundle args = new Bundle();
+        args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
+        Navigation.findNavController(requireView()).navigate(R.id.asocijacijeFragment, args);
+    }
+
+    @Override
+    public void onDestroyView() {
+        cancelTimer();
+        timerChanceKey = "";
+        if (multiplayerRepository != null) {
+            multiplayerRepository.leaveMatchingWaitingRoom();
+        }
+        if (stateRegistration != null) {
+            stateRegistration.remove();
+            stateRegistration = null;
+        }
+        super.onDestroyView();
     }
 }

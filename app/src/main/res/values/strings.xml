@@ -18,7 +18,7 @@
     <string name="reset_password_title">Reset lozinke</string>
     <string name="reset_password_button">Sacuvaj novu lozinku</string>
     <string name="verification_title">Potvrda registracije</string>
-    <string name="verification_message">Klikni na link poslat na mejl da bi aktivirala nalog. Tek nakon potvrde mejla omogucena je prijava.</string>
+    <string name="verification_message">Klikni na verifikacioni link poslat na mejl da bi aktivirala nalog. Tek nakon potvrde mejla omogucena je prijava.</string>
     <string name="verification_sent_to">Poslato na: katarinazgonjanin@gmail.com </string>
     <string name="back_to_login">Nazad na prijavu</string>
     <string name="go_to_register">Nemam nalog</string>
@@ -47,7 +47,7 @@
     <string name="aso_phase_open">Igrač %1$d: otvori jedno skriveno polje.</string>
     <string name="aso_phase_guess">Igrač %1$d: klikni na polje kolone ili konačno da uneseš odgovor — ili predaj potez.</string>
     <string name="aso_player_points">Igrač %1$d: %2$d</string>
-    <string name="aso_round_points_fmt">Ova runda — I1: %1$d  I2: %2$d</string>
+    <string name="aso_round_points_fmt">Ova runda - Igrač 1: %1$d  Igrač 2: %2$d</string>
     <string name="aso_hint_tap_field">U fazi pogađanja: klikni na donje polje kolone (A–D) ili na konačno rešenje iznad, unesi tekst pa Potvrdi.</string>
     <string name="aso_hint_tap_field_dialog">Klikni na polje rešenja kolone ili na konačno iznad — otvoriće se prozor za unos i tastatura.</string>
     <string name="aso_guess_hint">Tvoj odgovor</string>
@@ -86,18 +86,16 @@
     <string name="sk_time_turn">Vreme je isteklo za ovaj potez.</string>
 
     <string name="notifications_title">Obaveštenja</string>
-    <string name="notifications_intro">Istorija sistemskih notifikacija — plasman, nagrade, čet i prijatelji. Sledeće vezuje backend.</string>
-    <string name="notifications_intro_short">Istorija, filteri i reakcije</string>
+    <string name="notifications_intro">Istorija sistemskih notifikacija — plasman, nagrade, čet i prijatelji. Klik otvara povezanu stranicu.</string>
+    <string name="notifications_intro_short">Istorija i povezane stranice</string>
     <string name="notifications_filter_all">Sve</string>
     <string name="notifications_filter_unread">Nepročitane</string>
     <string name="notifications_filter_read">Pročitane</string>
     <string name="notifications_empty">Nema notifikacija u ovoj kategoriji.</string>
     <string name="notif_action_mark_read">Pročitano</string>
-    <string name="notif_action_react">Reaguj</string>
+    <string name="notif_action_open">Otvori</string>
     <string name="notif_marked_read">Označeno kao pročitano.</string>
-    <string name="notif_react_placeholder">Otvoriće se sledeća radnja kada bude podešeno sa serverom (reakcije na obaveštenje).</string>
-    <string name="notif_reaction_pick_title">Reaguj</string>
-    <string name="notif_reaction_saved">Reakcija sačuvana.</string>
+    <string name="notification_target_title">Detalji</string>
     <string name="notif_cat_chat_label">Čet</string>
     <string name="notif_cat_ranking_label">Rang</string>
     <string name="notif_cat_rewards_label">Nagrade</string>
@@ -113,4 +111,8 @@
     <string name="notif_channel_other_desc">Pozivi za prijatelje i druge aplikacije koje nemaju svoj kanal.</string>
 
     <string name="profile_open_notifications">Notifikacije</string>
+    <string name="profile_change_password">Promeni lozinku</string>
+    <string name="profile_change_password_description"></string>
+    <string name="profile_change_password_toggle_open">Prikaži formu</string>
+    <string name="profile_change_password_toggle_close">Sakrij formu</string>
 </resources>

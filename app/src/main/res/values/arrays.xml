@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="serbia_regions">
+        <item>Beogradski region</item>
+        <item>Region Vojvodine</item>
+        <item>Region Sumadije i Zapadne Srbije</item>
+        <item>Region Juzne i Istocne Srbije</item>
+        <item>Region Kosova i Metohije</item>
+    </string-array>
+</resources>

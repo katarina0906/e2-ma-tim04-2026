@@ -23,7 +23,7 @@ public class GamesFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_games, container, false);
 
         view.findViewById(R.id.koZnaZnaCard).setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.koZnaZnaFragment)
+                Navigation.findNavController(v).navigate(R.id.stepByStepWaitingRoomFragment)
         );
 
         view.findViewById(R.id.spojniceCard).setOnClickListener(v ->
@@ -35,11 +35,11 @@ public class GamesFragment extends Fragment {
         );
 
         view.findViewById(R.id.skockoCard).setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.skockoFragment)
+                Navigation.findNavController(v).navigate(R.id.skockoWaitingRoomFragment)
         );
 
         view.findViewById(R.id.stepByStepCard).setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.stepByStepFragment)
+                Navigation.findNavController(v).navigate(R.id.stepByStepWaitingRoomFragment)
         );
 
         view.findViewById(R.id.myNumberCard).setOnClickListener(v ->

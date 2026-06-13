@@ -1,77 +1,208 @@
 package com.example.slagalicatim04.fragments;
 
 import android.os.Bundle;
-
+import android.net.Uri;
+import android.text.Editable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
+import android.widget.Toast;
+import android.widget.ImageView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
+import com.example.slagalicatim04.auth.AuthResult;
+import com.example.slagalicatim04.auth.AuthService;
+import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link ProfileFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
 public class ProfileFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
-    public ProfileFragment() {
-        // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment ProfileFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static ProfileFragment newInstance(String param1, String param2) {
-        ProfileFragment fragment = new ProfileFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
+    private TextView usernameText;
+    private TextView emailText;
+    private TextView regionText;
+    private ImageView avatarImage;
+    private AuthService authService;
+    private AuthUser currentUser;
+    private final ActivityResultLauncher<String> avatarPicker =
+            registerForActivityResult(new ActivityResultContracts.GetContent(), this::uploadAvatar);
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
-    }
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_profile, container, false);
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        authService = AuthService.getInstance(requireContext());
+        usernameText = view.findViewById(R.id.profileUsername);
+        emailText = view.findViewById(R.id.profileEmail);
+        regionText = view.findViewById(R.id.profileRegion);
+        avatarImage = view.findViewById(R.id.profileAvatar);
+        View changePasswordForm = view.findViewById(R.id.changePasswordForm);
+        MaterialButton toggleChangePasswordButton = view.findViewById(R.id.toggleChangePasswordButton);
+        TextInputEditText oldPasswordInput = view.findViewById(R.id.profileOldPasswordInput);
+        TextInputEditText newPasswordInput = view.findViewById(R.id.profileNewPasswordInput);
+        TextInputEditText confirmPasswordInput = view.findViewById(R.id.profileConfirmPasswordInput);
+
         view.findViewById(R.id.notifications_card).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
                         .navigate(R.id.action_profileFragment_to_notificationsFragment));
+        view.findViewById(R.id.logoutButton).setOnClickListener(this::logout);
+        view.findViewById(R.id.changeAvatarButton)
+                .setOnClickListener(v -> avatarPicker.launch("image/*"));
+        view.findViewById(R.id.editAvatarIcon)
+                .setOnClickListener(v -> avatarPicker.launch("image/*"));
+        toggleChangePasswordButton.setOnClickListener(v -> togglePasswordForm(changePasswordForm, toggleChangePasswordButton));
+        view.findViewById(R.id.saveProfilePasswordButton).setOnClickListener(v ->
+                changePassword(
+                        changePasswordForm,
+                        toggleChangePasswordButton,
+                        oldPasswordInput,
+                        newPasswordInput,
+                        confirmPasswordInput
+                ));
+
+        currentUser = authService.getCurrentUser();
+        if (currentUser == null) {
+            navigateToLogin(view);
+            return;
+        }
+        showProfile(currentUser);
+        loadProfileFromFirestore();
+    }
+
+    private void loadProfileFromFirestore() {
+        new Thread(() -> {
+            AuthResult<AuthUser> result = authService.refreshCurrentUser();
+            if (!isAdded()) {
+                return;
+            }
+            requireActivity().runOnUiThread(() -> {
+                if (!isAdded()) {
+                    return;
+                }
+                if (result.isSuccess() && result.getData() != null) {
+                    currentUser = result.getData();
+                    showProfile(result.getData());
+                } else {
+                    Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
+                    navigateToLogin(requireView());
+                }
+            });
+        }).start();
+    }
+
+    private void showProfile(AuthUser user) {
+        usernameText.setText(user.getUsername());
+        emailText.setText(user.getEmail());
+        regionText.setText(user.getRegion());
+        AvatarImageLoader.load(avatarImage, user.getAvatarData());
+    }
+
+    private void uploadAvatar(Uri imageUri) {
+        if (imageUri == null) {
+            return;
+        }
+        avatarImage.setPadding(0, 0, 0, 0);
+        avatarImage.setImageURI(imageUri);
+        Toast.makeText(requireContext(), "Cuvanje profilne slike...", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            AuthResult<AuthUser> result = authService.updateAvatar(imageUri);
+            if (!isAdded()) {
+                return;
+            }
+            requireActivity().runOnUiThread(() -> {
+                if (!isAdded()) {
+                    return;
+                }
+                Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
+                if (result.isSuccess() && result.getData() != null) {
+                    currentUser = result.getData();
+                    showProfile(result.getData());
+                }
+            });
+        }).start();
+    }
+
+    private void togglePasswordForm(View form, MaterialButton toggleButton) {
+        boolean show = form.getVisibility() != View.VISIBLE;
+        form.setVisibility(show ? View.VISIBLE : View.GONE);
+        toggleButton.setText(show
+                ? R.string.profile_change_password_toggle_close
+                : R.string.profile_change_password_toggle_open);
+    }
+
+    private void changePassword(View form,
+                                MaterialButton toggleButton,
+                                TextInputEditText oldPasswordInput,
+                                TextInputEditText newPasswordInput,
+                                TextInputEditText confirmPasswordInput) {
+        if (currentUser == null) {
+            Toast.makeText(requireContext(), "Korisnik nije prijavljen.", Toast.LENGTH_LONG).show();
+            navigateToLogin(requireView());
+            return;
+        }
+
+        String oldPassword = textOf(oldPasswordInput);
+        String newPassword = textOf(newPasswordInput);
+        String confirmPassword = textOf(confirmPasswordInput);
+
+        new Thread(() -> {
+            AuthResult<AuthUser> result = authService.changePassword(
+                    currentUser.getEmail(),
+                    oldPassword,
+                    newPassword,
+                    confirmPassword
+            );
+            if (!isAdded()) {
+                return;
+            }
+            requireActivity().runOnUiThread(() -> {
+                if (!isAdded()) {
+                    return;
+                }
+                Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
+                if (result.isSuccess()) {
+                    oldPasswordInput.setText("");
+                    newPasswordInput.setText("");
+                    confirmPasswordInput.setText("");
+                    form.setVisibility(View.GONE);
+                    toggleButton.setText(R.string.profile_change_password_toggle_open);
+                }
+            });
+        }).start();
+    }
+
+    private void logout(View view) {
+        authService.logout();
+        Toast.makeText(requireContext(), "Uspesno ste se odjavili.", Toast.LENGTH_SHORT).show();
+        navigateToLogin(view);
+    }
+
+    private void navigateToLogin(View view) {
+        NavController navController = Navigation.findNavController(view);
+        NavOptions options = new NavOptions.Builder()
+                .setPopUpTo(R.id.nav_graph, true)
+                .build();
+        navController.navigate(R.id.loginFragment, null, options);
+    }
+
+    private String textOf(TextInputEditText input) {
+        Editable text = input.getText();
+        return text == null ? "" : text.toString();
     }
 }

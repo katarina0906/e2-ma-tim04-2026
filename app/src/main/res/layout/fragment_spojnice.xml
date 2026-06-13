@@ -1,187 +1,193 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F4F1FA"
-    android:orientation="vertical"
-    android:padding="14dp">
-
-    <androidx.cardview.widget.CardView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
-        app:cardCornerRadius="18dp"
-        app:cardElevation="4dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#FFFFFF"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="12dp">
-
-            <TextView
-                android:id="@+id/roundText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Runda 1 / 2"
-                android:textColor="#1E1E2F"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/timerText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="#EFEAF8"
-                android:padding="8dp"
-                android:text="⏱ 30s"
-                android:textColor="#6F4BB2"
-                android:textStyle="bold" />
-
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
-
-    <androidx.cardview.widget.CardView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="12dp"
-        app:cardCornerRadius="20dp"
-        app:cardElevation="5dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#FFFFFF"
-            android:orientation="vertical"
-            android:padding="18dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Poveži izvođače sa njihovim pesmama"
-                android:textColor="#1E1E2F"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="Klikni prvo na izvođača, pa na pesmu."
-                android:textColor="#777777"
-                android:textSize="13sp" />
-
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:weightSum="2">
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#FFFFFF"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/roundText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Runda 1 / 2"
+                            android:textColor="#1E1E2F"
+                            android:textSize="17sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/turnText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Na potezu: Igrac 1"
+                            android:textColor="#666666"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/timerText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="#EFEAF8"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="6dp"
+                        android:text="30s"
+                        android:textColor="#6F4BB2"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/spAvatar0"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/player_avatar_background"
+                        android:clipToOutline="true"
+                        android:contentDescription="Profilna slika prvog igraca"
+                        android:scaleType="centerCrop" />
+
+                    <TextView
+                        android:id="@+id/spScore0"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="#EFEAF8"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:text="Igrac 1: 0"
+                        android:textColor="#1E1E2F"
+                        android:textStyle="bold" />
+
+                    <ImageView
+                        android:id="@+id/spAvatar1"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/player_avatar_background"
+                        android:clipToOutline="true"
+                        android:contentDescription="Profilna slika drugog igraca"
+                        android:scaleType="centerCrop" />
+
+                    <TextView
+                        android:id="@+id/spScore1"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:background="#F5F5F5"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:text="Igrac 2: 0"
+                        android:textColor="#1E1E2F"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:gravity="center"
+            android:text="Povezi pet pojmova iz leve i desne kolone"
+            android:textColor="#1E1E2F"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:weightSum="2">
 
-            <Button
-                android:id="@+id/leftDino"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="10dp"
-                android:text="Dino Merlin"
-                android:textAllCaps="false" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-            <Button
-                android:id="@+id/leftColic"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="10dp"
-                android:text="Zdravko Čolić"
-                android:textAllCaps="false" />
+                <Button android:id="@+id/left0" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginBottom="8dp" android:textAllCaps="false" />
+                <Button android:id="@+id/left1" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginBottom="8dp" android:textAllCaps="false" />
+                <Button android:id="@+id/left2" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginBottom="8dp" android:textAllCaps="false" />
+                <Button android:id="@+id/left3" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginBottom="8dp" android:textAllCaps="false" />
+                <Button android:id="@+id/left4" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:textAllCaps="false" />
+            </LinearLayout>
 
-            <Button
-                android:id="@+id/leftAdele"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="10dp"
-                android:text="Adele"
-                android:textAllCaps="false" />
+            <Space
+                android:layout_width="12dp"
+                android:layout_height="wrap_content" />
 
-            <Button
-                android:id="@+id/leftCeca"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="10dp"
-                android:text="Ceca"
-                android:textAllCaps="false" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-
-
+                <Button android:id="@+id/right0" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginBottom="8dp" android:textAllCaps="false" />
+                <Button android:id="@+id/right1" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginBottom="8dp" android:textAllCaps="false" />
+                <Button android:id="@+id/right2" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginBottom="8dp" android:textAllCaps="false" />
+                <Button android:id="@+id/right3" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginBottom="8dp" android:textAllCaps="false" />
+                <Button android:id="@+id/right4" style="@style/Widget.AppCompat.Button" android:layout_width="match_parent" android:layout_height="56dp" android:textAllCaps="false" />
+            </LinearLayout>
         </LinearLayout>
 
-        <Space
-            android:layout_width="12dp"
-            android:layout_height="wrap_content" />
-
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/resultText"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_marginTop="14dp"
+            android:gravity="center"
+            android:minHeight="44dp"
+            android:textColor="#6F4BB2"
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
-
-
-            <Button
-                android:id="@+id/rightTiSiMiUKrvi"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="10dp"
-                android:text="Ti si mi u krvi"
-                android:textAllCaps="false" />
-
-            <Button
-                android:id="@+id/rightEasyOnMe"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="10dp"
-                android:text="Easy On Me"
-                android:textAllCaps="false" />
-
-            <Button
-                android:id="@+id/rightNedostajes"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="10dp"
-                android:text="Nedostaješ"
-                android:textAllCaps="false" />
-
-            <Button
-                android:id="@+id/rightVreteno"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Vreteno"
-                android:textAllCaps="false" />
-
-        </LinearLayout>
-
+        <Button
+            android:id="@+id/newSpojniceGameButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Nova igra"
+            android:textAllCaps="false"
+            android:visibility="gone" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/resultText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
-        android:gravity="center"
-        android:text=""
-        android:textColor="#6F4BB2"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-
-</LinearLayout>
+</ScrollView>

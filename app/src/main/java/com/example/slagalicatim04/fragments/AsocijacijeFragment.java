@@ -2,7 +2,8 @@ package com.example.slagalicatim04.fragments;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.os.CountDownTimer;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -20,20 +21,29 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
+import com.example.slagalicatim04.associations.AssociationMatchRepository;
+import com.example.slagalicatim04.associations.AssociationMatchState;
+import com.example.slagalicatim04.associations.AssociationPuzzle;
+import com.example.slagalicatim04.associations.AssociationPuzzleRepository;
+import com.example.slagalicatim04.auth.AuthService;
+import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
+import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
+import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.ListenerRegistration;
 
-import java.text.Normalizer;
-import java.util.Locale;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-/**
- * Asocijacije: tabla AB / konačno / CD; unos preko dijaloga sa automatskom tastaturom.
- */
 public class AsocijacijeFragment extends Fragment {
-
-    private static final long ROUND_MS = 120_000L;
-    private static final int COLS = 4;
-    private static final int ROWS = 4;
+    private static final int COLUMN_COUNT = 4;
+    private static final int ROW_COUNT = 4;
 
     private static final int[][] CELL_IDS = {
             {R.id.aso_b00, R.id.aso_b01, R.id.aso_b02, R.id.aso_b03},
@@ -41,33 +51,15 @@ public class AsocijacijeFragment extends Fragment {
             {R.id.aso_b20, R.id.aso_b21, R.id.aso_b22, R.id.aso_b23},
             {R.id.aso_b30, R.id.aso_b31, R.id.aso_b32, R.id.aso_b33},
     };
-
     private static final int[] TITLE_IDS = {
             R.id.aso_title0, R.id.aso_title1, R.id.aso_title2, R.id.aso_title3,
     };
 
-    private static final Puzzle[] PUZZLES = {
-            new Puzzle(
-                    new String[][]{
-                            {"Jabuka", "Kruška", "Banana", "Narandža"},
-                            {"Krompir", "Luk", "Šargarepa", "Kupus"},
-                            {"Pšenica", "Ječam", "Raž", "Ovas"},
-                            {"Sir", "Jogurt", "Kajmak", "Pavlaka"},
-                    },
-                    new String[]{"VOĆE", "POVRĆE", "ŽITO", "MLEČNO"},
-                    "HRANA"
-            ),
-            new Puzzle(
-                    new String[][]{
-                            {"Crvena", "Plava", "Zelena", "Žuta"},
-                            {"Trougao", "Kvadrat", "Krug", "Elipsa"},
-                            {"Violina", "Gitara", "Klavir", "Bubanj"},
-                            {"Drama", "Komedija", "Tragedija", "Mjuzikl"},
-                    },
-                    new String[]{"BOJE", "OBLICI", "INSTRUMENTI", "ŽANROVI"},
-                    "UMETNOST"
-            ),
-    };
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final Runnable ticker = this::renderState;
+    private final Button[][] cellButtons = new Button[COLUMN_COUNT][ROW_COUNT];
+    private final TextView[] titleViews = new TextView[COLUMN_COUNT];
+    private final Map<String, AssociationPuzzle> puzzles = new HashMap<>();
 
     private TextView roundText;
     private TextView turnText;
@@ -82,27 +74,14 @@ public class AsocijacijeFragment extends Fragment {
     private Button nextRoundButton;
     private Button newGameButton;
 
-    private final Button[][] cellButtons = new Button[COLS][ROWS];
-    private final TextView[] titleViews = new TextView[COLS];
-
-    private CountDownTimer timer;
-
-    private Puzzle puzzle;
-    private final boolean[][] revealed = new boolean[COLS][ROWS];
-    private final boolean[] columnSolved = new boolean[COLS];
-    private boolean finalSolved;
-
-    private boolean openPhase = true;
-    private int currentPlayer;
-    private int roundIndex;
-    private boolean roundFrozen;
-    private boolean bothRoundsDone;
-
-    private final int[] totalScores = new int[2];
-    private final int[] roundScores = new int[2];
-
-    public AsocijacijeFragment() {
-    }
+    private AssociationMatchRepository matchRepository;
+    private ListenerRegistration listenerRegistration;
+    private AssociationMatchState currentState;
+    private AssociationPuzzle currentPuzzle;
+    private StepByStepPlayerSession playerSession;
+    private String roomId = MultiplayerGameRepository.TEST_ROOM_ID;
+    private long lastClockTickAt;
+    private boolean navigatedToSkocko;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -113,7 +92,35 @@ public class AsocijacijeFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        bindViews(view);
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
+        playerSession = resolveCurrentUser();
+        matchRepository = new AssociationMatchRepository(roomId);
 
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            titleViews[column] = view.findViewById(TITLE_IDS[column]);
+            int selectedColumn = column;
+            titleViews[column].setOnClickListener(
+                    ignored -> showGuessDialog(false, selectedColumn));
+            for (int row = 0; row < ROW_COUNT; row++) {
+                cellButtons[column][row] = view.findViewById(CELL_IDS[column][row]);
+                int selectedRow = row;
+                cellButtons[column][row].setOnClickListener(
+                        ignored -> openCell(selectedColumn, selectedRow));
+            }
+        }
+        finalTitle.setOnClickListener(ignored -> showGuessDialog(true, 0));
+        passGuessButton.setOnClickListener(ignored -> matchRepository.pass(playerSession));
+        nextRoundButton.setVisibility(View.GONE);
+        newGameButton.setVisibility(View.GONE);
+        setBoardEnabled(false);
+        resultText.setText("Ucitavanje asocijacija iz baze...");
+        loadPuzzles();
+    }
+
+    private void bindViews(View view) {
         roundText = view.findViewById(R.id.asoRoundText);
         turnText = view.findViewById(R.id.asoTurnText);
         timerText = view.findViewById(R.id.asoTimerText);
@@ -126,433 +133,250 @@ public class AsocijacijeFragment extends Fragment {
         passGuessButton = view.findViewById(R.id.asoPassGuessButton);
         nextRoundButton = view.findViewById(R.id.asoNextRoundButton);
         newGameButton = view.findViewById(R.id.asoNewGameButton);
-
-        for (int c = 0; c < COLS; c++) {
-            titleViews[c] = view.findViewById(TITLE_IDS[c]);
-            final int col = c;
-            titleViews[c].setOnClickListener(v -> onColumnTitleTapped(col));
-            for (int r = 0; r < ROWS; r++) {
-                cellButtons[c][r] = view.findViewById(CELL_IDS[c][r]);
-                final int row = r;
-                cellButtons[c][r].setOnClickListener(v -> onCellClicked(col, row));
-            }
-        }
-
-        finalTitle.setOnClickListener(v -> onFinalTitleTapped());
-        passGuessButton.setOnClickListener(v -> onPassGuess());
-        nextRoundButton.setOnClickListener(v -> onNextRound());
-        newGameButton.setOnClickListener(v -> onNewGame());
-
-        startFreshGame();
     }
 
-    /**
-     * Otvara dijalog sa poljem za unos; tastatura se traži čim se dijalog prikaže.
-     */
-    private void showGuessDialog(boolean isFinal, int col) {
-        Context ctx = requireContext();
-        final EditText input = new EditText(ctx);
+    private void loadPuzzles() {
+        new AssociationPuzzleRepository().loadOrSeed(
+                new AssociationPuzzleRepository.Callback() {
+                    @Override
+                    public void onSuccess(List<AssociationPuzzle> loaded) {
+                        puzzles.clear();
+                        for (AssociationPuzzle puzzle : loaded) {
+                            puzzles.put(puzzle.getId(), puzzle);
+                        }
+                        listenToMatch();
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        showError(error);
+                    }
+                });
+    }
+
+    private void listenToMatch() {
+        listenerRegistration = matchRepository.listen(new AssociationMatchRepository.Listener() {
+            @Override
+            public void onState(AssociationMatchState state) {
+                currentState = state;
+                currentPuzzle = puzzles.get(state.getPuzzleId());
+                renderState();
+            }
+
+            @Override
+            public void onError(Exception error) {
+                showError(error);
+            }
+        });
+    }
+
+    private void renderState() {
+        uiHandler.removeCallbacks(ticker);
+        if (!isAdded() || currentState == null) {
+            return;
+        }
+        if ("skocko".equals(currentState.getCurrentGame())) {
+            navigateToSkocko();
+            return;
+        }
+        if (!currentState.isAssociationGame()) {
+            setBoardEnabled(false);
+            resultText.setText("Ceka se pocetak Asocijacija.");
+            return;
+        }
+        if (currentPuzzle == null) {
+            setBoardEnabled(false);
+            resultText.setText("Tabla za ovu rundu nije pronadjena u bazi.");
+            return;
+        }
+
+        int myPlayer = currentState.playerNumber(playerSession.getId());
+        boolean myTurn = myPlayer != 0 && myPlayer == currentState.getActivePlayer();
+        roundText.setText(getString(R.string.aso_round_label, currentState.getRound(), 2));
+        turnText.setText("Na potezu: Igrac " + currentState.getActivePlayer());
+        int seconds = currentState.getSecondsLeft();
+        timerText.setText(getString(R.string.aso_timer_fmt, seconds / 60, seconds % 60));
+        scoreP1.setText(getString(R.string.aso_player_points, 1,
+                (int) currentState.getPlayer1Score()));
+        scoreP2.setText(getString(R.string.aso_player_points, 2,
+                (int) currentState.getPlayer2Score()));
+        roundPointsText.setText(getString(R.string.aso_round_points_fmt,
+                currentState.getRoundPlayer1Score(), currentState.getRoundPlayer2Score()));
+        resultText.setText(currentState.getStatusMessage());
+        phaseHint.setText(myTurn
+                ? (currentState.isOpenPhase()
+                ? "Tvoj potez: otvori jedno skriveno polje."
+                : (currentState.canContinueAfterCorrect()
+                ? "Tacan odgovor: pogadjaj dalje ili otvori novo polje."
+                : "Pogodi kolonu ili konacno resenje, ili predaj potez."))
+                : "Igrac " + currentState.getActivePlayer() + " je na potezu. Cekaj svoj red.");
+
+        renderBoard(myTurn);
+        publishClockIfOwner(myPlayer);
+        uiHandler.postDelayed(ticker, 1000);
+    }
+
+    private void renderBoard(boolean myTurn) {
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            boolean solved = currentState.isColumnSolved(column);
+            titleViews[column].setText(solved
+                    ? currentPuzzle.getColumnAnswer(column) : ".....");
+            titleViews[column].setClickable(myTurn && !currentState.isOpenPhase() && !solved);
+            titleViews[column].setFocusable(titleViews[column].isClickable());
+            for (int row = 0; row < ROW_COUNT; row++) {
+                boolean revealed = solved || currentState.isRevealed(column, row);
+                cellButtons[column][row].setText(
+                        revealed ? currentPuzzle.getClue(column, row) : "?");
+                cellButtons[column][row].setEnabled(
+                        myTurn
+                                && (currentState.isOpenPhase()
+                                || currentState.canContinueAfterCorrect())
+                                && !revealed && !solved);
+            }
+        }
+        finalTitle.setText(currentState.isFinalSolved()
+                ? currentPuzzle.getFinalAnswer() : ". . . . . . .");
+        finalTitle.setClickable(myTurn
+                && !currentState.isOpenPhase() && !currentState.isFinalSolved());
+        finalTitle.setFocusable(finalTitle.isClickable());
+        passGuessButton.setEnabled(myTurn && !currentState.isOpenPhase());
+    }
+
+    private void publishClockIfOwner(int myPlayer) {
+        if (myPlayer != currentState.getActivePlayer()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastClockTickAt < 900) {
+            return;
+        }
+        lastClockTickAt = now;
+        matchRepository.tick(playerSession);
+    }
+
+    private void openCell(int column, int row) {
+        if (canAct() && (currentState.isOpenPhase()
+                || currentState.canContinueAfterCorrect())) {
+            matchRepository.openCell(playerSession, column, row);
+        }
+    }
+
+    private void showGuessDialog(boolean finalGuess, int column) {
+        if (!canAct() || currentState.isOpenPhase()) {
+            return;
+        }
+        Context context = requireContext();
+        EditText input = new EditText(context);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         input.setHint(R.string.aso_guess_hint);
-        int pad = (int) (20 * ctx.getResources().getDisplayMetrics().density);
-        input.setPadding(pad, pad / 2, pad, pad / 2);
-        input.setMinHeight((int) (48 * ctx.getResources().getDisplayMetrics().density));
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        input.setPadding(padding, padding / 2, padding, padding / 2);
 
-        String title = isFinal
-                ? getString(R.string.aso_dialog_title_final)
-                : getString(R.string.aso_dialog_title_column, String.valueOf((char) ('A' + col)));
-
-        AlertDialog dialog = new AlertDialog.Builder(ctx)
-                .setTitle(title)
+        AlertDialog dialog = new AlertDialog.Builder(context)
+                .setTitle(finalGuess
+                        ? getString(R.string.aso_dialog_title_final)
+                        : getString(R.string.aso_dialog_title_column,
+                        String.valueOf((char) ('A' + column))))
                 .setView(input)
                 .setPositiveButton(R.string.aso_confirm_guess, null)
-                .setNegativeButton(android.R.string.cancel, (d, w) -> d.dismiss())
+                .setNegativeButton(android.R.string.cancel, null)
                 .create();
-
-        dialog.setOnShowListener(d -> {
-            Window win = dialog.getWindow();
-            if (win != null) {
-                win.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        dialog.setOnShowListener(ignored -> {
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setSoftInputMode(
+                        WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
             }
             input.requestFocus();
-            InputMethodManager imm = (InputMethodManager) ctx.getSystemService(Context.INPUT_METHOD_SERVICE);
-            input.post(() -> imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT));
-
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            InputMethodManager keyboard = (InputMethodManager)
+                    context.getSystemService(Context.INPUT_METHOD_SERVICE);
+            input.post(() -> keyboard.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT));
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
                 String guess = input.getText().toString();
-                if (TextUtils.isEmpty(guess)) {
-                    Toast.makeText(ctx, R.string.aso_empty_guess, Toast.LENGTH_SHORT).show();
+                if (TextUtils.isEmpty(guess.trim())) {
+                    Toast.makeText(context, R.string.aso_empty_guess, Toast.LENGTH_SHORT).show();
                     return;
                 }
                 dialog.dismiss();
-                if (isFinal) {
-                    submitFinalGuess(guess);
+                if (finalGuess) {
+                    matchRepository.submitFinalGuess(playerSession, currentPuzzle, guess);
                 } else {
-                    submitColumnGuess(col, guess);
+                    matchRepository.submitColumnGuess(
+                            playerSession, currentPuzzle, column, guess);
                 }
             });
         });
-
         dialog.show();
     }
 
-    private void updateTitleClickableState() {
-        boolean alive = !roundFrozen && !bothRoundsDone;
-        for (int c = 0; c < COLS; c++) {
-            boolean colClick = alive && !openPhase && !columnSolved[c];
-            titleViews[c].setClickable(colClick);
-            titleViews[c].setFocusable(colClick);
-        }
-        boolean finClick = alive && !openPhase && !finalSolved;
-        finalTitle.setClickable(finClick);
-        finalTitle.setFocusable(finClick);
+    private boolean canAct() {
+        return currentState != null
+                && currentState.isAssociationGame()
+                && currentState.playerNumber(playerSession.getId())
+                == currentState.getActivePlayer();
     }
 
-    private void onColumnTitleTapped(int col) {
-        if (roundFrozen || bothRoundsDone) return;
-        if (openPhase) {
-            Toast.makeText(requireContext(), R.string.aso_open_first, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (columnSolved[col]) {
-            Toast.makeText(requireContext(), R.string.aso_column_done, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        showGuessDialog(false, col);
-    }
-
-    private void onFinalTitleTapped() {
-        if (roundFrozen || bothRoundsDone) return;
-        if (openPhase) {
-            Toast.makeText(requireContext(), R.string.aso_open_first, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (finalSolved) return;
-        showGuessDialog(true, 0);
-    }
-
-    private void submitColumnGuess(int col, String guess) {
-        if (columnSolved[col]) {
-            Toast.makeText(requireContext(), R.string.aso_column_done, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (matches(guess, puzzle.columnAnswers[col])) {
-            int pts = columnPoints(col);
-            addPoints(pts);
-            columnSolved[col] = true;
-            revealWholeColumn(col);
-            Toast.makeText(requireContext(), getString(R.string.aso_column_ok, pts), Toast.LENGTH_SHORT).show();
-            refreshBoardUi();
-            if (allColumnsSolved()) {
-                resultText.setText(R.string.aso_all_columns_hint);
+    private void setBoardEnabled(boolean enabled) {
+        passGuessButton.setEnabled(enabled);
+        finalTitle.setClickable(enabled);
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            if (titleViews[column] != null) {
+                titleViews[column].setClickable(enabled);
             }
-        } else {
-            Toast.makeText(requireContext(), R.string.aso_wrong_switch, Toast.LENGTH_SHORT).show();
-            switchTurnAfterMistake();
-        }
-    }
-
-    private void submitFinalGuess(String guess) {
-        if (finalSolved) return;
-        if (matches(guess, puzzle.finalAnswer)) {
-            int pts = finalPoints();
-            addPoints(pts);
-            finalSolved = true;
-            finalTitle.setText(puzzle.finalAnswer);
-            Toast.makeText(requireContext(), getString(R.string.aso_final_ok, pts), Toast.LENGTH_LONG).show();
-            endRoundSuccess();
-        } else {
-            Toast.makeText(requireContext(), R.string.aso_wrong_switch, Toast.LENGTH_SHORT).show();
-            switchTurnAfterMistake();
-        }
-    }
-
-    private void startFreshGame() {
-        bothRoundsDone = false;
-        totalScores[0] = 0;
-        totalScores[1] = 0;
-        roundIndex = 0;
-        nextRoundButton.setVisibility(View.GONE);
-        newGameButton.setVisibility(View.GONE);
-        startRound();
-    }
-
-    private void startRound() {
-        cancelTimer();
-        roundFrozen = false;
-        finalSolved = false;
-        openPhase = true;
-        currentPlayer = roundIndex % 2;
-        roundScores[0] = 0;
-        roundScores[1] = 0;
-        puzzle = PUZZLES[roundIndex % PUZZLES.length];
-
-        for (int c = 0; c < COLS; c++) {
-            columnSolved[c] = false;
-            for (int r = 0; r < ROWS; r++) {
-                revealed[c][r] = false;
-            }
-        }
-
-        roundText.setText(getString(R.string.aso_round_label, roundIndex + 1, 2));
-        updateScoreUi();
-        refreshBoardUi();
-        updateTurnUi();
-        resultText.setText("");
-        nextRoundButton.setVisibility(View.GONE);
-        newGameButton.setVisibility(View.GONE);
-        enableGuessControls(true);
-        startTimer();
-    }
-
-    private void startTimer() {
-        cancelTimer();
-        timer = new CountDownTimer(ROUND_MS, 250) {
-            @Override
-            public void onTick(long millisUntilFinished) {
-                long sec = (millisUntilFinished + 999) / 1000;
-                long m = sec / 60;
-                long s = sec % 60;
-                timerText.setText(getString(R.string.aso_timer_fmt, m, s));
-            }
-
-            @Override
-            public void onFinish() {
-                timerText.setText(getString(R.string.aso_timer_fmt, 0, 0));
-                onRoundTimeUp();
-            }
-        }.start();
-    }
-
-    private void cancelTimer() {
-        if (timer != null) {
-            timer.cancel();
-            timer = null;
-        }
-    }
-
-    private void onRoundTimeUp() {
-        if (roundFrozen) return;
-        roundFrozen = true;
-        cancelTimer();
-        enableGuessControls(false);
-        applyCellLockState();
-        resultText.setText(R.string.aso_time_up);
-        Toast.makeText(requireContext(), R.string.aso_time_up, Toast.LENGTH_LONG).show();
-        finishRoundTransition();
-    }
-
-    private void onCellClicked(int col, int row) {
-        if (roundFrozen || bothRoundsDone) return;
-        if (!openPhase) {
-            Toast.makeText(requireContext(), R.string.aso_must_guess_or_pass, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (revealed[col][row] || columnSolved[col]) return;
-
-        revealed[col][row] = true;
-        openPhase = false;
-        refreshBoardUi();
-    }
-
-    private void onPassGuess() {
-        if (roundFrozen || bothRoundsDone) return;
-        if (openPhase) {
-            Toast.makeText(requireContext(), R.string.aso_open_first_pass, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        switchTurnAfterMistake();
-    }
-
-    private void switchTurnAfterMistake() {
-        currentPlayer = 1 - currentPlayer;
-        openPhase = true;
-        updateTurnUi();
-        refreshBoardUi();
-    }
-
-    private void endRoundSuccess() {
-        roundFrozen = true;
-        cancelTimer();
-        enableGuessControls(false);
-        applyCellLockState();
-        resultText.setText(R.string.aso_round_solved_final);
-        finishRoundTransition();
-    }
-
-    private void finishRoundTransition() {
-        enableGuessControls(false);
-        applyCellLockState();
-        if (roundIndex >= 1) {
-            bothRoundsDone = true;
-            nextRoundButton.setVisibility(View.GONE);
-            newGameButton.setVisibility(View.VISIBLE);
-            resultText.setText(getString(R.string.aso_game_over,
-                    totalScores[0], totalScores[1]));
-        } else {
-            nextRoundButton.setVisibility(View.VISIBLE);
-            newGameButton.setVisibility(View.GONE);
-        }
-    }
-
-    private void onNextRound() {
-        roundIndex++;
-        startRound();
-    }
-
-    private void onNewGame() {
-        startFreshGame();
-    }
-
-    private void enableGuessControls(boolean enabled) {
-        boolean g = enabled && !roundFrozen && !bothRoundsDone;
-        passGuessButton.setEnabled(g);
-        updateTitleClickableState();
-    }
-
-    private void applyCellLockState() {
-        if (roundFrozen || bothRoundsDone) {
-            for (int c = 0; c < COLS; c++) {
-                for (int r = 0; r < ROWS; r++) {
-                    cellButtons[c][r].setEnabled(false);
-                }
-            }
-            return;
-        }
-        for (int c = 0; c < COLS; c++) {
-            for (int r = 0; r < ROWS; r++) {
-                boolean done = revealed[c][r] || columnSolved[c];
-                cellButtons[c][r].setEnabled(!done && openPhase);
-            }
-        }
-    }
-
-    private void refreshBoardUi() {
-        for (int c = 0; c < COLS; c++) {
-            if (columnSolved[c]) {
-                titleViews[c].setText(puzzle.columnAnswers[c]);
-            } else {
-                titleViews[c].setText("•••••");
-            }
-            titleViews[c].setBackgroundResource(R.drawable.aso_title_field_bg);
-            for (int r = 0; r < ROWS; r++) {
-                if (columnSolved[c] || revealed[c][r]) {
-                    cellButtons[c][r].setText(puzzle.clues[c][r]);
-                    cellButtons[c][r].setEnabled(false);
-                } else {
-                    cellButtons[c][r].setText("?");
-                    cellButtons[c][r].setEnabled(!roundFrozen && !bothRoundsDone);
+            for (int row = 0; row < ROW_COUNT; row++) {
+                if (cellButtons[column][row] != null) {
+                    cellButtons[column][row].setEnabled(enabled);
                 }
             }
         }
-        if (finalSolved) {
-            finalTitle.setText(puzzle.finalAnswer);
+    }
+
+    private StepByStepPlayerSession resolveCurrentUser() {
+        AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        String id = new TestRoomPlayerProvider(requireContext()).getPlayerId();
+        String name;
+        if (authUser != null) {
+            name = authUser.getUsername().isEmpty()
+                    ? authUser.getEmail() : authUser.getUsername();
+        } else if (firebaseUser != null) {
+            name = firebaseUser.getEmail() == null
+                    ? firebaseUser.getUid() : firebaseUser.getEmail();
         } else {
-            finalTitle.setText("• • • • • • •");
+            name = "Gost";
         }
-        finalTitle.setBackgroundResource(R.drawable.aso_final_field_bg);
-        updatePhaseHint();
-        applyCellLockState();
-        updateTitleClickableState();
+        return new StepByStepPlayerSession(id, name);
     }
 
-    private void updateTurnUi() {
-        turnText.setText(getString(R.string.aso_turn_fmt, currentPlayer + 1));
-    }
-
-    private void updatePhaseHint() {
-        if (roundFrozen || bothRoundsDone) {
-            phaseHint.setText("");
+    private void navigateToSkocko() {
+        if (navigatedToSkocko || getView() == null) {
             return;
         }
-        if (openPhase) {
-            phaseHint.setText(getString(R.string.aso_phase_open, currentPlayer + 1));
-        } else {
-            phaseHint.setText(getString(R.string.aso_phase_guess, currentPlayer + 1));
+        navigatedToSkocko = true;
+        Bundle args = new Bundle();
+        args.putString("roomId", roomId);
+        Navigation.findNavController(requireView()).navigate(R.id.skockoFragment, args);
+    }
+
+    private void showError(Exception error) {
+        if (isAdded()) {
+            setBoardEnabled(false);
+            resultText.setText("Firestore greska: " + error.getMessage());
+            Toast.makeText(requireContext(), error.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
-    private void updateScoreUi() {
-        scoreP1.setText(getString(R.string.aso_player_points, 1, totalScores[0]));
-        scoreP2.setText(getString(R.string.aso_player_points, 2, totalScores[1]));
-        roundPointsText.setText(getString(R.string.aso_round_points_fmt,
-                roundScores[0], roundScores[1]));
-    }
-
-    private void addPoints(int pts) {
-        totalScores[currentPlayer] += pts;
-        roundScores[currentPlayer] += pts;
-        updateScoreUi();
-    }
-
-    private int hiddenClueCount(int col) {
-        int n = 0;
-        for (int r = 0; r < ROWS; r++) {
-            if (!revealed[col][r]) n++;
-        }
-        return n;
-    }
-
-    private int openedClueCount(int col) {
-        return ROWS - hiddenClueCount(col);
-    }
-
-    private int columnPoints(int col) {
-        return 2 + hiddenClueCount(col);
-    }
-
-    private int finalPoints() {
-        int pts = 7;
-        for (int c = 0; c < COLS; c++) {
-            if (columnSolved[c]) continue;
-            if (openedClueCount(c) == 0) {
-                pts += 6;
-            } else {
-                pts += 2 + hiddenClueCount(c);
-            }
-        }
-        return pts;
-    }
-
-    private void revealWholeColumn(int col) {
-        for (int r = 0; r < ROWS; r++) {
-            revealed[col][r] = true;
-        }
-    }
-
-    private boolean allColumnsSolved() {
-        for (boolean s : columnSolved) {
-            if (!s) return false;
-        }
-        return true;
-    }
-
-    private static boolean matches(String guess, String answer) {
-        return norm(guess).equals(norm(answer));
-    }
-
-    private static String norm(String s) {
-        if (s == null) return "";
-        String t = Normalizer.normalize(s.trim(), Normalizer.Form.NFD);
-        t = t.replaceAll("\\p{M}+", "");
-        return t.toLowerCase(Locale.ROOT);
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     @Override
     public void onDestroyView() {
-        super.onDestroyView();
-        cancelTimer();
-    }
-
-    private static final class Puzzle {
-        final String[][] clues;
-        final String[] columnAnswers;
-        final String finalAnswer;
-
-        Puzzle(String[][] clues, String[] columnAnswers, String finalAnswer) {
-            this.clues = clues;
-            this.columnAnswers = columnAnswers;
-            this.finalAnswer = finalAnswer;
+        uiHandler.removeCallbacks(ticker);
+        if (listenerRegistration != null) {
+            listenerRegistration.remove();
+            listenerRegistration = null;
         }
+        super.onDestroyView();
     }
 }

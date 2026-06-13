@@ -4,12 +4,11 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -17,7 +16,6 @@ import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.databinding.FragmentNotificationsBinding;
 import com.example.slagalicatim04.notifications.InAppNotification;
 import com.example.slagalicatim04.notifications.NotificationsAdapter;
-import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -167,25 +165,60 @@ public class NotificationsFragment extends Fragment implements NotificationsAdap
     }
 
     @Override
-    public void onReact(InAppNotification item) {
-        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
-        View sheet = getLayoutInflater().inflate(R.layout.bottom_sheet_notification_reactions, null);
-        dialog.setContentView(sheet);
-        LinearLayout row = sheet.findViewById(R.id.reaction_emoji_row);
-        for (int i = 0; i < row.getChildCount(); i++) {
-            View child = row.getChildAt(i);
-            child.setOnClickListener(v -> {
-                CharSequence text = ((TextView) v).getText();
-                item.reactionEmoji = text != null ? text.toString() : "";
-                if (!item.read) {
-                    item.read = true;
-                }
-                dialog.dismiss();
-                Snackbar.make(binding.getRoot(), R.string.notif_reaction_saved, Snackbar.LENGTH_SHORT).show();
-                refreshListUi();
-            });
+    public void onOpen(InAppNotification item) {
+        if (!item.read) {
+            item.read = true;
+            refreshListUi();
         }
-        dialog.show();
+
+        Bundle args = targetArgsFor(item);
+        Navigation.findNavController(binding.getRoot())
+                .navigate(R.id.notificationTargetFragment, args);
+    }
+
+    private Bundle targetArgsFor(InAppNotification item) {
+        Bundle args = new Bundle();
+        String actionHint = item.actionHint != null ? item.actionHint : "";
+
+        switch (actionHint) {
+            case "chat_thread":
+                args.putString(NotificationTargetFragment.ARG_TITLE, "Čet");
+                args.putString(NotificationTargetFragment.ARG_SUBTITLE, "Poruke igrača iz tvog regiona");
+                args.putString(NotificationTargetFragment.ARG_MESSAGE,
+                        "Otvoren je čet jer je notifikacija vezana za pristiglu poruku.");
+                break;
+            case "rank_detail":
+                args.putString(NotificationTargetFragment.ARG_TITLE, "Rang lista");
+                args.putString(NotificationTargetFragment.ARG_SUBTITLE, "Nedeljni i mesečni plasman");
+                args.putString(NotificationTargetFragment.ARG_MESSAGE,
+                        "Otvorena je rang lista jer je notifikacija vezana za plasman i rangiranje.");
+                break;
+            case "rewards_claim":
+                args.putString(NotificationTargetFragment.ARG_TITLE, "Nagrade");
+                args.putString(NotificationTargetFragment.ARG_SUBTITLE, "Tokeni i pokloni za osvojeni plasman");
+                args.putString(NotificationTargetFragment.ARG_MESSAGE,
+                        "Otvoren je pregled nagrada jer je notifikacija vezana za dostupnu nagradu.");
+                break;
+            case "friend_accept":
+                args.putString(NotificationTargetFragment.ARG_TITLE, "Prijatelji");
+                args.putString(NotificationTargetFragment.ARG_SUBTITLE, "Zahtevi i lista prijatelja");
+                args.putString(NotificationTargetFragment.ARG_MESSAGE,
+                        "Otvoreni su prijatelji jer je notifikacija vezana za zahtev za prijateljstvo.");
+                break;
+            case "league_info":
+                args.putString(NotificationTargetFragment.ARG_TITLE, "Liga");
+                args.putString(NotificationTargetFragment.ARG_SUBTITLE, "Napredovanje kroz lige");
+                args.putString(NotificationTargetFragment.ARG_MESSAGE,
+                        "Otvoren je pregled lige jer je notifikacija vezana za promenu lige.");
+                break;
+            default:
+                args.putString(NotificationTargetFragment.ARG_TITLE, "Obaveštenje");
+                args.putString(NotificationTargetFragment.ARG_SUBTITLE, item.title);
+                args.putString(NotificationTargetFragment.ARG_MESSAGE, item.message);
+                break;
+        }
+
+        return args;
     }
 
     @Override

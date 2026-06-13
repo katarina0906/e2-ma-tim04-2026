@@ -83,6 +83,12 @@
         tools:layout="@layout/fragment_notifications" />
 
     <fragment
+        android:id="@+id/notificationTargetFragment"
+        android:name="com.example.slagalicatim04.fragments.NotificationTargetFragment"
+        android:label="@string/notification_target_title"
+        tools:layout="@layout/fragment_notification_target" />
+
+    <fragment
         android:id="@+id/gamesFragment"
         android:name="com.example.slagalicatim04.fragments.GamesFragment"
         android:label="Games"
@@ -113,15 +119,33 @@
         tools:layout="@layout/fragment_skocko" />
 
     <fragment
+        android:id="@+id/skockoWaitingRoomFragment"
+        android:name="com.example.slagalicatim04.fragments.SkockoWaitingRoomFragment"
+        android:label="Čekaonica"
+        tools:layout="@layout/fragment_step_by_step_waiting_room" />
+
+    <fragment
         android:id="@+id/stepByStepFragment"
         android:name="com.example.slagalicatim04.fragments.StepByStepFragment"
         android:label="Korak po korak"
         tools:layout="@layout/fragment_step_by_step" />
 
     <fragment
+        android:id="@+id/stepByStepWaitingRoomFragment"
+        android:name="com.example.slagalicatim04.fragments.StepByStepWaitingRoomFragment"
+        android:label="Čekaonica"
+        tools:layout="@layout/fragment_step_by_step_waiting_room" />
+
+    <fragment
         android:id="@+id/myNumberFragment"
         android:name="com.example.slagalicatim04.fragments.MyNumberFragment"
         android:label="Moj broj"
         tools:layout="@layout/fragment_my_number" />
+
+    <fragment
+        android:id="@+id/matchResultFragment"
+        android:name="com.example.slagalicatim04.fragments.MatchResultFragment"
+        android:label="Kraj partije"
+        tools:layout="@layout/fragment_match_result" />
 
 </navigation>
