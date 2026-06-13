@@ -1,0 +1,19 @@
+match /users/{userId}/notifications/{notificationId} {
+  allow read: if request.auth != null && request.auth.uid == userId;
+  allow create: if request.auth != null
+    && request.auth.uid == userId
+    && request.resource.data.source == "demo"
+    && request.resource.data.read == false;
+  allow delete: if false;
+  allow update: if request.auth != null
+    && request.auth.uid == userId
+    && request.resource.data.diff(resource.data).affectedKeys()
+      .hasOnly(["read", "readAt", "actionedAt"])
+    && request.resource.data.read == true;
+}
+
+match /users/{userId}/devices/{deviceId} {
+  allow read: if false;
+  allow create, update, delete: if request.auth != null
+    && request.auth.uid == userId;
+}

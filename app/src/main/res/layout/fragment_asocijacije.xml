@@ -15,7 +15,6 @@
         android:padding="12dp"
         android:paddingBottom="24dp">
 
-        <!-- Status -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -126,7 +125,6 @@
             android:textSize="13sp"
             android:textStyle="bold" />
 
-        <!-- Tabla: AB / konačno / CD -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

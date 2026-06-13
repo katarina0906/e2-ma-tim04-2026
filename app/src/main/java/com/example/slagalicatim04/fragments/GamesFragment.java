@@ -13,7 +13,6 @@ import com.example.slagalicatim04.R;
 public class GamesFragment extends Fragment {
 
     public GamesFragment() {
-        // Required empty public constructor
     }
 
     @Override

@@ -16,6 +16,8 @@ public class NotificationTargetFragment extends Fragment {
     public static final String ARG_TITLE = "targetTitle";
     public static final String ARG_SUBTITLE = "targetSubtitle";
     public static final String ARG_MESSAGE = "targetMessage";
+    public static final String ARG_ACTION = "targetAction";
+    public static final String ARG_TARGET_ID = "targetId";
 
     private FragmentNotificationTargetBinding binding;
 
