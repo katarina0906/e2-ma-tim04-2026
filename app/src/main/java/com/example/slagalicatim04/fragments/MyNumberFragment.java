@@ -333,6 +333,15 @@ public class MyNumberFragment extends Fragment {
         if (currentState == null || !currentState.isNumbersShown() || usedNumbers[index]) {
             return;
         }
+        if (!expressionTokens.isEmpty()) {
+            ExpressionToken previous = expressionTokens.get(expressionTokens.size() - 1);
+            if (previous.isNumber() || ")".equals(previous.value)) {
+                Toast.makeText(requireContext(),
+                        "Izmedju dva broja mora da postoji operacija.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
         List<Integer> numbers = currentState.getNumbers();
         if (index >= numbers.size() || currentState.isSubmitted(myPlayer())) {
             return;
@@ -345,6 +354,25 @@ public class MyNumberFragment extends Fragment {
 
     private void appendOperator(String operator) {
         if (currentState == null || !currentState.isNumbersShown() || currentState.isSubmitted(myPlayer())) {
+            return;
+        }
+        ExpressionToken previous = expressionTokens.isEmpty()
+                ? null : expressionTokens.get(expressionTokens.size() - 1);
+        if ("(".equals(operator)) {
+            if (previous != null && (previous.isNumber() || ")".equals(previous.value))) {
+                showInvalidExpression("Pre otvorene zagrade mora da postoji operacija.");
+                return;
+            }
+        } else if (")".equals(operator)) {
+            if (previous == null
+                    || (!previous.isNumber() && !")".equals(previous.value))
+                    || unmatchedOpeningParentheses() <= 0) {
+                showInvalidExpression("Zatvorena zagrada mora da ide posle broja ili druge zagrade.");
+                return;
+            }
+        } else if (previous == null
+                || (!previous.isNumber() && !")".equals(previous.value))) {
+            showInvalidExpression("Operacija mora da ide posle broja ili zatvorene zagrade.");
             return;
         }
         expressionTokens.add(ExpressionToken.operator(operator));
@@ -377,6 +405,11 @@ public class MyNumberFragment extends Fragment {
         if (currentState == null || currentState.isSubmitted(myPlayer())) {
             return;
         }
+        if (!isCompleteExpression()) {
+            showInvalidExpression(
+                    "Izraz mora da se zavrsi brojem ili zagradom, sa operacijom izmedju brojeva.");
+            return;
+        }
         repository.submit(playerSession, normalizeExpression(buildExpressionText()));
         setExpressionControlsEnabled(false);
         checkExpressionButton.setEnabled(false);
@@ -406,6 +439,30 @@ public class MyNumberFragment extends Fragment {
 
     private String normalizeExpression(String expression) {
         return expression == null ? "" : expression.replace(" ", "");
+    }
+
+    private boolean isCompleteExpression() {
+        if (expressionTokens.isEmpty() || unmatchedOpeningParentheses() != 0) {
+            return false;
+        }
+        ExpressionToken last = expressionTokens.get(expressionTokens.size() - 1);
+        return last.isNumber() || ")".equals(last.value);
+    }
+
+    private int unmatchedOpeningParentheses() {
+        int balance = 0;
+        for (ExpressionToken token : expressionTokens) {
+            if ("(".equals(token.value)) {
+                balance++;
+            } else if (")".equals(token.value)) {
+                balance--;
+            }
+        }
+        return balance;
+    }
+
+    private void showInvalidExpression(String message) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
     }
 
     private int myPlayer() {
