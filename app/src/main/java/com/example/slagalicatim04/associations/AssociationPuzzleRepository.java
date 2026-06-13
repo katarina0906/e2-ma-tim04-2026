@@ -8,8 +8,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class AssociationPuzzleRepository {
     public interface Callback {
@@ -31,7 +33,11 @@ public class AssociationPuzzleRepository {
                 }
             });
             loaded.sort(Comparator.comparing(AssociationPuzzle::getId));
-            if (loaded.size() >= AssociationGameService.ROUND_COUNT) {
+            Set<String> ids = new HashSet<>();
+            for (AssociationPuzzle puzzle : loaded) {
+                ids.add(puzzle.getId());
+            }
+            if (ids.contains("association-1") && ids.contains("association-2")) {
                 callback.onSuccess(loaded);
                 return;
             }

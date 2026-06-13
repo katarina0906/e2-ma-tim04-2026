@@ -95,6 +95,10 @@ public class MyNumberMatchState {
         return GAME.equals(currentGame);
     }
 
+    public boolean isMatchResult() {
+        return "matchResult".equals(currentGame);
+    }
+
     private static String stringValue(DocumentSnapshot snapshot, String key) {
         String value = snapshot.getString(key);
         return value == null ? "" : value;

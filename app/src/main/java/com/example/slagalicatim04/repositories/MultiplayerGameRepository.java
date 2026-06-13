@@ -259,6 +259,7 @@ public class MultiplayerGameRepository {
         state.put("associationRound", 1L);
         state.put("associationActivePlayer", 1L);
         state.put("associationOpenPhase", true);
+        state.put("associationCanContinueAfterCorrect", false);
         state.put("associationSecondsLeft", AssociationGameService.ROUND_SECONDS);
         state.put("associationPuzzleId", "association-1");
         state.put("associationRevealed", falseList(

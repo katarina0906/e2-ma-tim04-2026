@@ -206,7 +206,9 @@ public class AsocijacijeFragment extends Fragment {
         phaseHint.setText(myTurn
                 ? (currentState.isOpenPhase()
                 ? "Tvoj potez: otvori jedno skriveno polje."
-                : "Pogodi kolonu ili konacno resenje, ili predaj potez.")
+                : (currentState.canContinueAfterCorrect()
+                ? "Tacan odgovor: pogadjaj dalje ili otvori novo polje."
+                : "Pogodi kolonu ili konacno resenje, ili predaj potez."))
                 : "Igrac " + currentState.getActivePlayer() + " je na potezu. Cekaj svoj red.");
 
         renderBoard(myTurn);
@@ -226,7 +228,10 @@ public class AsocijacijeFragment extends Fragment {
                 cellButtons[column][row].setText(
                         revealed ? currentPuzzle.getClue(column, row) : "?");
                 cellButtons[column][row].setEnabled(
-                        myTurn && currentState.isOpenPhase() && !revealed && !solved);
+                        myTurn
+                                && (currentState.isOpenPhase()
+                                || currentState.canContinueAfterCorrect())
+                                && !revealed && !solved);
             }
         }
         finalTitle.setText(currentState.isFinalSolved()
@@ -250,7 +255,8 @@ public class AsocijacijeFragment extends Fragment {
     }
 
     private void openCell(int column, int row) {
-        if (canAct() && currentState.isOpenPhase()) {
+        if (canAct() && (currentState.isOpenPhase()
+                || currentState.canContinueAfterCorrect())) {
             matchRepository.openCell(playerSession, column, row);
         }
     }

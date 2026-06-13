@@ -49,7 +49,7 @@ public class AssociationMatchRepository {
             int myPlayer = playerNumber(state, player);
             int index = column * AssociationPuzzle.CLUES_PER_COLUMN + row;
             if (!canAct(state, myPlayer)
-                    || !state.isOpenPhase()
+                    || (!state.isOpenPhase() && !state.canContinueAfterCorrect())
                     || column < 0 || column >= AssociationPuzzle.COLUMN_COUNT
                     || row < 0 || row >= AssociationPuzzle.CLUES_PER_COLUMN
                     || state.isRevealed(column, row)
@@ -61,6 +61,7 @@ public class AssociationMatchRepository {
             Map<String, Object> updates = new HashMap<>();
             updates.put("associationRevealed", revealed);
             updates.put("associationOpenPhase", false);
+            updates.put("associationCanContinueAfterCorrect", false);
             updates.put("statusMessage", "Igrac " + myPlayer
                     + " je otvorio polje. Moze da pogadja ili preda potez.");
             transaction.set(matchRef, updates, SetOptions.merge());
@@ -91,6 +92,7 @@ public class AssociationMatchRepository {
                 }
                 updates.put("associationSolvedColumns", solved);
                 updates.put("associationRevealed", revealed);
+                updates.put("associationCanContinueAfterCorrect", hasOpenableCell(revealed, solved));
                 addScore(state, updates, myPlayer, points);
                 addRoundScore(state, updates, myPlayer, points);
                 updates.put("statusMessage", "Igrac " + myPlayer + " je resio kolonu "
@@ -191,16 +193,22 @@ public class AssociationMatchRepository {
         int nextPlayer = currentPlayer == 1 ? 2 : 1;
         updates.put("associationActivePlayer", nextPlayer);
         updates.put("associationOpenPhase", hasOpenableCell(state));
+        updates.put("associationCanContinueAfterCorrect", false);
         updates.put("statusMessage", message + " Na potezu je igrac " + nextPlayer + ".");
     }
 
     private boolean hasOpenableCell(AssociationMatchState state) {
+        return hasOpenableCell(state.getRevealed(), state.getSolvedColumns());
+    }
+
+    private boolean hasOpenableCell(List<Boolean> revealed, List<Boolean> solvedColumns) {
         for (int column = 0; column < AssociationPuzzle.COLUMN_COUNT; column++) {
-            if (state.isColumnSolved(column)) {
+            if (Boolean.TRUE.equals(solvedColumns.get(column))) {
                 continue;
             }
             for (int row = 0; row < AssociationPuzzle.CLUES_PER_COLUMN; row++) {
-                if (!state.isRevealed(column, row)) {
+                int index = column * AssociationPuzzle.CLUES_PER_COLUMN + row;
+                if (!Boolean.TRUE.equals(revealed.get(index))) {
                     return true;
                 }
             }
@@ -240,6 +248,7 @@ public class AssociationMatchRepository {
         state.put("associationRound", round);
         state.put("associationActivePlayer", round);
         state.put("associationOpenPhase", true);
+        state.put("associationCanContinueAfterCorrect", false);
         state.put("associationSecondsLeft", AssociationGameService.ROUND_SECONDS);
         state.put("associationPuzzleId", "association-" + round);
         state.put("associationRevealed", falseList(
