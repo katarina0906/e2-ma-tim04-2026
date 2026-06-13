@@ -1,5 +1,9 @@
 package com.example.slagalicatim04;
 
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -7,6 +11,8 @@ import android.view.View;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -16,6 +22,10 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.example.slagalicatim04.databinding.ActivityMainBinding;
+import com.example.slagalicatim04.notifications.NotificationRepository;
+import com.example.slagalicatim04.notifications.NotificationRouter;
+import com.example.slagalicatim04.notifications.SlagalicaMessagingService;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -80,6 +90,16 @@ public class MainActivity extends AppCompatActivity {
                 binding.bottomNavigation.setVisibility(View.VISIBLE);
             }
         });
+
+        requestNotificationPermission();
+        handleNotificationIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleNotificationIntent(intent);
     }
 
     @Override
@@ -103,5 +123,38 @@ public class MainActivity extends AppCompatActivity {
     public boolean onSupportNavigateUp() {
         return NavigationUI.navigateUp(navController, appBarConfiguration)
                 || super.onSupportNavigateUp();
+    }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1001);
+        }
+    }
+
+    private void handleNotificationIntent(Intent intent) {
+        if (intent == null
+                || !intent.hasExtra(SlagalicaMessagingService.EXTRA_NOTIFICATION_ID)
+                || FirebaseAuth.getInstance().getCurrentUser() == null) {
+            return;
+        }
+
+        String notificationId = intent.getStringExtra(
+                SlagalicaMessagingService.EXTRA_NOTIFICATION_ID);
+        String action = intent.getStringExtra(SlagalicaMessagingService.EXTRA_ACTION);
+        String targetId = intent.getStringExtra(SlagalicaMessagingService.EXTRA_TARGET_ID);
+        String title = intent.getStringExtra(SlagalicaMessagingService.EXTRA_TITLE);
+        String message = intent.getStringExtra(SlagalicaMessagingService.EXTRA_MESSAGE);
+
+        if (notificationId != null && !notificationId.isEmpty()) {
+            new NotificationRepository().markRead(notificationId, () -> {
+            }, ignored -> {
+            });
+        }
+        intent.removeExtra(SlagalicaMessagingService.EXTRA_NOTIFICATION_ID);
+        navController.navigate(R.id.notificationTargetFragment,
+                NotificationRouter.targetArgs(action, title, message, targetId));
     }
 }

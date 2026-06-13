@@ -84,7 +84,7 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
         void bind(InAppNotification n, Listener listener) {
             title.setText(n.title);
             message.setText(n.message);
-            time.setText(n.timeAgoLabel);
+            time.setText(NotificationTimeFormatter.format(n.createdAt));
             categoryLabel.setText(categoryLabel.getContext().getString(n.category.labelRes));
 
             int stripeColorRes = stripeColorFor(n.category);

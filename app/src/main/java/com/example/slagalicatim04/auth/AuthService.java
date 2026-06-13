@@ -17,6 +17,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.example.slagalicatim04.notifications.NotificationTokenManager;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -128,6 +129,7 @@ public class AuthService {
 
             AuthUser authUser = loadProfile(firebaseUser);
             saveCurrentUser(authUser);
+            NotificationTokenManager.syncCurrentDevice();
             return AuthResult.success(authUser, "Uspesna prijava.");
         } catch (ExecutionException e) {
             return AuthResult.error(firebaseMessage(e));
@@ -249,6 +251,7 @@ public class AuthService {
     }
 
     public void logout() {
+        NotificationTokenManager.unregisterCurrentDevice();
         if (firebaseAuth != null) {
             firebaseAuth.signOut();
         }

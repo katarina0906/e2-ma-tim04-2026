@@ -19,6 +19,22 @@ public final class NotificationChannels {
     private NotificationChannels() {
     }
 
+    public static String channelFor(String category) {
+        if (category == null) {
+            return OTHER;
+        }
+        switch (category.toLowerCase()) {
+            case "chat":
+                return CHAT;
+            case "ranking":
+                return RANKING;
+            case "rewards":
+                return REWARDS;
+            default:
+                return OTHER;
+        }
+    }
+
     public static void ensureCreated(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return;
