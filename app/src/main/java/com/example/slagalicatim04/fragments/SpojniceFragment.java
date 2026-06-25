@@ -16,6 +16,7 @@ import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.models.MatchingMultiplayerState;
 import com.example.slagalicatim04.models.MatchingPair;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
@@ -68,6 +69,7 @@ public class SpojniceFragment extends Fragment {
     private MultiplayerGameRepository multiplayerRepository;
     private MultiplayerGameRepository.Subscription stateRegistration;
     private MatchingMultiplayerState currentState;
+    private String roomId = MultiplayerGameRepository.TEST_ROOM_ID;
     private int selectedLeftIndex = -1;
     private String timerChanceKey = "";
     private boolean submitting;
@@ -94,7 +96,10 @@ public class SpojniceFragment extends Fragment {
             setupRightButton(index);
         }
 
-        multiplayerRepository = new MultiplayerGameRepository(requireContext());
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
+        multiplayerRepository = new MultiplayerGameRepository(requireContext(), roomId);
         showWaitingState();
         stateRegistration = multiplayerRepository.joinMatching(
                 new MultiplayerGameRepository.StateListener<MatchingMultiplayerState>() {
@@ -266,7 +271,7 @@ public class SpojniceFragment extends Fragment {
     private void showWaitingState() {
         cancelTimer();
         timerChanceKey = "";
-        roundText.setText("Test soba: " + MultiplayerGameRepository.TEST_ROOM_ID);
+        roundText.setText("Soba: " + roomId);
         turnText.setText("Ceka se drugi igrac");
         timerText.setText("30s");
         resultText.setText("Oba uredjaja treba da otvore igru Spojnice.");
@@ -311,8 +316,12 @@ public class SpojniceFragment extends Fragment {
         }
         navigatedToAssociations = true;
         Bundle args = new Bundle();
-        args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
+        args.putString("roomId", roomId);
         Navigation.findNavController(requireView()).navigate(R.id.asocijacijeFragment, args);
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     @Override
@@ -325,6 +334,9 @@ public class SpojniceFragment extends Fragment {
         if (stateRegistration != null) {
             stateRegistration.remove();
             stateRegistration = null;
+        }
+        if (!navigatedToAssociations) {
+            new GameSessionRepository().abandonRoom(roomId);
         }
         super.onDestroyView();
     }

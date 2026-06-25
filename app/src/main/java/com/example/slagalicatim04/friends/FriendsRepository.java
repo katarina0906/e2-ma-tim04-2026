@@ -1,6 +1,7 @@
 package com.example.slagalicatim04.friends;
 
 import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -9,6 +10,7 @@ import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.Transaction;
 import com.google.firebase.firestore.WriteBatch;
+import com.google.firebase.firestore.FirebaseFirestoreException;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -24,6 +26,9 @@ import java.util.concurrent.ExecutionException;
 
 public class FriendsRepository {
     private static final long ACTIVE_WINDOW_MS = 30L * 60L * 1000L;
+    public static final long GAME_INVITE_TIMEOUT_MS = 10L * 1000L;
+    private static final long ACCEPTED_WAITING_GRACE_MS = 30L * 1000L;
+    private static final long STALE_ACTIVE_ROOM_MS = 45L * 1000L;
     private static final String MATCH_COLLECTION = "stepByStepMatches";
 
     private final FirebaseFirestore firestore;
@@ -37,6 +42,7 @@ public class FriendsRepository {
         if (isEmpty(userId)) {
             return new ArrayList<>();
         }
+        clearInvalidBusyState(userId);
         DocumentSnapshot user = Tasks.await(firestore.collection("users").document(userId).get());
         Set<String> friendIds = new LinkedHashSet<>();
         addStringList(friendIds, user.get("friends"));
@@ -61,10 +67,20 @@ public class FriendsRepository {
                     .document(friendId)
                     .get());
             if (friend.exists()) {
+                clearInvalidBusyState(friendId);
+                friend = Tasks.await(firestore.collection("users").document(friendId).get());
                 friends.add(toFriendItem(friendId, friend, monthlyRanks));
             }
         }
         return friends;
+    }
+
+    public void clearGameStatus(String userId) throws ExecutionException, InterruptedException {
+        if (isEmpty(userId)) {
+            return;
+        }
+        Tasks.await(firestore.collection("users").document(userId)
+                .set(clearBusyState(), SetOptions.merge()));
     }
 
     public FriendItem findByUsername(String username)
@@ -113,7 +129,8 @@ public class FriendsRepository {
         return friend;
     }
 
-    public String startGameWithFriend(String currentUserId, String currentUsername, FriendItem friend)
+    public GameInviteResult startGameWithFriend(String currentUserId, String currentUsername,
+                                                FriendItem friend)
             throws ExecutionException, InterruptedException {
         if (isEmpty(currentUserId)) {
             throw new IllegalArgumentException("Korisnik nije prijavljen.");
@@ -121,35 +138,81 @@ public class FriendsRepository {
         if (friend == null || isEmpty(friend.id)) {
             throw new IllegalArgumentException("Prijatelj nije pronadjen.");
         }
+        clearInvalidBusyState(currentUserId);
+        clearInvalidBusyState(friend.id);
 
         String roomId = "friend_" + currentUserId + "_" + friend.id + "_" + System.currentTimeMillis();
+        String notificationId = "game_invite_" + roomId;
+        long now = System.currentTimeMillis();
+        long expiresAt = now + GAME_INVITE_TIMEOUT_MS;
         DocumentReference currentRef = firestore.collection("users").document(currentUserId);
         DocumentReference friendRef = firestore.collection("users").document(friend.id);
         DocumentReference roomRef = firestore.collection(MATCH_COLLECTION).document(roomId);
+        DocumentReference notificationRef = friendRef.collection("notifications").document(notificationId);
 
-        Tasks.await(firestore.runTransaction((Transaction.Function<String>) transaction -> {
+        Tasks.await(firestore.runTransaction((Transaction.Function<Void>) transaction -> {
             DocumentSnapshot currentSnapshot = transaction.get(currentRef);
             DocumentSnapshot friendSnapshot = transaction.get(friendRef);
             if (!friendSnapshot.exists()) {
                 throw new IllegalArgumentException("Prijatelj nije pronadjen.");
             }
-            if (currentSnapshot.exists() && isInGame(currentSnapshot)) {
+            if (currentSnapshot.exists() && isInGame(transaction, currentRef, currentSnapshot)) {
                 throw new IllegalStateException("Vec ucestvujes u partiji.");
             }
-            if (!isOnline(friendSnapshot) || isInGame(friendSnapshot)) {
+            if (!isOnline(friendSnapshot) || isInGame(transaction, friendRef, friendSnapshot)) {
                 throw new IllegalStateException("Prijatelj trenutno nije dostupan za partiju.");
             }
 
-            transaction.set(roomRef, newFriendWaitingState(
+            transaction.set(roomRef, newFriendInviteState(
                     currentUserId,
                     displayName(currentUsername, "Igrac 1"),
                     friend.id,
-                    displayName(friend.username, "Igrac 2")));
-            transaction.set(currentRef, busyState(roomId, friend.id), SetOptions.merge());
-            transaction.set(friendRef, busyState(roomId, currentUserId), SetOptions.merge());
-            return roomId;
+                    displayName(friend.username, "Igrac 2"),
+                    expiresAt,
+                    notificationId));
+            transaction.set(notificationRef, newGameInviteNotification(
+                    notificationId,
+                    roomId,
+                    currentUserId,
+                    displayName(currentUsername, "Prijatelj"),
+                    expiresAt));
+            return null;
         }));
-        return roomId;
+        return new GameInviteResult(roomId, notificationId);
+    }
+
+    public void expireGameInvite(String roomId, String notificationId)
+            throws ExecutionException, InterruptedException {
+        if (isEmpty(roomId)) {
+            return;
+        }
+        DocumentReference roomRef = firestore.collection(MATCH_COLLECTION).document(roomId);
+        Tasks.await(firestore.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot room = transaction.get(roomRef);
+            if (!room.exists() || !"pending".equals(room.getString("inviteStatus"))) {
+                return null;
+            }
+            Long expiresAt = room.getLong("inviteExpiresAt");
+            if (expiresAt != null && System.currentTimeMillis() < expiresAt) {
+                return null;
+            }
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("inviteStatus", "expired");
+            updates.put("phase", "inviteExpired");
+            updates.put("statusMessage", "Poziv za partiju je istekao.");
+            updates.put("updatedAt", FieldValue.serverTimestamp());
+            transaction.set(roomRef, updates, SetOptions.merge());
+
+            String player2Id = room.getString("player2Id");
+            String notifId = isEmpty(notificationId) ? room.getString("inviteNotificationId") : notificationId;
+            if (!isEmpty(player2Id) && !isEmpty(notifId)) {
+                transaction.set(firestore.collection("users").document(player2Id)
+                                .collection("notifications").document(notifId),
+                        inviteNotificationState("expired"),
+                        SetOptions.merge());
+            }
+            return null;
+        }));
     }
 
     @SuppressWarnings("unchecked")
@@ -208,8 +271,9 @@ public class FriendsRepository {
         return ranks;
     }
 
-    private Map<String, Object> newFriendWaitingState(String currentUserId, String currentUsername,
-                                                      String friendId, String friendUsername) {
+    private Map<String, Object> newFriendInviteState(String currentUserId, String currentUsername,
+                                                     String friendId, String friendUsername,
+                                                     long expiresAt, String notificationId) {
         Map<String, Object> state = new HashMap<>();
         state.put("player1Id", currentUserId);
         state.put("player1Name", currentUsername);
@@ -220,8 +284,8 @@ public class FriendsRepository {
         state.put("player1Ready", false);
         state.put("player2Ready", false);
         state.put("round", 1L);
-        state.put("phase", "waiting");
-        state.put("currentGame", "waiting");
+        state.put("phase", "invitePending");
+        state.put("currentGame", "invitePending");
         state.put("activePlayer", 1L);
         state.put("stealPlayer", 0L);
         state.put("roundStartedAt", 0L);
@@ -233,9 +297,46 @@ public class FriendsRepository {
         state.put("finalResult", "");
         state.put("finished", false);
         state.put("inviteType", "friend");
-        state.put("statusMessage", "Partija sa prijateljem je kreirana. Potvrdite spremnost.");
+        state.put("inviteStatus", "pending");
+        state.put("inviteExpiresAt", expiresAt);
+        state.put("inviteNotificationId", notificationId);
+        state.put("statusMessage", "Ceka se odgovor prijatelja.");
         state.put("updatedAt", FieldValue.serverTimestamp());
         return state;
+    }
+
+    private Map<String, Object> newGameInviteNotification(String notificationId, String roomId,
+                                                          String inviterId, String inviterName,
+                                                          long expiresAt) {
+        Map<String, String> data = new HashMap<>();
+        data.put("roomId", roomId);
+        data.put("inviterId", inviterId);
+        data.put("expiresAt", String.valueOf(expiresAt));
+
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("category", "other");
+        notification.put("title", "Novi poziv za partiju");
+        notification.put("message", inviterName + " te poziva na partiju. Imas 10 sekundi da prihvatis.");
+        notification.put("action", "game_invite");
+        notification.put("targetId", roomId);
+        notification.put("data", data);
+        notification.put("source", "friend_invite");
+        notification.put("inviteStatus", "pending");
+        notification.put("read", false);
+        notification.put("readAt", null);
+        notification.put("actionedAt", null);
+        notification.put("createdAt", FieldValue.serverTimestamp());
+        notification.put("expiresAtMillis", expiresAt);
+        return notification;
+    }
+
+    private Map<String, Object> inviteNotificationState(String status) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("inviteStatus", status);
+        updates.put("read", true);
+        updates.put("readAt", FieldValue.serverTimestamp());
+        updates.put("actionedAt", FieldValue.serverTimestamp());
+        return updates;
     }
 
     private Map<String, Object> busyState(String roomId, String opponentId) {
@@ -296,15 +397,146 @@ public class FriendsRepository {
     }
 
     private boolean isInGame(DocumentSnapshot user) {
-        if (Boolean.TRUE.equals(user.getBoolean("inGame"))
-                || Boolean.TRUE.equals(user.getBoolean("isPlaying"))
-                || Boolean.TRUE.equals(user.getBoolean("busy"))) {
+        String roomId = activeRoomId(user);
+        if (isEmpty(roomId)) {
+            return false;
+        }
+        try {
+            DocumentSnapshot room = Tasks.await(firestore.collection(MATCH_COLLECTION)
+                    .document(roomId)
+                    .get());
+            boolean activeRoom = isActiveRoom(room);
+            if (!activeRoom) {
+                Tasks.await(firestore.collection("users").document(user.getId())
+                        .set(clearBusyState(), SetOptions.merge()));
+            }
+            return activeRoom;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private void clearInvalidBusyState(String userId) throws ExecutionException, InterruptedException {
+        if (isEmpty(userId)) {
+            return;
+        }
+        DocumentReference userRef = firestore.collection("users").document(userId);
+        DocumentSnapshot user = Tasks.await(userRef.get());
+        if (!user.exists()) {
+            return;
+        }
+        String roomId = activeRoomId(user);
+        boolean hasBusyFlag = Boolean.TRUE.equals(user.getBoolean("inGame"))
+                || Boolean.TRUE.equals(user.getBoolean("busy"))
+                || Boolean.TRUE.equals(user.getBoolean("isPlaying"));
+        if (isEmpty(roomId)) {
+            if (hasBusyFlag) {
+                Tasks.await(userRef.set(clearBusyState(), SetOptions.merge()));
+            }
+            return;
+        }
+        DocumentSnapshot room = Tasks.await(firestore.collection(MATCH_COLLECTION)
+                .document(roomId)
+                .get());
+        if (!isActiveRoom(room)) {
+            Tasks.await(userRef.set(clearBusyState(), SetOptions.merge()));
+        }
+    }
+
+    private boolean isInGame(Transaction transaction, DocumentReference userRef, DocumentSnapshot user)
+            throws FirebaseFirestoreException {
+        String roomId = activeRoomId(user);
+        if (isEmpty(roomId)) {
+            return false;
+        }
+        DocumentSnapshot room = transaction.get(firestore.collection(MATCH_COLLECTION).document(roomId));
+        boolean activeRoom = isActiveRoom(room);
+        if (!activeRoom) {
+            transaction.set(userRef, clearBusyState(), SetOptions.merge());
+        }
+        return activeRoom;
+    }
+
+    private boolean isActiveRoom(DocumentSnapshot room) {
+        if (room == null || !room.exists()) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(room.getBoolean("finished"))) {
+            return false;
+        }
+        String inviteStatus = room.getString("inviteStatus");
+        if ("declined".equals(inviteStatus) || "expired".equals(inviteStatus)) {
+            return false;
+        }
+        String phase = room.getString("phase");
+        String currentGame = room.getString("currentGame");
+        if ("accepted".equals(inviteStatus)
+                && "waiting".equals(phase)
+                && "waiting".equals(currentGame)
+                && isOlderThan(room, ACCEPTED_WAITING_GRACE_MS)) {
+            return false;
+        }
+        if (isRunningGamePhase(phase) && isOlderThan(room, STALE_ACTIVE_ROOM_MS)) {
+            return false;
+        }
+        return !"finished".equals(phase)
+                && !"inviteDeclined".equals(phase)
+                && !"inviteExpired".equals(phase)
+                && !"matchFinished".equals(phase);
+    }
+
+    private boolean isRunningGamePhase(String phase) {
+        return "koZnaZnaPlaying".equals(phase)
+                || "spojnicePlaying".equals(phase)
+                || "round1".equals(phase)
+                || "round2".equals(phase)
+                || "steal".equals(phase)
+                || "steal1".equals(phase)
+                || "steal2".equals(phase);
+    }
+
+    private boolean isOlderThan(DocumentSnapshot snapshot, long maxAgeMs) {
+        Object updatedAt = snapshot.get("updatedAt");
+        long updatedAtMillis;
+        if (updatedAt instanceof Timestamp) {
+            updatedAtMillis = ((Timestamp) updatedAt).toDate().getTime();
+        } else if (updatedAt instanceof Number) {
+            updatedAtMillis = ((Number) updatedAt).longValue();
+        } else {
             return true;
         }
-        return !isEmpty(user.getString("currentRoomId"))
-                || !isEmpty(user.getString("currentMatchId"))
-                || !isEmpty(user.getString("activeRoomId"))
-                || !isEmpty(user.getString("activeMatchId"));
+        return System.currentTimeMillis() - updatedAtMillis > maxAgeMs;
+    }
+
+    private Map<String, Object> clearBusyState() {
+        Map<String, Object> state = new HashMap<>();
+        state.put("inGame", false);
+        state.put("busy", false);
+        state.put("isPlaying", false);
+        state.put("currentRoomId", FieldValue.delete());
+        state.put("currentMatchId", FieldValue.delete());
+        state.put("currentOpponentId", FieldValue.delete());
+        state.put("activeRoomId", FieldValue.delete());
+        state.put("activeMatchId", FieldValue.delete());
+        state.put("lastActiveAt", System.currentTimeMillis());
+        return state;
+    }
+
+    private String activeRoomId(DocumentSnapshot user) {
+        String currentRoomId = user.getString("currentRoomId");
+        if (!isEmpty(currentRoomId)) {
+            return currentRoomId;
+        }
+        String currentMatchId = user.getString("currentMatchId");
+        if (!isEmpty(currentMatchId)) {
+            return currentMatchId;
+        }
+        String activeRoomId = user.getString("activeRoomId");
+        if (!isEmpty(activeRoomId)) {
+            return activeRoomId;
+        }
+        String activeMatchId = user.getString("activeMatchId");
+        return isEmpty(activeMatchId) ? "" : activeMatchId;
     }
 
     private String displayName(String value, String fallback) {

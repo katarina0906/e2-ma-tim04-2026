@@ -1,13 +1,17 @@
 package com.example.slagalicatim04;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -22,16 +26,27 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.example.slagalicatim04.databinding.ActivityMainBinding;
+import com.example.slagalicatim04.friends.GameInviteRepository;
+import com.example.slagalicatim04.notifications.InAppNotification;
 import com.example.slagalicatim04.notifications.NotificationRepository;
 import com.example.slagalicatim04.notifications.NotificationRouter;
 import com.example.slagalicatim04.notifications.SlagalicaMessagingService;
+import com.example.slagalicatim04.notifications.SystemNotificationPublisher;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.ListenerRegistration;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
     private NavController navController;
+    private ListenerRegistration notificationRegistration;
+    private final Set<String> surfacedGameInvites = new HashSet<>();
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         requestNotificationPermission();
+        listenForGameInvites();
         handleNotificationIntent(getIntent());
     }
 
@@ -156,5 +172,189 @@ public class MainActivity extends AppCompatActivity {
         intent.removeExtra(SlagalicaMessagingService.EXTRA_NOTIFICATION_ID);
         navController.navigate(R.id.notificationTargetFragment,
                 NotificationRouter.targetArgs(action, title, message, targetId));
+    }
+
+    private void listenForGameInvites() {
+        if (notificationRegistration != null) {
+            notificationRegistration.remove();
+        }
+        notificationRegistration = new NotificationRepository().listen(new NotificationRepository.Listener() {
+            @Override
+            public void onChanged(java.util.List<InAppNotification> notifications) {
+                for (InAppNotification item : notifications) {
+                    if (shouldSurfaceGameInvite(item)) {
+                        surfacedGameInvites.add(item.id);
+                        SystemNotificationPublisher.show(MainActivity.this, item);
+                        showGameInviteDialog(item);
+                        scheduleInviteExpiration(item);
+                    }
+                }
+            }
+
+            @Override
+            public void onError(Exception error) {
+            }
+        });
+    }
+
+    private boolean shouldSurfaceGameInvite(InAppNotification item) {
+        return NotificationRouter.ACTION_GAME_INVITE.equals(item.actionHint)
+                && "pending".equals(item.inviteStatus)
+                && !item.read
+                && !surfacedGameInvites.contains(item.id);
+    }
+
+    private void showGameInviteDialog(InAppNotification item) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(item.title)
+                .setMessage(inviteMessage(item))
+                .setNegativeButton("Odbij", (ignoredDialog, which) -> declineGameInvite(item))
+                .setPositiveButton("Prihvati", (ignoredDialog, which) -> acceptGameInvite(item))
+                .show();
+        startInviteDialogCountdown(dialog, item);
+    }
+
+    private void startInviteDialogCountdown(AlertDialog dialog, InAppNotification item) {
+        Runnable[] ticker = new Runnable[1];
+        ticker[0] = () -> {
+            if (!dialog.isShowing()) {
+                return;
+            }
+            long secondsLeft = inviteSecondsLeft(item);
+            dialog.setMessage(inviteMessage(item));
+            if (secondsLeft <= 0L) {
+                dialog.dismiss();
+                expireGameInvite(item);
+                return;
+            }
+            handler.postDelayed(ticker[0], 1000L);
+        };
+        dialog.setOnDismissListener(ignored -> handler.removeCallbacks(ticker[0]));
+        handler.post(ticker[0]);
+    }
+
+    private String inviteMessage(InAppNotification item) {
+        long secondsLeft = inviteSecondsLeft(item);
+        return item.message + "\n\nPreostalo: " + secondsLeft + "s";
+    }
+
+    private long inviteSecondsLeft(InAppNotification item) {
+        long expiresAt = longValue(item.data.get("expiresAt"));
+        if (expiresAt <= 0L) {
+            return 0L;
+        }
+        long millisLeft = Math.max(0L, expiresAt - System.currentTimeMillis());
+        return (millisLeft + 999L) / 1000L;
+    }
+
+    private void acceptGameInvite(InAppNotification item) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Toast.makeText(this, "Korisnik nije prijavljen.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                String roomId = roomIdOf(item);
+                String acceptedRoomId = new GameInviteRepository()
+                        .acceptInvite(user.getUid(), roomId, item.id);
+                runOnUiThread(() -> {
+                    Bundle args = new Bundle();
+                    args.putString("roomId", acceptedRoomId);
+                    Toast.makeText(this, "Poziv je prihvacen.", Toast.LENGTH_SHORT).show();
+                    navController.navigate(R.id.stepByStepWaitingRoomFragment, args);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        messageOf(error), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void declineGameInvite(InAppNotification item) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Toast.makeText(this, "Korisnik nije prijavljen.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                new GameInviteRepository().declineInvite(user.getUid(), roomIdOf(item), item.id);
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Poziv je odbijen.", Toast.LENGTH_SHORT).show());
+            } catch (Exception error) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        messageOf(error), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void scheduleInviteExpiration(InAppNotification item) {
+        long expiresAt = longValue(item.data.get("expiresAt"));
+        if (expiresAt <= 0L) {
+            return;
+        }
+        long delay = Math.max(0L, expiresAt - System.currentTimeMillis());
+        handler.postDelayed(() -> {
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) {
+                return;
+            }
+            new Thread(() -> {
+                try {
+                    new GameInviteRepository().expireInviteIfNeeded(
+                            user.getUid(), roomIdOf(item), item.id);
+                } catch (Exception ignored) {
+                }
+            }).start();
+        }, delay);
+    }
+
+    private void expireGameInvite(InAppNotification item) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            return;
+        }
+        new Thread(() -> {
+            try {
+                new GameInviteRepository().expireInviteIfNeeded(
+                        user.getUid(), roomIdOf(item), item.id);
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Poziv je istekao.", Toast.LENGTH_SHORT).show());
+            } catch (Exception ignored) {
+            }
+        }).start();
+    }
+
+    private String roomIdOf(InAppNotification item) {
+        String roomId = item.data.get("roomId");
+        return roomId == null || roomId.trim().isEmpty() ? item.targetId : roomId;
+    }
+
+    private long longValue(String value) {
+        if (value == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ignored) {
+            return 0L;
+        }
+    }
+
+    private String messageOf(Exception error) {
+        return error.getMessage() == null ? "Greska pri obradi poziva." : error.getMessage();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (notificationRegistration != null) {
+            notificationRegistration.remove();
+            notificationRegistration = null;
+        }
+        super.onDestroy();
     }
 }

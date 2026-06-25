@@ -16,6 +16,7 @@ import androidx.navigation.Navigation;
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchState;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
@@ -78,6 +79,9 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         if (listenerRegistration != null) {
             listenerRegistration.remove();
             listenerRegistration = null;
+        }
+        if (!navigatedToGame) {
+            new GameSessionRepository().abandonRoom(roomId);
         }
         super.onDestroyView();
     }

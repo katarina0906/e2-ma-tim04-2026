@@ -9,6 +9,8 @@ import com.example.slagalicatim04.models.MatchingMultiplayerState;
 import com.example.slagalicatim04.models.QuizMultiplayerState;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -34,8 +36,14 @@ public class MultiplayerGameRepository {
     private final DocumentReference matchRef;
 
     public MultiplayerGameRepository(Context context) {
-        playerId = new TestRoomPlayerProvider(context).getPlayerId();
-        matchRef = firestore.collection("stepByStepMatches").document(TEST_ROOM_ID);
+        this(context, TEST_ROOM_ID);
+    }
+
+    public MultiplayerGameRepository(Context context, String roomId) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        playerId = user == null ? new TestRoomPlayerProvider(context).getPlayerId() : user.getUid();
+        matchRef = firestore.collection("stepByStepMatches")
+                .document(isEmpty(roomId) ? TEST_ROOM_ID : roomId);
     }
 
     public String getPlayerId() {
@@ -91,6 +99,7 @@ public class MultiplayerGameRepository {
 
             Map<String, Object> updates = new HashMap<>();
             updates.put("kzzAnswers", answers);
+            updates.put("updatedAt", FieldValue.serverTimestamp());
             if (!correct) {
                 addToTotalScore(match, updates, playerId, -5);
             }
@@ -150,6 +159,7 @@ public class MultiplayerGameRepository {
             } else {
                 updates.put("spMatchedPairs", matched);
                 updates.put("spAttemptedPairs", attempted);
+                updates.put("updatedAt", FieldValue.serverTimestamp());
                 transaction.set(matchRef, updates, SetOptions.merge());
             }
             return null;
@@ -176,6 +186,7 @@ public class MultiplayerGameRepository {
         applyQuizCorrectScores(match, updates, answers);
         int nextQuestion = intValue(match.getLong("kzzCurrentQuestion")) + 1;
         updates.put("kzzAnswers", new HashMap<>());
+        updates.put("updatedAt", FieldValue.serverTimestamp());
         if (nextQuestion >= QUIZ_QUESTION_COUNT) {
             updates.putAll(newMatchingState(match));
         } else {
@@ -222,6 +233,7 @@ public class MultiplayerGameRepository {
         state.put("spAttemptedPairs", new ArrayList<>());
         state.put("spTurnPairCount", MATCHING_PAIR_COUNT);
         state.put("statusMessage", "Ko zna zna je zavrsen. Pokrecu se Spojnice.");
+        state.put("updatedAt", FieldValue.serverTimestamp());
         return state;
     }
 
@@ -249,6 +261,7 @@ public class MultiplayerGameRepository {
         } else {
             updates.putAll(newAssociationState());
         }
+        updates.put("updatedAt", FieldValue.serverTimestamp());
         transaction.set(matchRef, updates, SetOptions.merge());
     }
 
@@ -270,6 +283,7 @@ public class MultiplayerGameRepository {
         state.put("associationRoundPlayer2Score", 0L);
         state.put("finished", false);
         state.put("statusMessage", "Spojnice su zavrsene. Pokrecu se Asocijacije.");
+        state.put("updatedAt", FieldValue.serverTimestamp());
         return state;
     }
 
@@ -299,6 +313,10 @@ public class MultiplayerGameRepository {
     private boolean isParticipant(DocumentSnapshot match) {
         return playerId.equals(match.getString("player1Id"))
                 || playerId.equals(match.getString("player2Id"));
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private boolean isPhase(DocumentSnapshot match, String phase) {

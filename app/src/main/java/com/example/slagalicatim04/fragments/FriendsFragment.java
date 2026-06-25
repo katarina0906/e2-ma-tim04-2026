@@ -1,6 +1,8 @@
 package com.example.slagalicatim04.fragments;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,12 +24,20 @@ import com.example.slagalicatim04.friends.FriendItem;
 import com.example.slagalicatim04.friends.FriendQr;
 import com.example.slagalicatim04.friends.FriendsAdapter;
 import com.example.slagalicatim04.friends.FriendsRepository;
+import com.example.slagalicatim04.friends.GameInviteResult;
+import com.example.slagalicatim04.notifications.InAppNotification;
+import com.example.slagalicatim04.notifications.NotificationDispatchService;
+import com.example.slagalicatim04.notifications.NotificationRouter;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanIntentResult;
 import com.journeyapps.barcodescanner.ScanOptions;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class FriendsFragment extends Fragment {
     private FriendsAdapter adapter;
@@ -35,6 +45,9 @@ public class FriendsFragment extends Fragment {
     private TextView countText;
     private TextInputEditText searchInput;
     private AuthUser currentUser;
+    private ListenerRegistration pendingInviteRegistration;
+    private boolean inviteNavigationHandled;
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private final ActivityResultLauncher<ScanOptions> qrScanner =
             registerForActivityResult(new ScanContract(), this::handleQrResult);
 
@@ -159,26 +172,98 @@ public class FriendsFragment extends Fragment {
         new Thread(() -> {
             try {
                 FriendsRepository repository = new FriendsRepository();
-                String roomId = repository.startGameWithFriend(
+                GameInviteResult invite = repository.startGameWithFriend(
                         currentUser.getId(),
                         currentUser.getUsername(),
                         friend);
+                requestPushInvite(friend, invite);
+                scheduleInviteExpiration(invite);
                 if (!isAdded()) {
                     return;
                 }
                 requireActivity().runOnUiThread(() -> {
-                    Bundle args = new Bundle();
-                    args.putString("roomId", roomId);
+                    listenForInviteAnswer(invite, friend);
                     Toast.makeText(requireContext(),
-                            "Partija sa " + friend.username + " je kreirana.",
-                            Toast.LENGTH_SHORT).show();
-                    Navigation.findNavController(requireView())
-                            .navigate(R.id.stepByStepWaitingRoomFragment, args);
+                            "Poziv za partiju je poslat igracu " + friend.username + ".",
+                            Toast.LENGTH_LONG).show();
                 });
             } catch (Exception error) {
                 showError(error);
             }
         }).start();
+    }
+
+    private void requestPushInvite(FriendItem friend, GameInviteResult invite) {
+        Map<String, String> data = new HashMap<>();
+        data.put("roomId", invite.roomId);
+        data.put("inviterId", currentUser.getId());
+        data.put("expiresAt", String.valueOf(System.currentTimeMillis()
+                + FriendsRepository.GAME_INVITE_TIMEOUT_MS));
+        new NotificationDispatchService().send(
+                friend.id,
+                InAppNotification.Category.OTHER,
+                NotificationRouter.ACTION_GAME_INVITE,
+                "Novi poziv za partiju",
+                currentUser.getUsername() + " te poziva na partiju. Imas 10 sekundi da prihvatis.",
+                invite.roomId,
+                data);
+    }
+
+    private void scheduleInviteExpiration(GameInviteResult invite) {
+        handler.postDelayed(() -> new Thread(() -> {
+            try {
+                new FriendsRepository().expireGameInvite(invite.roomId, invite.notificationId);
+            } catch (Exception ignored) {
+            }
+        }).start(), FriendsRepository.GAME_INVITE_TIMEOUT_MS);
+    }
+
+    private void listenForInviteAnswer(GameInviteResult invite, FriendItem friend) {
+        if (pendingInviteRegistration != null) {
+            pendingInviteRegistration.remove();
+            pendingInviteRegistration = null;
+        }
+        inviteNavigationHandled = false;
+        pendingInviteRegistration = FirebaseFirestore.getInstance()
+                .collection("stepByStepMatches")
+                .document(invite.roomId)
+                .addSnapshotListener((snapshot, error) -> {
+                    if (!isAdded() || error != null || snapshot == null || !snapshot.exists()) {
+                        return;
+                    }
+                    String status = snapshot.getString("inviteStatus");
+                    if ("accepted".equals(status)) {
+                        navigateSenderToWaitingRoom(invite.roomId, friend.username);
+                    } else if ("declined".equals(status) || "expired".equals(status)) {
+                        closeInviteListener();
+                        String message = "declined".equals(status)
+                                ? friend.username + " je odbio poziv za partiju."
+                                : "Poziv za partiju je istekao.";
+                        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private void navigateSenderToWaitingRoom(String roomId, String friendName) {
+        if (inviteNavigationHandled) {
+            return;
+        }
+        inviteNavigationHandled = true;
+        closeInviteListener();
+        Bundle args = new Bundle();
+        args.putString("roomId", roomId);
+        Toast.makeText(requireContext(),
+                friendName + " je prihvatio poziv.",
+                Toast.LENGTH_SHORT).show();
+        Navigation.findNavController(requireView())
+                .navigate(R.id.stepByStepWaitingRoomFragment, args);
+    }
+
+    private void closeInviteListener() {
+        if (pendingInviteRegistration != null) {
+            pendingInviteRegistration.remove();
+            pendingInviteRegistration = null;
+        }
     }
 
     private void showError(Exception error) {
@@ -187,5 +272,11 @@ public class FriendsFragment extends Fragment {
         }
         requireActivity().runOnUiThread(() ->
                 Toast.makeText(requireContext(), error.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    @Override
+    public void onDestroyView() {
+        closeInviteListener();
+        super.onDestroyView();
     }
 }

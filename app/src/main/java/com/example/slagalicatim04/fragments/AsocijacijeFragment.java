@@ -30,6 +30,7 @@ import com.example.slagalicatim04.associations.AssociationPuzzle;
 import com.example.slagalicatim04.associations.AssociationPuzzleRepository;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
@@ -334,7 +335,9 @@ public class AsocijacijeFragment extends Fragment {
     private StepByStepPlayerSession resolveCurrentUser() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        String id = new TestRoomPlayerProvider(requireContext()).getPlayerId();
+        String id = firebaseUser == null
+                ? new TestRoomPlayerProvider(requireContext()).getPlayerId()
+                : firebaseUser.getUid();
         String name;
         if (authUser != null) {
             name = authUser.getUsername().isEmpty()
@@ -376,6 +379,9 @@ public class AsocijacijeFragment extends Fragment {
         if (listenerRegistration != null) {
             listenerRegistration.remove();
             listenerRegistration = null;
+        }
+        if (!navigatedToSkocko) {
+            new GameSessionRepository().abandonRoom(roomId);
         }
         super.onDestroyView();
     }

@@ -3,6 +3,7 @@ package com.example.slagalicatim04.mynumber;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.SetOptions;
@@ -80,6 +81,7 @@ public class MyNumberRepository {
                     submitMissingAndScore(state, updates, state.getP1Result(), state.getP2Result());
                 }
             }
+            updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(matchRef, updates, SetOptions.merge());
             return null;
         });
@@ -120,6 +122,7 @@ public class MyNumberRepository {
             if (p1Submitted && p2Submitted) {
                 submitMissingAndScore(state, updates, p1Result, p2Result);
             }
+            updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(matchRef, updates, SetOptions.merge());
             return null;
         });
@@ -135,6 +138,7 @@ public class MyNumberRepository {
                 updates.put(field, value);
                 if ("myNumberTargetShown".equals(field)) updates.put("myNumberTargetRevealLeft", 0);
                 if ("myNumberNumbersShown".equals(field)) updates.put("myNumberNumbersRevealLeft", 0);
+                updates.put("updatedAt", FieldValue.serverTimestamp());
                 matchRef.set(updates, SetOptions.merge());
             }
         });
@@ -184,6 +188,7 @@ public class MyNumberRepository {
         state.put("myNumberStatusMessage", "Moj broj - runda " + round);
         if (p1Score != null) state.put("player1Score", p1Score);
         if (p2Score != null) state.put("player2Score", p2Score);
+        state.put("updatedAt", FieldValue.serverTimestamp());
         return state;
     }
 
