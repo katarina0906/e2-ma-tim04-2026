@@ -11,6 +11,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -50,7 +51,7 @@ public class FriendsFragment extends Fragment {
         countText = view.findViewById(R.id.friendsCountText);
         searchInput = view.findViewById(R.id.friendSearchInput);
         RecyclerView list = view.findViewById(R.id.friendsList);
-        adapter = new FriendsAdapter();
+        adapter = new FriendsAdapter(this::startGameWithFriend);
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         list.setAdapter(adapter);
         view.findViewById(R.id.addFriendByUsernameButton)
@@ -148,6 +149,36 @@ public class FriendsFragment extends Fragment {
                     friend.username + " je dodat u prijatelje.",
                     Toast.LENGTH_LONG).show();
         });
+    }
+
+    private void startGameWithFriend(FriendItem friend) {
+        if (currentUser == null) {
+            Toast.makeText(requireContext(), "Korisnik nije prijavljen.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                FriendsRepository repository = new FriendsRepository();
+                String roomId = repository.startGameWithFriend(
+                        currentUser.getId(),
+                        currentUser.getUsername(),
+                        friend);
+                if (!isAdded()) {
+                    return;
+                }
+                requireActivity().runOnUiThread(() -> {
+                    Bundle args = new Bundle();
+                    args.putString("roomId", roomId);
+                    Toast.makeText(requireContext(),
+                            "Partija sa " + friend.username + " je kreirana.",
+                            Toast.LENGTH_SHORT).show();
+                    Navigation.findNavController(requireView())
+                            .navigate(R.id.stepByStepWaitingRoomFragment, args);
+                });
+            } catch (Exception error) {
+                showError(error);
+            }
+        }).start();
     }
 
     private void showError(Exception error) {

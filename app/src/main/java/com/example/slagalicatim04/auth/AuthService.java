@@ -17,6 +17,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 import com.example.slagalicatim04.notifications.NotificationTokenManager;
 import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
 import java.io.ByteArrayOutputStream;
@@ -138,6 +139,7 @@ public class AuthService {
 
             AuthUser authUser = loadProfile(firebaseUser);
             saveCurrentUser(authUser);
+            updatePresence(firebaseUser.getUid(), true);
             NotificationTokenManager.syncCurrentDevice();
             return AuthResult.success(authUser, "Uspesna prijava.");
         } catch (ExecutionException e) {
@@ -253,6 +255,7 @@ public class AuthService {
         try {
             AuthUser authUser = loadProfile(firebaseUser);
             saveCurrentUser(authUser);
+            updatePresence(firebaseUser.getUid(), true);
             return AuthResult.success(authUser, "Profil je ucitan.");
         } catch (ExecutionException e) {
             return AuthResult.error(firebaseMessage(e));
@@ -263,6 +266,10 @@ public class AuthService {
     }
 
     public void logout() {
+        FirebaseUser currentUser = firebaseAuth == null ? null : firebaseAuth.getCurrentUser();
+        if (currentUser != null) {
+            updatePresence(currentUser.getUid(), false);
+        }
         NotificationTokenManager.unregisterCurrentDevice();
         if (firebaseAuth != null) {
             firebaseAuth.signOut();
@@ -370,6 +377,16 @@ public class AuthService {
                 .putString(KEY_CURRENT_AVATAR_DATA, user.getAvatarData())
                 .putInt(KEY_CURRENT_AVATAR_FRAME_PLACE, user.getAvatarFramePlace())
                 .apply();
+    }
+
+    private void updatePresence(String userId, boolean active) {
+        if (firestore == null || userId == null || userId.trim().isEmpty()) {
+            return;
+        }
+        Map<String, Object> presence = new HashMap<>();
+        presence.put("active", active);
+        presence.put("lastActiveAt", System.currentTimeMillis());
+        firestore.collection("users").document(userId).set(presence, SetOptions.merge());
     }
 
     private void clearCurrentUser() {

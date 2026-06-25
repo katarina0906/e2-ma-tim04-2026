@@ -26,7 +26,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.ListenerRegistration;
 
 public class StepByStepWaitingRoomFragment extends Fragment {
-    private static final String ROOM_ID = StepByStepMatchRepository.DEFAULT_MATCH_ID;
+    private String roomId = StepByStepMatchRepository.DEFAULT_MATCH_ID;
 
     private StepByStepWaitingRoomRepository repository;
     private StepByStepPlayerSession playerSession;
@@ -53,9 +53,14 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         confirmButton = view.findViewById(R.id.waitingRoomConfirmButton);
         resetButton = view.findViewById(R.id.waitingRoomResetButton);
 
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
         playerSession = resolveCurrentUser();
-        repository = new StepByStepWaitingRoomRepository(ROOM_ID);
-        codeText.setText("Test soba: " + ROOM_ID);
+        repository = new StepByStepWaitingRoomRepository(roomId);
+        codeText.setText(roomId.equals(StepByStepMatchRepository.DEFAULT_MATCH_ID)
+                ? "Test soba: " + roomId
+                : "Soba: " + roomId);
         confirmButton.setEnabled(false);
         confirmButton.setOnClickListener(v -> repository.confirmReady(playerSession, this::showError));
         resetButton.setOnClickListener(v -> {
@@ -127,7 +132,7 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         }
         navigatedToGame = true;
         Bundle args = new Bundle();
-        args.putString("roomId", ROOM_ID);
+        args.putString("roomId", roomId);
         Navigation.findNavController(requireView()).navigate(R.id.koZnaZnaFragment, args);
     }
 

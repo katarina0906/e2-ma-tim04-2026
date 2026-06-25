@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -53,12 +54,62 @@
             tools:text="Region Vojvodine" />
 
         <TextView
-            android:id="@+id/friendEmail"
+            android:id="@+id/friendMonthlyRank"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:textColor="#777777"
             android:textSize="12sp"
+            tools:text="Mesecni rang: #4" />
+
+        <TextView
+            android:id="@+id/friendTotalStars"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#777777"
+            android:textSize="12sp"
+            tools:text="Ukupno zvezda: 245" />
+
+        <TextView
+            android:id="@+id/friendLeague"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#777777"
+            android:textSize="12sp"
+            tools:text="Liga: Zlatna liga" />
+
+        <TextView
+            android:id="@+id/friendStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#2E7D32"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            tools:text="Status: ulogovan" />
+
+        <TextView
+            android:id="@+id/friendEmail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#999999"
+            android:textSize="11sp"
             tools:text="milica@example.com" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/friendStartGameButton"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:layout_marginTop="8dp"
+            android:minWidth="0dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="Zapocni partiju"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            app:cornerRadius="8dp" />
     </LinearLayout>
 </LinearLayout>
