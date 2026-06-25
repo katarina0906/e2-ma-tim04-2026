@@ -14,6 +14,7 @@ public class MyNumberMatchState {
     private final String player1Name;
     private final String player2Id;
     private final String player2Name;
+    private final String forfeitedPlayerId;
     private final int round;
     private final int activePlayer;
     private final int target;
@@ -40,6 +41,7 @@ public class MyNumberMatchState {
         player1Name = stringValue(snapshot, "player1Name");
         player2Id = stringValue(snapshot, "player2Id");
         player2Name = stringValue(snapshot, "player2Name");
+        forfeitedPlayerId = stringValue(snapshot, "forfeitedPlayerId");
         round = (int) longValue(snapshot, "myNumberRound", 1);
         activePlayer = (int) longValue(snapshot, "myNumberActivePlayer", 1);
         target = (int) longValue(snapshot, "myNumberTarget", 0);
@@ -66,6 +68,7 @@ public class MyNumberMatchState {
     public String getPlayer1Name() { return player1Name; }
     public String getPlayer2Id() { return player2Id; }
     public String getPlayer2Name() { return player2Name; }
+    public String getForfeitedPlayerId() { return forfeitedPlayerId; }
     public int getRound() { return round; }
     public int getActivePlayer() { return activePlayer; }
     public int getTarget() { return target; }
@@ -97,6 +100,10 @@ public class MyNumberMatchState {
 
     public boolean isMatchResult() {
         return "matchResult".equals(currentGame);
+    }
+
+    public boolean isForfeited(String playerId) {
+        return playerId != null && playerId.equals(forfeitedPlayerId);
     }
 
     private static String stringValue(DocumentSnapshot snapshot, String key) {

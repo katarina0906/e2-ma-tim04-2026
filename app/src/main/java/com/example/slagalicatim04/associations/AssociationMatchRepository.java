@@ -167,6 +167,21 @@ public class AssociationMatchRepository {
         });
     }
 
+    public void resolveForfeitTurn(AssociationMatchState state) {
+        String forfeitedPlayerId = state == null ? "" : state.getForfeitedPlayerId();
+        if (state == null || !state.isAssociationGame()
+                || forfeitedPlayerId == null || forfeitedPlayerId.trim().isEmpty()) {
+            return;
+        }
+        int forfeitedPlayer = state.playerNumber(forfeitedPlayerId);
+        if (forfeitedPlayer == 0 || forfeitedPlayer != state.getActivePlayer()) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        switchTurn(updates, state, forfeitedPlayer, "Igrac je napustio partiju.");
+        matchRef.set(updates, SetOptions.merge());
+    }
+
     private AssociationMatchState state(DocumentSnapshot snapshot) {
         return snapshot.exists() ? new AssociationMatchState(snapshot) : null;
     }

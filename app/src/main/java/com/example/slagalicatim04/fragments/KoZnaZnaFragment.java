@@ -11,6 +11,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -20,11 +22,12 @@ import com.example.slagalicatim04.models.Answer;
 import com.example.slagalicatim04.models.Question;
 import com.example.slagalicatim04.models.QuizMultiplayerState;
 import com.example.slagalicatim04.repositories.LocalQuizRepository;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 
 import java.util.List;
 
-public class KoZnaZnaFragment extends Fragment {
+public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandler {
 
     private static final long QUESTION_DURATION_MS = 5_000L;
     private static final int COLOR_DEFAULT = Color.rgb(103, 80, 164);
@@ -45,6 +48,7 @@ public class KoZnaZnaFragment extends Fragment {
     private MultiplayerGameRepository multiplayerRepository;
     private MultiplayerGameRepository.Subscription stateRegistration;
     private QuizMultiplayerState currentState;
+    private MatchForfeitRepository forfeitRepository;
     private int renderedQuestion = -1;
     private int timerQuestion = -1;
     private boolean navigatedToSpojnice;
@@ -71,6 +75,17 @@ public class KoZnaZnaFragment extends Fragment {
 
         questions = new LocalQuizRepository().getQuestions();
         multiplayerRepository = new MultiplayerGameRepository(requireContext());
+        forfeitRepository = new MatchForfeitRepository(MultiplayerGameRepository.TEST_ROOM_ID);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
 
         for (int index = 0; index < answerButtons.length; index++) {
             int answerIndex = index;
@@ -125,11 +140,16 @@ public class KoZnaZnaFragment extends Fragment {
         }
 
         boolean answered = state.hasAnswered(multiplayerRepository.getPlayerId());
+        if (state.isForfeited(state.getPlayer1Id()) || state.isForfeited(state.getPlayer2Id())) {
+            resultText.setText("Protivnik je napustio partiju. Nastavljas bez cekanja.");
+        }
         setButtonsEnabled(!answered);
         if (answered) {
             resultText.setText("Odgovor je poslat. Ceka se drugi igrac.");
         }
-        if (state.getAnswerCount() >= 2) {
+        int requiredAnswers = (state.isForfeited(state.getPlayer1Id())
+                || state.isForfeited(state.getPlayer2Id())) ? 1 : 2;
+        if (state.getAnswerCount() >= requiredAnswers) {
             multiplayerRepository.advanceQuizIfReady(questionIndex);
         }
         startTimerForQuestion(questionIndex);
@@ -248,6 +268,24 @@ public class KoZnaZnaFragment extends Fragment {
         Bundle args = new Bundle();
         args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
         Navigation.findNavController(requireView()).navigate(R.id.spojniceFragment, args);
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null
+                || !"playing".equals(currentState.getStatus())) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(multiplayerRepository.getPlayerId());
+                    Navigation.findNavController(requireView()).navigateUp();
+                })
+                .show();
+        return true;
     }
 
     @Override

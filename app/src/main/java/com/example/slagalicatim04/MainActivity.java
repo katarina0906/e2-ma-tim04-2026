@@ -22,6 +22,7 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.example.slagalicatim04.databinding.ActivityMainBinding;
+import com.example.slagalicatim04.fragments.ExitConfirmationHandler;
 import com.example.slagalicatim04.notifications.NotificationRepository;
 import com.example.slagalicatim04.notifications.NotificationRouter;
 import com.example.slagalicatim04.notifications.SlagalicaMessagingService;
@@ -121,6 +122,17 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onSupportNavigateUp() {
+        NavHostFragment navHostFragment =
+                (NavHostFragment) getSupportFragmentManager()
+                        .findFragmentById(R.id.nav_host_fragment_content_main);
+        if (navHostFragment != null) {
+            androidx.fragment.app.Fragment currentFragment =
+                    navHostFragment.getChildFragmentManager().getPrimaryNavigationFragment();
+            if (currentFragment instanceof ExitConfirmationHandler
+                    && ((ExitConfirmationHandler) currentFragment).handleExitRequest()) {
+                return true;
+            }
+        }
         return NavigationUI.navigateUp(navController, appBarConfiguration)
                 || super.onSupportNavigateUp();
     }

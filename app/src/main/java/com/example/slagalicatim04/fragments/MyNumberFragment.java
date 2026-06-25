@@ -14,6 +14,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -25,6 +27,7 @@ import com.example.slagalicatim04.mynumber.MyNumberGameService;
 import com.example.slagalicatim04.mynumber.MyNumberMatchState;
 import com.example.slagalicatim04.mynumber.MyNumberRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
 import com.google.android.material.button.MaterialButton;
@@ -36,7 +39,7 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MyNumberFragment extends Fragment {
+public class MyNumberFragment extends Fragment implements ExitConfirmationHandler {
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable ticker = this::renderCurrentState;
     private final List<ExpressionToken> expressionTokens = new ArrayList<>();
@@ -45,6 +48,7 @@ public class MyNumberFragment extends Fragment {
     private final MaterialButton[] operatorButtons = new MaterialButton[8];
 
     private MyNumberRepository repository;
+    private MatchForfeitRepository forfeitRepository;
     private ListenerRegistration listenerRegistration;
     private StepByStepPlayerSession playerSession;
     private MyNumberMatchState currentState;
@@ -88,6 +92,17 @@ public class MyNumberFragment extends Fragment {
             roomId = getArguments().getString("roomId");
         }
         repository = new MyNumberRepository(roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
         setupActions();
         setExpressionControlsEnabled(false);
         repository.startIfNeeded();
@@ -190,6 +205,10 @@ public class MyNumberFragment extends Fragment {
         }
         if (!currentState.isMyNumberGame()) {
             return;
+        }
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            repository.resolveForfeitState(currentState);
         }
 
         int myPlayer = myPlayer();
@@ -524,6 +543,23 @@ public class MyNumberFragment extends Fragment {
 
     private void scrollToTop() {
         scrollView.post(() -> scrollView.smoothScrollTo(0, 0));
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null || currentState.isMatchResult()) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(playerSession.getId());
+                    Navigation.findNavController(requireView()).navigateUp();
+                })
+                .show();
+        return true;
     }
 
     private static final class ExpressionToken {

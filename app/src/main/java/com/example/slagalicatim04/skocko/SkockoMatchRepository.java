@@ -218,6 +218,27 @@ public class SkockoMatchRepository {
         matchRef.set(newWaitingState(player));
     }
 
+    public void resolveForfeitTurn(SkockoMatchState state) {
+        String forfeitedPlayerId = state.getForfeitedPlayerId();
+        if (SkockoMatchState.isEmpty(forfeitedPlayerId)
+                || !"skocko".equals(state.getCurrentGame())) {
+            return;
+        }
+        int forfeitedPlayer = state.playerNumber(forfeitedPlayerId);
+        if (forfeitedPlayer == 0 || state.getActivePlayer() != forfeitedPlayer) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        if (SkockoMatchState.PHASE_ROUND.equals(state.getPhase())) {
+            applyStealStart(updates, state.roundStarter());
+        } else if (SkockoMatchState.PHASE_STEAL.equals(state.getPhase())) {
+            finishOrStartNextRound(updates, state,
+                    "Igrac je napustio partiju tokom ukradenog pokusaja.");
+        }
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        matchRef.set(updates, SetOptions.merge());
+    }
+
     private void finishOrStartNextRound(Map<String, Object> updates, SkockoMatchState state,
                                         String message) {
         if (state.getRound() >= 2) {

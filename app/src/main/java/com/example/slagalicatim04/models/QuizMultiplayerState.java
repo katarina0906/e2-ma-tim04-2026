@@ -13,6 +13,7 @@ public class QuizMultiplayerState {
     private final String player1Name;
     private final String player2Id;
     private final String player2Name;
+    private final String forfeitedPlayerId;
     private final Map<String, Long> scores;
     private final Map<String, Object> answers;
 
@@ -27,6 +28,7 @@ public class QuizMultiplayerState {
         player1Name = stringValue(snapshot.getString("player1Name"), "Igrac 1");
         player2Id = stringValue(snapshot.getString("player2Id"), "");
         player2Name = stringValue(snapshot.getString("player2Name"), "Igrac 2");
+        forfeitedPlayerId = stringValue(snapshot.getString("forfeitedPlayerId"), "");
         scores = scoreMap(snapshot);
         answers = objectMapValue(snapshot.get("kzzAnswers"));
     }
@@ -59,6 +61,10 @@ public class QuizMultiplayerState {
         return player2Name;
     }
 
+    public String getForfeitedPlayerId() {
+        return forfeitedPlayerId;
+    }
+
     public int getScore(String playerId) {
         Long score = scores.get(playerId);
         return score == null ? 0 : score.intValue();
@@ -70,6 +76,10 @@ public class QuizMultiplayerState {
 
     public int getAnswerCount() {
         return answers.size();
+    }
+
+    public boolean isForfeited(String playerId) {
+        return playerId != null && playerId.equals(forfeitedPlayerId);
     }
 
     private static int intValue(Long value) {

@@ -122,12 +122,31 @@ public class MyNumberRepository {
             boolean p2Submitted = myPlayer == 2 || state.isP2Submitted();
             Integer p1Result = myPlayer == 1 ? result : state.getP1Result();
             Integer p2Result = myPlayer == 2 ? result : state.getP2Result();
-            if (p1Submitted && p2Submitted) {
+            boolean canResolveWithForfeit = !isEmpty(state.getForfeitedPlayerId())
+                    && (p1Submitted || p2Submitted);
+            if ((p1Submitted && p2Submitted) || canResolveWithForfeit) {
                 submitMissingAndScore(transaction, snapshot, state, updates, p1Result, p2Result);
             }
             transaction.set(matchRef, updates, SetOptions.merge());
             return null;
         });
+    }
+
+    public void resolveForfeitState(MyNumberMatchState state) {
+        String forfeitedPlayerId = state.getForfeitedPlayerId();
+        if (!state.isMyNumberGame() || isEmpty(forfeitedPlayerId)) {
+            return;
+        }
+        int forfeitedPlayer = state.getPlayer1Id().equals(forfeitedPlayerId) ? 1
+                : state.getPlayer2Id().equals(forfeitedPlayerId) ? 2 : 0;
+        if (forfeitedPlayer == 0 || forfeitedPlayer != state.getActivePlayer()) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("myNumberActivePlayer", forfeitedPlayer == 1 ? 2 : 1);
+        updates.put("myNumberStatusMessage",
+                "Protivnik je napustio partiju. Nastavljas bez cekanja.");
+        matchRef.set(updates, SetOptions.merge());
     }
 
     private void updateIfActive(StepByStepPlayerSession player, String field, Object value) {
@@ -178,10 +197,16 @@ public class MyNumberRepository {
             return;
         }
         int winner = winner(nextP1Score, nextP2Score);
-        PlayerProgressService.RewardResult p1Reward = progressService.applyMatchRewards(
-                transaction, state.getPlayer1Id(), nextP1Score, winner == 1);
-        PlayerProgressService.RewardResult p2Reward = progressService.applyMatchRewards(
-                transaction, state.getPlayer2Id(), nextP2Score, winner == 2);
+        PlayerProgressService.RewardResult p1Reward = state.isForfeited(state.getPlayer1Id())
+                ? new PlayerProgressService.RewardResult(0, 0, 0, 0)
+                : progressService.applyMatchRewards(
+                transaction, state.getPlayer1Id(), nextP1Score,
+                winner == 1 || state.isForfeited(state.getPlayer2Id()));
+        PlayerProgressService.RewardResult p2Reward = state.isForfeited(state.getPlayer2Id())
+                ? new PlayerProgressService.RewardResult(0, 0, 0, 0)
+                : progressService.applyMatchRewards(
+                transaction, state.getPlayer2Id(), nextP2Score,
+                winner == 2 || state.isForfeited(state.getPlayer1Id()));
         updates.put("matchRewardsApplied", true);
         updates.put("player1StarDelta", p1Reward.starDelta);
         updates.put("player2StarDelta", p2Reward.starDelta);
@@ -226,5 +251,9 @@ public class MyNumberRepository {
         if (playerId.equals(snapshot.getString("player1Id"))) return 1;
         if (playerId.equals(snapshot.getString("player2Id"))) return 2;
         return 0;
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

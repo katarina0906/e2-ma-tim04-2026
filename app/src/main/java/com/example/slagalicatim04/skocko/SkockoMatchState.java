@@ -18,6 +18,7 @@ public class SkockoMatchState {
     private final String player1Name;
     private final String player2Id;
     private final String player2Name;
+    private final String forfeitedPlayerId;
     private final boolean player1Ready;
     private final boolean player2Ready;
     private final long player1Score;
@@ -40,6 +41,7 @@ public class SkockoMatchState {
         player1Name = stringValue(snapshot, "player1Name");
         player2Id = stringValue(snapshot, "player2Id");
         player2Name = stringValue(snapshot, "player2Name");
+        forfeitedPlayerId = stringValue(snapshot, "forfeitedPlayerId");
         player1Ready = Boolean.TRUE.equals(snapshot.getBoolean("player1Ready"));
         player2Ready = Boolean.TRUE.equals(snapshot.getBoolean("player2Ready"));
         player1Score = longValue(snapshot, "player1Score", 0);
@@ -75,6 +77,10 @@ public class SkockoMatchState {
 
     public String getPlayer2Name() {
         return player2Name;
+    }
+
+    public String getForfeitedPlayerId() {
+        return forfeitedPlayerId;
     }
 
     public boolean isPlayer1Ready() {
@@ -161,6 +167,10 @@ public class SkockoMatchState {
 
     public boolean isParticipant(String playerId) {
         return playerNumber(playerId) != 0;
+    }
+
+    public boolean isForfeited(String playerId) {
+        return playerId != null && playerId.equals(forfeitedPlayerId);
     }
 
     public int roundStarter() {

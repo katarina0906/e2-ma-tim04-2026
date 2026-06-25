@@ -17,6 +17,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -24,6 +26,7 @@ import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.skocko.SkockoMatchRepository;
 import com.example.slagalicatim04.skocko.SkockoMatchState;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
@@ -34,7 +37,7 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.util.Arrays;
 import java.util.List;
 
-public class SkockoFragment extends Fragment {
+public class SkockoFragment extends Fragment implements ExitConfirmationHandler {
     private static final int CODE_LEN = 4;
     private static final int NUM_SYMBOLS = 6;
     private static final int MAX_ATTEMPTS = 6;
@@ -68,6 +71,7 @@ public class SkockoFragment extends Fragment {
     private Button nextRoundButton;
 
     private SkockoMatchRepository repository;
+    private MatchForfeitRepository forfeitRepository;
     private SkockoMatchState currentState;
     private StepByStepPlayerSession playerSession;
     private ListenerRegistration listenerRegistration;
@@ -97,6 +101,17 @@ public class SkockoFragment extends Fragment {
         }
         playerSession = resolveCurrentUser();
         repository = new SkockoMatchRepository(roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
 
         for (int i = 0; i < NUM_SYMBOLS; i++) {
             final int symbol = i;
@@ -229,6 +244,10 @@ public class SkockoFragment extends Fragment {
             localPhaseStartedAt = SystemClock.elapsedRealtime();
             phaseExpirySent = false;
             clearDraft();
+        }
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            repository.resolveForfeitTurn(currentState);
         }
 
         roundText.setText(getString(R.string.sk_round_fmt, currentState.getRound(), 2));
@@ -438,6 +457,24 @@ public class SkockoFragment extends Fragment {
             setInputsEnabled(canAcceptInput());
             Toast.makeText(requireContext(), error.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null || currentState.isFinished()
+                || "stepByStep".equals(currentState.getCurrentGame())) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(playerSession.getId());
+                    Navigation.findNavController(requireView()).navigateUp();
+                })
+                .show();
+        return true;
     }
 
     private boolean isEmpty(String value) {

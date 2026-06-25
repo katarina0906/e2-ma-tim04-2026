@@ -19,6 +19,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
@@ -31,6 +32,7 @@ import com.example.slagalicatim04.associations.AssociationPuzzleRepository;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
 import com.google.firebase.auth.FirebaseAuth;
@@ -41,7 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class AsocijacijeFragment extends Fragment {
+public class AsocijacijeFragment extends Fragment implements ExitConfirmationHandler {
     private static final int COLUMN_COUNT = 4;
     private static final int ROW_COUNT = 4;
 
@@ -75,6 +77,7 @@ public class AsocijacijeFragment extends Fragment {
     private Button newGameButton;
 
     private AssociationMatchRepository matchRepository;
+    private MatchForfeitRepository forfeitRepository;
     private ListenerRegistration listenerRegistration;
     private AssociationMatchState currentState;
     private AssociationPuzzle currentPuzzle;
@@ -98,6 +101,17 @@ public class AsocijacijeFragment extends Fragment {
         }
         playerSession = resolveCurrentUser();
         matchRepository = new AssociationMatchRepository(roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
 
         for (int column = 0; column < COLUMN_COUNT; column++) {
             titleViews[column] = view.findViewById(TITLE_IDS[column]);
@@ -191,6 +205,10 @@ public class AsocijacijeFragment extends Fragment {
         }
 
         int myPlayer = currentState.playerNumber(playerSession.getId());
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            matchRepository.resolveForfeitTurn(currentState);
+        }
         boolean myTurn = myPlayer != 0 && myPlayer == currentState.getActivePlayer();
         roundText.setText(getString(R.string.aso_round_label, currentState.getRound(), 2));
         turnText.setText("Na potezu: Igrac " + currentState.getActivePlayer());
@@ -368,6 +386,23 @@ public class AsocijacijeFragment extends Fragment {
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null || "skocko".equals(currentState.getCurrentGame())) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(playerSession.getId());
+                    Navigation.findNavController(requireView()).navigateUp();
+                })
+                .show();
+        return true;
     }
 
     @Override

@@ -11,6 +11,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -18,9 +20,10 @@ import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.models.MatchingMultiplayerState;
 import com.example.slagalicatim04.models.MatchingPair;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 
-public class SpojniceFragment extends Fragment {
+public class SpojniceFragment extends Fragment implements ExitConfirmationHandler {
 
     private static final long CHANCE_DURATION_MS = 30_000L;
     private static final int COLOR_DEFAULT = Color.rgb(111, 75, 178);
@@ -68,6 +71,7 @@ public class SpojniceFragment extends Fragment {
     private MultiplayerGameRepository multiplayerRepository;
     private MultiplayerGameRepository.Subscription stateRegistration;
     private MatchingMultiplayerState currentState;
+    private MatchForfeitRepository forfeitRepository;
     private int selectedLeftIndex = -1;
     private String timerChanceKey = "";
     private boolean submitting;
@@ -95,6 +99,17 @@ public class SpojniceFragment extends Fragment {
         }
 
         multiplayerRepository = new MultiplayerGameRepository(requireContext());
+        forfeitRepository = new MatchForfeitRepository(MultiplayerGameRepository.TEST_ROOM_ID);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
         showWaitingState();
         stateRegistration = multiplayerRepository.joinMatching(
                 new MultiplayerGameRepository.StateListener<MatchingMultiplayerState>() {
@@ -186,6 +201,12 @@ public class SpojniceFragment extends Fragment {
         }
 
         setButtonsForState(state);
+        if (state.isForfeited(state.getCurrentPlayer())) {
+            resultText.setText("Protivnik je napustio partiju. Preskace se cekanje.");
+            multiplayerRepository.expireMatchingChance(
+                    state.getCurrentRound(), state.getCurrentPlayer(), state.isSecondChance());
+            return;
+        }
         startTimerForChance(state);
     }
 
@@ -313,6 +334,24 @@ public class SpojniceFragment extends Fragment {
         Bundle args = new Bundle();
         args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
         Navigation.findNavController(requireView()).navigate(R.id.asocijacijeFragment, args);
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null
+                || !"playing".equals(currentState.getStatus())) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(multiplayerRepository.getPlayerId());
+                    Navigation.findNavController(requireView()).navigateUp();
+                })
+                .show();
+        return true;
     }
 
     @Override
