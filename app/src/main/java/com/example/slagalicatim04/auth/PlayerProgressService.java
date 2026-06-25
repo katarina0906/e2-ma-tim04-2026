@@ -27,7 +27,12 @@ public class PlayerProgressService {
             throws FirebaseFirestoreException {
         DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
         DocumentSnapshot snapshot = transaction.get(userRef);
+        return applyMatchRewards(transaction, userId, snapshot, playerScore, winner);
+    }
 
+    public RewardResult applyMatchRewards(Transaction transaction, String userId,
+                                          DocumentSnapshot snapshot,
+                                          long playerScore, boolean winner) {
         long scoreStars = Math.max(0, playerScore / SCORE_PER_STAR);
         long starDelta = winner ? WIN_BONUS_STARS + scoreStars : scoreStars - LOSS_PENALTY_STARS;
         long currentStars = longValue(snapshot, FIELD_STARS);
@@ -37,6 +42,7 @@ public class PlayerProgressService {
         long earnedTokens = nextStarsBeforeTokens / STARS_PER_TOKEN;
         long remainingStars = nextStarsBeforeTokens % STARS_PER_TOKEN;
         long nextTokens = currentTokens + earnedTokens;
+        DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
 
         transaction.update(userRef,
                 FIELD_STARS, remainingStars,

@@ -106,8 +106,12 @@ public class SkockoMatchRepository {
             updates.put(myPlayer == 1 ? "player1Ready" : "player2Ready", true);
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
             if (otherReady) {
-                tokenService.consumeSingleToken(transaction, state.getPlayer1Id());
-                tokenService.consumeSingleToken(transaction, state.getPlayer2Id());
+                DocumentSnapshot player1Snapshot = transaction.get(
+                        matchRef.getFirestore().collection("users").document(state.getPlayer1Id()));
+                DocumentSnapshot player2Snapshot = transaction.get(
+                        matchRef.getFirestore().collection("users").document(state.getPlayer2Id()));
+                tokenService.consumeSingleToken(transaction, state.getPlayer1Id(), player1Snapshot);
+                tokenService.consumeSingleToken(transaction, state.getPlayer2Id(), player2Snapshot);
                 applyRoundStart(updates, 1);
                 updates.put("currentGame", "skocko");
                 updates.put("player1Score", 0L);

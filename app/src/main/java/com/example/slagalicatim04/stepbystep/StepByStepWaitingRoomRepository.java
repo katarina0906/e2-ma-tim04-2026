@@ -98,8 +98,12 @@ public class StepByStepWaitingRoomRepository {
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
 
             if (otherReady) {
-                tokenService.consumeSingleToken(transaction, state.getPlayer1Id());
-                tokenService.consumeSingleToken(transaction, state.getPlayer2Id());
+                DocumentSnapshot player1Snapshot = transaction.get(
+                        roomRef.getFirestore().collection("users").document(state.getPlayer1Id()));
+                DocumentSnapshot player2Snapshot = transaction.get(
+                        roomRef.getFirestore().collection("users").document(state.getPlayer2Id()));
+                tokenService.consumeSingleToken(transaction, state.getPlayer1Id(), player1Snapshot);
+                tokenService.consumeSingleToken(transaction, state.getPlayer2Id(), player2Snapshot);
                 updates.put("phase", "koZnaZnaPlaying");
                 updates.put("currentGame", "koZnaZna");
                 updates.put("finished", false);

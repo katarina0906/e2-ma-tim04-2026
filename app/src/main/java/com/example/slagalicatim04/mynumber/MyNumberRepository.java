@@ -197,15 +197,19 @@ public class MyNumberRepository {
             return;
         }
         int winner = winner(nextP1Score, nextP2Score);
+        DocumentSnapshot player1Snapshot = transaction.get(
+                matchRef.getFirestore().collection("users").document(state.getPlayer1Id()));
+        DocumentSnapshot player2Snapshot = transaction.get(
+                matchRef.getFirestore().collection("users").document(state.getPlayer2Id()));
         PlayerProgressService.RewardResult p1Reward = state.isForfeited(state.getPlayer1Id())
                 ? new PlayerProgressService.RewardResult(0, 0, 0, 0)
                 : progressService.applyMatchRewards(
-                transaction, state.getPlayer1Id(), nextP1Score,
+                transaction, state.getPlayer1Id(), player1Snapshot, nextP1Score,
                 winner == 1 || state.isForfeited(state.getPlayer2Id()));
         PlayerProgressService.RewardResult p2Reward = state.isForfeited(state.getPlayer2Id())
                 ? new PlayerProgressService.RewardResult(0, 0, 0, 0)
                 : progressService.applyMatchRewards(
-                transaction, state.getPlayer2Id(), nextP2Score,
+                transaction, state.getPlayer2Id(), player2Snapshot, nextP2Score,
                 winner == 2 || state.isForfeited(state.getPlayer1Id()));
         updates.put("matchRewardsApplied", true);
         updates.put("player1StarDelta", p1Reward.starDelta);

@@ -50,6 +50,16 @@ public class TokenService {
             throws FirebaseFirestoreException {
         DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
         DocumentSnapshot snapshot = transaction.get(userRef);
+        consumeSingleToken(transaction, userRef, snapshot);
+    }
+
+    public void consumeSingleToken(Transaction transaction, String userId, DocumentSnapshot snapshot) {
+        DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
+        consumeSingleToken(transaction, userRef, snapshot);
+    }
+
+    private void consumeSingleToken(Transaction transaction, DocumentReference userRef,
+                                    DocumentSnapshot snapshot) {
         int availableTokens = ensureDailyTokens(transaction, userRef, snapshot);
         if (availableTokens < 1) {
             throw new IllegalStateException("Nemate dovoljno tokena za novu partiju.");
