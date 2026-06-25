@@ -33,6 +33,7 @@ public class AuthService {
     private static final String KEY_CURRENT_USERNAME = "current_username";
     private static final String KEY_CURRENT_REGION = "current_region";
     private static final String KEY_CURRENT_AVATAR_DATA = "current_avatar_data";
+    private static final String KEY_CURRENT_TOKENS = "current_tokens";
     private static final int AVATAR_MAX_SIZE = 512;
 
     private static AuthService instance;
@@ -92,7 +93,8 @@ public class AuthService {
             }
 
             AuthUser authUser = new AuthUser(firebaseUser.getUid(), normalizedEmail,
-                    normalizedUsername, cleanedRegion, "", "", false, "");
+                    normalizedUsername, cleanedRegion, "", "", false, "", "",
+                    TokenService.INITIAL_TOKENS);
             saveProfile(authUser);
             Tasks.await(firebaseUser.sendEmailVerification());
 
@@ -127,6 +129,7 @@ public class AuthService {
                 return AuthResult.error("Prvo potvrdi registraciju klikom na link poslat na mejl.");
             }
 
+            new TokenService(firestore).ensureDailyTokens(firebaseUser.getUid());
             AuthUser authUser = loadProfile(firebaseUser);
             saveCurrentUser(authUser);
             NotificationTokenManager.syncCurrentDevice();
@@ -225,7 +228,8 @@ public class AuthService {
                 "",
                 true,
                 "",
-                preferences.getString(KEY_CURRENT_AVATAR_DATA, "")
+                preferences.getString(KEY_CURRENT_AVATAR_DATA, ""),
+                preferences.getInt(KEY_CURRENT_TOKENS, 0)
         );
     }
 
@@ -239,6 +243,7 @@ public class AuthService {
             return AuthResult.error("Korisnik nije prijavljen.");
         }
         try {
+            new TokenService(firestore).ensureDailyTokens(firebaseUser.getUid());
             AuthUser authUser = loadProfile(firebaseUser);
             saveCurrentUser(authUser);
             return AuthResult.success(authUser, "Profil je ucitan.");
@@ -289,6 +294,10 @@ public class AuthService {
         userData.put("username", authUser.getUsername());
         userData.put("region", authUser.getRegion());
         userData.put("avatarData", authUser.getAvatarData());
+        userData.put("tokens", TokenService.INITIAL_TOKENS);
+        userData.put("lastTokenGrantDate",
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
+                        .format(new java.util.Date()));
 
         Map<String, Object> usernameData = new HashMap<>();
         usernameData.put("email", authUser.getEmail());
@@ -314,11 +323,13 @@ public class AuthService {
         String username = userDoc.getString("username");
         String region = userDoc.getString("region");
         String avatarData = userDoc.getString("avatarData");
+        Long tokens = userDoc.getLong("tokens");
         return new AuthUser(firebaseUser.getUid(), email,
                 username == null ? "" : username,
                 region == null ? "" : region,
                 "", "", firebaseUser.isEmailVerified(), "",
-                avatarData == null ? "" : avatarData);
+                avatarData == null ? "" : avatarData,
+                tokens == null ? 0 : Math.max(0, tokens.intValue()));
     }
 
     private AuthUser firebaseUserOnly(FirebaseUser firebaseUser) {
@@ -348,6 +359,7 @@ public class AuthService {
                 .putString(KEY_CURRENT_USERNAME, user.getUsername())
                 .putString(KEY_CURRENT_REGION, user.getRegion())
                 .putString(KEY_CURRENT_AVATAR_DATA, user.getAvatarData())
+                .putInt(KEY_CURRENT_TOKENS, user.getTokens())
                 .apply();
     }
 
@@ -358,6 +370,7 @@ public class AuthService {
                 .remove(KEY_CURRENT_USERNAME)
                 .remove(KEY_CURRENT_REGION)
                 .remove(KEY_CURRENT_AVATAR_DATA)
+                .remove(KEY_CURRENT_TOKENS)
                 .apply();
     }
 

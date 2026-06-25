@@ -54,6 +54,11 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         resetButton = view.findViewById(R.id.waitingRoomResetButton);
 
         playerSession = resolveCurrentUser();
+        if (!hasAvailableTokens()) {
+            Toast.makeText(requireContext(), R.string.tokens_missing, Toast.LENGTH_LONG).show();
+            Navigation.findNavController(view).navigateUp();
+            return view;
+        }
         repository = new StepByStepWaitingRoomRepository(ROOM_ID);
         codeText.setText("Test soba: " + ROOM_ID);
         confirmButton.setEnabled(false);
@@ -148,6 +153,11 @@ public class StepByStepWaitingRoomFragment extends Fragment {
             userName = "Gost";
         }
         return new StepByStepPlayerSession(userId, userName);
+    }
+
+    private boolean hasAvailableTokens() {
+        AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        return authUser == null || authUser.getTokens() > 0;
     }
 
     private String deviceId() {

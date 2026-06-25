@@ -1,5 +1,6 @@
 package com.example.slagalicatim04.skocko;
 
+import com.example.slagalicatim04.auth.TokenService;
 import com.example.slagalicatim04.services.SkockoGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
@@ -34,12 +35,14 @@ public class SkockoMatchRepository {
     }
 
     private final DocumentReference matchRef;
+    private final TokenService tokenService;
     private final Random random = new Random();
 
     public SkockoMatchRepository(String roomId) {
         matchRef = FirebaseFirestore.getInstance()
                 .collection("stepByStepMatches")
                 .document(roomId);
+        tokenService = new TokenService(matchRef.getFirestore());
     }
 
     public void joinRoom(StepByStepPlayerSession player, ErrorCallback onError) {
@@ -103,6 +106,8 @@ public class SkockoMatchRepository {
             updates.put(myPlayer == 1 ? "player1Ready" : "player2Ready", true);
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
             if (otherReady) {
+                tokenService.consumeSingleToken(transaction, state.getPlayer1Id());
+                tokenService.consumeSingleToken(transaction, state.getPlayer2Id());
                 applyRoundStart(updates, 1);
                 updates.put("currentGame", "skocko");
                 updates.put("player1Score", 0L);

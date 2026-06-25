@@ -51,6 +51,11 @@ public class SkockoWaitingRoomFragment extends Fragment {
         MaterialButton resetButton = view.findViewById(R.id.waitingRoomResetButton);
 
         playerSession = resolveCurrentUser();
+        if (!hasAvailableTokens()) {
+            Toast.makeText(requireContext(), R.string.tokens_missing, Toast.LENGTH_LONG).show();
+            Navigation.findNavController(view).navigateUp();
+            return view;
+        }
         repository = new SkockoMatchRepository(ROOM_ID);
         titleText.setText("Skočko");
         codeText.setText("Skočko test soba: " + ROOM_ID);
@@ -136,6 +141,11 @@ public class SkockoWaitingRoomFragment extends Fragment {
             userName = "Gost";
         }
         return new StepByStepPlayerSession(userId, userName);
+    }
+
+    private boolean hasAvailableTokens() {
+        AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        return authUser == null || authUser.getTokens() > 0;
     }
 
     private String playerLabel(String name, boolean ready) {

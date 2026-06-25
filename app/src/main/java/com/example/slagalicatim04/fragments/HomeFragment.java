@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -23,6 +24,7 @@ public class HomeFragment extends Fragment {
 
     private TextView usernameText;
     private TextView regionText;
+    private TextView tokensText;
     private ImageView avatarImage;
     private AuthService authService;
 
@@ -38,6 +40,7 @@ public class HomeFragment extends Fragment {
         authService = AuthService.getInstance(requireContext());
         usernameText = view.findViewById(R.id.homeProfileUsername);
         regionText = view.findViewById(R.id.homeProfileRegion);
+        tokensText = view.findViewById(R.id.homeProfileTokens);
         avatarImage = view.findViewById(R.id.homeProfileAvatar);
 
         view.findViewById(R.id.homeProfileCard).setOnClickListener(v -> {
@@ -47,8 +50,14 @@ public class HomeFragment extends Fragment {
         view.findViewById(R.id.homeQuickNotifications).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
                         .navigate(R.id.action_homeFragment_to_notificationsFragment));
-        view.findViewById(R.id.startGameCard).setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.stepByStepWaitingRoomFragment));
+        view.findViewById(R.id.startGameCard).setOnClickListener(v -> {
+            AuthUser currentUser = authService.getCurrentUser();
+            if (currentUser != null && currentUser.getTokens() < 1) {
+                Toast.makeText(requireContext(), R.string.tokens_missing, Toast.LENGTH_LONG).show();
+                return;
+            }
+            Navigation.findNavController(v).navigate(R.id.stepByStepWaitingRoomFragment);
+        });
 
         AuthUser user = authService.getCurrentUser();
         if (user != null) {
@@ -74,6 +83,7 @@ public class HomeFragment extends Fragment {
     private void showProfile(AuthUser user) {
         usernameText.setText(user.getUsername());
         regionText.setText(user.getRegion());
+        tokensText.setText(getString(R.string.home_tokens_fmt, user.getTokens()));
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }
 }

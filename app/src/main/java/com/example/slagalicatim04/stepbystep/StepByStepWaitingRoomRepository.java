@@ -1,5 +1,6 @@
 package com.example.slagalicatim04.stepbystep;
 
+import com.example.slagalicatim04.auth.TokenService;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -25,9 +26,11 @@ public class StepByStepWaitingRoomRepository {
     private static final String COLLECTION = "stepByStepMatches";
 
     private final DocumentReference roomRef;
+    private final TokenService tokenService;
 
     public StepByStepWaitingRoomRepository(String roomId) {
         roomRef = FirebaseFirestore.getInstance().collection(COLLECTION).document(roomId);
+        tokenService = new TokenService(roomRef.getFirestore());
     }
 
     public void joinRoom(StepByStepPlayerSession player, ErrorCallback onError) {
@@ -95,6 +98,8 @@ public class StepByStepWaitingRoomRepository {
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
 
             if (otherReady) {
+                tokenService.consumeSingleToken(transaction, state.getPlayer1Id());
+                tokenService.consumeSingleToken(transaction, state.getPlayer2Id());
                 updates.put("phase", "koZnaZnaPlaying");
                 updates.put("currentGame", "koZnaZna");
                 updates.put("finished", false);

@@ -11,6 +11,7 @@ public class AuthUser {
     private final boolean emailVerified;
     private final String verificationToken;
     private final String avatarData;
+    private final int tokens;
 
     public AuthUser(String id, String email, String username, String region, String passwordHash,
                     String passwordSalt, boolean emailVerified, String verificationToken) {
@@ -21,6 +22,13 @@ public class AuthUser {
     public AuthUser(String id, String email, String username, String region, String passwordHash,
                     String passwordSalt, boolean emailVerified, String verificationToken,
                     String avatarData) {
+        this(id, email, username, region, passwordHash, passwordSalt, emailVerified,
+                verificationToken, avatarData, 0);
+    }
+
+    public AuthUser(String id, String email, String username, String region, String passwordHash,
+                    String passwordSalt, boolean emailVerified, String verificationToken,
+                    String avatarData, int tokens) {
         this.id = id;
         this.email = email;
         this.username = username;
@@ -30,6 +38,7 @@ public class AuthUser {
         this.emailVerified = emailVerified;
         this.verificationToken = verificationToken;
         this.avatarData = avatarData;
+        this.tokens = tokens;
     }
 
     public String getId() {
@@ -68,18 +77,22 @@ public class AuthUser {
         return avatarData;
     }
 
+    public int getTokens() {
+        return tokens;
+    }
+
     public AuthUser verified() {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, true, "",
-                avatarData);
+                avatarData, tokens);
     }
 
     public AuthUser withPassword(String passwordHash, String passwordSalt) {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified,
-                verificationToken, avatarData);
+                verificationToken, avatarData, tokens);
     }
 
     public AuthUser withVerificationToken(String verificationToken) {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified,
-                verificationToken, avatarData);
+                verificationToken, avatarData, tokens);
     }
 }
