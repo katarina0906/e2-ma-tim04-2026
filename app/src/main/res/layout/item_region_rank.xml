@@ -28,9 +28,9 @@
         android:background="#EFEAF8"
         android:gravity="center"
         android:textColor="#6F4BB2"
-        android:textSize="16sp"
+        android:textSize="22sp"
         android:textStyle="bold"
-        tools:text="BG" />
+        tools:text="🌾" />
 
     <LinearLayout
         android:layout_width="0dp"

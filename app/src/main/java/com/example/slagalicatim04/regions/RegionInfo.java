@@ -7,15 +7,15 @@ import java.util.Locale;
 
 public final class RegionInfo {
     public static final RegionInfo BELGRADE = new RegionInfo(
-            "belgrade", "Beogradski region", "BG", 0xFF6F4BB2);
+            "belgrade", "Beogradski region", "🏛", 0xFF6F4BB2);
     public static final RegionInfo VOJVODINA = new RegionInfo(
-            "vojvodina", "Region Vojvodine", "VO", 0xFF1565C0);
+            "vojvodina", "Region Vojvodine", "🌾", 0xFF1565C0);
     public static final RegionInfo SUMADIJA = new RegionInfo(
-            "sumadija_zapad", "Region Sumadije i Zapadne Srbije", "SZ", 0xFF2E7D32);
+            "sumadija_zapad", "Region Sumadije i Zapadne Srbije", "🌲", 0xFF2E7D32);
     public static final RegionInfo JUG_ISTOK = new RegionInfo(
-            "jug_istok", "Region Juzne i Istocne Srbije", "JI", 0xFFEF6C00);
+            "jug_istok", "Region Juzne i Istocne Srbije", "⛰", 0xFFEF6C00);
     public static final RegionInfo KOSOVO = new RegionInfo(
-            "kosovo_metohija", "Region Kosova i Metohije", "KM", 0xFF8E24AA);
+            "kosovo_metohija", "Region Kosova i Metohije", "☀", 0xFF8E24AA);
 
     private static final List<RegionInfo> ALL = Collections.unmodifiableList(Arrays.asList(
             BELGRADE, VOJVODINA, SUMADIJA, JUG_ISTOK, KOSOVO
