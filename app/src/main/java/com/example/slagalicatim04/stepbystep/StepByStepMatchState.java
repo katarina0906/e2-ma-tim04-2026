@@ -191,6 +191,10 @@ public class StepByStepMatchState {
         return playerId != null && playerId.equals(forfeitedPlayerId);
     }
 
+    public boolean hasForfeit() {
+        return !isEmpty(forfeitedPlayerId);
+    }
+
     public String effectivePhase() {
         if (!finished && !hasSecondPlayer()) {
             return PHASE_WAITING;

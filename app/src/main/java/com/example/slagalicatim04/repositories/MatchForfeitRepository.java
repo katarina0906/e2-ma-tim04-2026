@@ -37,6 +37,7 @@ public class MatchForfeitRepository {
             updates.put("statusMessage", "Igrac je napustio partiju. Protivnik nastavlja.");
 
             String currentGame = stringValue(snapshot.getString("currentGame"));
+            applyContinuationState(snapshot, updates, playerId, player1Id, player2Id);
             if ("matchResult".equals(currentGame)) {
                 updates.put("matchRewardsApplied", true);
             }
@@ -44,6 +45,58 @@ public class MatchForfeitRepository {
             transaction.set(matchRef, updates, SetOptions.merge());
             return null;
         });
+    }
+
+    private void applyContinuationState(DocumentSnapshot snapshot, Map<String, Object> updates,
+                                        String forfeitedPlayerId,
+                                        String player1Id, String player2Id) {
+        String remainingPlayerId = forfeitedPlayerId.equals(player1Id) ? player2Id : player1Id;
+        int remainingPlayerNumber = forfeitedPlayerId.equals(player1Id) ? 2 : 1;
+        int forfeitedPlayerNumber = forfeitedPlayerId.equals(player1Id) ? 1 : 2;
+        String currentGame = stringValue(snapshot.getString("currentGame"));
+        String phase = stringValue(snapshot.getString("phase"));
+
+        if ("koZnaZna".equals(currentGame) && "koZnaZnaPlaying".equals(phase)) {
+            return;
+        }
+        if ("spojnice".equals(currentGame) && "spojnicePlaying".equals(phase)) {
+            String currentPlayer = stringValue(snapshot.getString("spCurrentPlayer"));
+            if (currentPlayer.equals(forfeitedPlayerId)) {
+                updates.put("spCurrentPlayer", remainingPlayerId);
+            }
+            return;
+        }
+        if ("associations".equals(currentGame) && "associationRound".equals(phase)) {
+            Long activePlayer = snapshot.getLong("associationActivePlayer");
+            if (activePlayer != null && activePlayer.intValue() == forfeitedPlayerNumber) {
+                updates.put("associationActivePlayer", (long) remainingPlayerNumber);
+            }
+            return;
+        }
+        if ("skocko".equals(currentGame)) {
+            Long activePlayer = snapshot.getLong("activePlayer");
+            if (activePlayer != null && activePlayer.intValue() == forfeitedPlayerNumber) {
+                updates.put("activePlayer", (long) remainingPlayerNumber);
+            }
+            return;
+        }
+        if ("stepByStep".equals(currentGame)) {
+            Long activePlayer = snapshot.getLong("activePlayer");
+            Long stealPlayer = snapshot.getLong("stealPlayer");
+            if (activePlayer != null && activePlayer.intValue() == forfeitedPlayerNumber) {
+                updates.put("activePlayer", (long) remainingPlayerNumber);
+            }
+            if (stealPlayer != null && stealPlayer.intValue() == forfeitedPlayerNumber) {
+                updates.put("stealPlayer", (long) remainingPlayerNumber);
+            }
+            return;
+        }
+        if ("myNumber".equals(currentGame)) {
+            Long activePlayer = snapshot.getLong("myNumberActivePlayer");
+            if (activePlayer != null && activePlayer.intValue() == forfeitedPlayerNumber) {
+                updates.put("myNumberActivePlayer", (long) remainingPlayerNumber);
+            }
+        }
     }
 
     private String stringValue(String value) {

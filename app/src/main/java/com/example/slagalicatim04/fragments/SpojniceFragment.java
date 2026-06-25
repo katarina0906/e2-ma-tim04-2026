@@ -177,7 +177,7 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
             return;
         }
         if (!"playing".equals(state.getStatus())) {
-            showWaitingState();
+            showWaitingState(state);
             return;
         }
 
@@ -285,12 +285,20 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
     }
 
     private void showWaitingState() {
+        showWaitingState(null);
+    }
+
+    private void showWaitingState(MatchingMultiplayerState state) {
         cancelTimer();
         timerChanceKey = "";
         roundText.setText("Test soba: " + MultiplayerGameRepository.TEST_ROOM_ID);
-        turnText.setText("Ceka se drugi igrac");
+        boolean opponentLeft = state != null
+                && (state.isForfeited(state.getPlayer1Id()) || state.isForfeited(state.getPlayer2Id()));
+        turnText.setText(opponentLeft ? "Protivnik je napustio partiju" : "Ceka se drugi igrac");
         timerText.setText("30s");
-        resultText.setText("Oba uredjaja treba da otvore igru Spojnice.");
+        resultText.setText(opponentLeft
+                ? nonEmpty(state.getStatusMessage(), "Stanje partije je sacuvano u bazi.")
+                : "Oba uredjaja treba da otvore igru Spojnice.");
         disableAllButtons();
     }
 
@@ -334,6 +342,10 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         Bundle args = new Bundle();
         args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
         Navigation.findNavController(requireView()).navigate(R.id.asocijacijeFragment, args);
+    }
+
+    private String nonEmpty(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value;
     }
 
     @Override

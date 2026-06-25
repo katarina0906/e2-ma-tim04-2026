@@ -119,6 +119,12 @@ public class StepByStepGameService {
         if (state.isFinished()) {
             return "Kraj igre. Konacan rezultat je prikazan iznad.";
         }
+        if (state.isForfeited(state.getPlayer1Id()) || state.isForfeited(state.getPlayer2Id())) {
+            String status = state.getStatusMessage();
+            return status == null || status.trim().isEmpty()
+                    ? "Protivnik je napustio partiju."
+                    : status;
+        }
         String phase = state.effectivePhase();
         if (StepByStepMatchState.PHASE_WAITING.equals(phase)) {
             return myPlayer == 1 ? "Cekas da se drugi igrac pridruzi." : "Ceka se drugi igrac.";

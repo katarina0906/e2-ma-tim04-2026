@@ -125,7 +125,7 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
             return;
         }
         if (!"playing".equals(state.getStatus())) {
-            showWaitingState();
+            showWaitingState(state);
             return;
         }
 
@@ -144,7 +144,8 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
             resultText.setText("Protivnik je napustio partiju. Nastavljas bez cekanja.");
         }
         setButtonsEnabled(!answered);
-        if (answered) {
+        if (answered && !state.isForfeited(state.getPlayer1Id())
+                && !state.isForfeited(state.getPlayer2Id())) {
             resultText.setText("Odgovor je poslat. Ceka se drugi igrac.");
         }
         int requiredAnswers = (state.isForfeited(state.getPlayer1Id())
@@ -220,11 +221,19 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
     }
 
     private void showWaitingState() {
+        showWaitingState(null);
+    }
+
+    private void showWaitingState(QuizMultiplayerState state) {
         cancelTimer();
         timerText.setText("5s");
         questionCounterText.setText("Test soba: " + MultiplayerGameRepository.TEST_ROOM_ID);
-        questionText.setText("Ceka se drugi igrac...");
-        resultText.setText("Oba uredjaja treba da otvore igru Ko zna zna.");
+        boolean opponentLeft = state != null
+                && (state.isForfeited(state.getPlayer1Id()) || state.isForfeited(state.getPlayer2Id()));
+        questionText.setText(opponentLeft ? "Protivnik je napustio partiju." : "Ceka se drugi igrac...");
+        resultText.setText(opponentLeft
+                ? nonEmpty(state.getStatusMessage(), "Stanje partije je sacuvano u bazi.")
+                : "Oba uredjaja treba da otvore igru Ko zna zna.");
         setButtonsEnabled(false);
     }
 
@@ -268,6 +277,10 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         Bundle args = new Bundle();
         args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
         Navigation.findNavController(requireView()).navigate(R.id.spojniceFragment, args);
+    }
+
+    private String nonEmpty(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value;
     }
 
     @Override

@@ -173,6 +173,10 @@ public class SkockoMatchState {
         return playerId != null && playerId.equals(forfeitedPlayerId);
     }
 
+    public boolean hasForfeit() {
+        return !isEmpty(forfeitedPlayerId);
+    }
+
     public int roundStarter() {
         return round == 1 ? 1 : 2;
     }

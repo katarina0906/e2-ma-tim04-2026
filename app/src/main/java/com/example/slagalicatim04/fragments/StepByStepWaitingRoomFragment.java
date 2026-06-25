@@ -98,15 +98,23 @@ public class StepByStepWaitingRoomFragment extends Fragment {
 
     private void renderState(StepByStepMatchState state) {
         int myPlayer = state.playerNumber(playerSession.getId());
-        player1Text.setText("Igrac 1: " + playerLabel(state.getPlayer1Name(), state.isPlayer1Ready()));
-        player2Text.setText("Igrac 2: " + playerLabel(state.getPlayer2Name(), state.isPlayer2Ready()));
+        boolean opponentLeft = state.hasForfeit();
+        player1Text.setText("Igrac 1: " + playerLabel(state.getPlayer1Id(), state.getPlayer1Name(),
+                state.isPlayer1Ready(), state));
+        player2Text.setText("Igrac 2: " + playerLabel(state.getPlayer2Id(), state.getPlayer2Name(),
+                state.isPlayer2Ready(), state));
+        player1Text.setTextColor(state.isForfeited(state.getPlayer1Id()) ? 0xFFD32F2F : 0xFF000000);
+        player2Text.setTextColor(state.isForfeited(state.getPlayer2Id()) ? 0xFFD32F2F : 0xFF000000);
 
         if ("koZnaZnaPlaying".equals(state.getPhase())) {
             navigateToKoZnaZna();
             return;
         }
 
-        if (!state.hasSecondPlayer()) {
+        if (opponentLeft) {
+            statusText.setText(nonEmpty(state.getStatusMessage(),
+                    "Protivnik je napustio partiju."));
+        } else if (!state.hasSecondPlayer()) {
             statusText.setText("Ceka se drugi igrac.");
         } else if (myPlayer == 0) {
             statusText.setText("Soba je popunjena. Resetuj test sobu za novi test.");
@@ -119,9 +127,12 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         confirmButton.setEnabled(myPlayer != 0 && state.hasSecondPlayer() && !state.isReady(myPlayer));
     }
 
-    private String playerLabel(String name, boolean ready) {
+    private String playerLabel(String playerId, String name, boolean ready, StepByStepMatchState state) {
         if (isEmpty(name)) {
             return "ceka se";
+        }
+        if (state.isForfeited(playerId)) {
+            return name + " - napustio partiju";
         }
         return name + (ready ? " - spreman" : " - nije potvrdio");
     }
@@ -176,5 +187,9 @@ public class StepByStepWaitingRoomFragment extends Fragment {
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String nonEmpty(String value, String fallback) {
+        return isEmpty(value) ? fallback : value;
     }
 }

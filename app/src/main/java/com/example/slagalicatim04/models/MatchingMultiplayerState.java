@@ -18,6 +18,7 @@ public class MatchingMultiplayerState {
     private final String player2Id;
     private final String player2Name;
     private final String forfeitedPlayerId;
+    private final String statusMessage;
     private final List<Long> matchedPairs;
     private final List<Long> attemptedPairs;
     private final Map<String, Long> scores;
@@ -36,6 +37,7 @@ public class MatchingMultiplayerState {
         player2Id = stringValue(snapshot.getString("player2Id"), "");
         player2Name = stringValue(snapshot.getString("player2Name"), "Igrac 2");
         forfeitedPlayerId = stringValue(snapshot.getString("forfeitedPlayerId"), "");
+        statusMessage = stringValue(snapshot.getString("statusMessage"), "");
         matchedPairs = listValue(snapshot.get("spMatchedPairs"));
         attemptedPairs = listValue(snapshot.get("spAttemptedPairs"));
         scores = scoreMap(snapshot);
@@ -81,6 +83,10 @@ public class MatchingMultiplayerState {
         return forfeitedPlayerId;
     }
 
+    public String getStatusMessage() {
+        return statusMessage;
+    }
+
     public boolean isMatched(int pairIndex) {
         return matchedPairs.contains((long) pairIndex);
     }
@@ -96,6 +102,10 @@ public class MatchingMultiplayerState {
 
     public boolean isForfeited(String playerId) {
         return playerId != null && playerId.equals(forfeitedPlayerId);
+    }
+
+    public boolean hasForfeit() {
+        return forfeitedPlayerId != null && !forfeitedPlayerId.trim().isEmpty();
     }
 
     private static int intValue(Long value) {
