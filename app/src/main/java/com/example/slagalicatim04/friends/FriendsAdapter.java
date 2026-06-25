@@ -22,11 +22,19 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.Holder> 
         void onStartGame(FriendItem friend);
     }
 
+    public interface CancelInviteListener {
+        void onCancelInvite(FriendItem friend);
+    }
+
     private final List<FriendItem> items = new ArrayList<>();
     private final StartGameListener startGameListener;
+    private final CancelInviteListener cancelInviteListener;
+    private String pendingInviteFriendId = "";
 
-    public FriendsAdapter(StartGameListener startGameListener) {
+    public FriendsAdapter(StartGameListener startGameListener,
+                          CancelInviteListener cancelInviteListener) {
         this.startGameListener = startGameListener;
+        this.cancelInviteListener = cancelInviteListener;
     }
 
     public void submit(List<FriendItem> friends) {
@@ -34,6 +42,11 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.Holder> 
         if (friends != null) {
             items.addAll(friends);
         }
+        notifyDataSetChanged();
+    }
+
+    public void setPendingInviteFriendId(String friendId) {
+        pendingInviteFriendId = friendId == null ? "" : friendId;
         notifyDataSetChanged();
     }
 
@@ -58,10 +71,21 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.Holder> 
         holder.totalStars.setText("Ukupno zvezda: " + friend.totalStars);
         holder.league.setText("Liga: " + friend.league);
         holder.status.setText(statusText(friend));
-        holder.startButton.setEnabled(friend.canStartGame());
-        holder.startButton.setText(friend.canStartGame() ? "Zapocni partiju" : "Nije dostupan");
+        boolean invitePendingForThisFriend = friend.id.equals(pendingInviteFriendId);
+        boolean anotherInvitePending = !pendingInviteFriendId.isEmpty() && !invitePendingForThisFriend;
+        holder.startButton.setEnabled(invitePendingForThisFriend
+                || (!anotherInvitePending && friend.canStartGame()));
+        if (invitePendingForThisFriend) {
+            holder.startButton.setText("Prekini zahtev");
+        } else if (anotherInvitePending) {
+            holder.startButton.setText("Zahtev je aktivan");
+        } else {
+            holder.startButton.setText(friend.canStartGame() ? "Zapocni partiju" : "Nije dostupan");
+        }
         holder.startButton.setOnClickListener(v -> {
-            if (startGameListener != null) {
+            if (invitePendingForThisFriend && cancelInviteListener != null) {
+                cancelInviteListener.onCancelInvite(friend);
+            } else if (startGameListener != null) {
                 startGameListener.onStartGame(friend);
             }
         });

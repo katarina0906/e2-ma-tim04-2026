@@ -53,14 +53,19 @@ public class FriendsRepository {
                 .collection("friends")
                 .get());
         for (DocumentSnapshot friendDoc : friendDocs.getDocuments()) {
-            String friendId = friendDoc.getString("userId");
-            friendIds.add(isEmpty(friendId) ? friendDoc.getId() : friendId);
+            String friendId = friendDoc.getId();
+            if (isEmpty(friendId)) {
+                friendId = friendDoc.getString("userId");
+            }
+            if (!isEmpty(friendId) && !friendId.equals(userId)) {
+                friendIds.add(friendId);
+            }
         }
 
         Map<String, Integer> monthlyRanks = monthlyRanks();
         List<FriendItem> friends = new ArrayList<>();
         for (String friendId : friendIds) {
-            if (isEmpty(friendId)) {
+            if (isEmpty(friendId) || friendId.equals(userId)) {
                 continue;
             }
             DocumentSnapshot friend = Tasks.await(firestore.collection("users")
@@ -138,6 +143,9 @@ public class FriendsRepository {
         if (friend == null || isEmpty(friend.id)) {
             throw new IllegalArgumentException("Prijatelj nije pronadjen.");
         }
+        if (currentUserId.equals(friend.id)) {
+            throw new IllegalArgumentException("Ne mozes poslati zahtev za partiju samom sebi.");
+        }
         clearInvalidBusyState(currentUserId);
         clearInvalidBusyState(friend.id);
 
@@ -209,6 +217,44 @@ public class FriendsRepository {
                 transaction.set(firestore.collection("users").document(player2Id)
                                 .collection("notifications").document(notifId),
                         inviteNotificationState("expired"),
+                        SetOptions.merge());
+            }
+            return null;
+        }));
+    }
+
+    public void cancelGameInvite(String currentUserId, String roomId, String notificationId)
+            throws ExecutionException, InterruptedException {
+        if (isEmpty(currentUserId) || isEmpty(roomId)) {
+            throw new IllegalArgumentException("Poziv nije pronadjen.");
+        }
+        DocumentReference roomRef = firestore.collection(MATCH_COLLECTION).document(roomId);
+        Tasks.await(firestore.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot room = transaction.get(roomRef);
+            if (!room.exists()) {
+                return null;
+            }
+            if (!currentUserId.equals(room.getString("player1Id"))) {
+                throw new IllegalStateException("Samo igrac koji je poslao zahtev moze da ga prekine.");
+            }
+            if (!"pending".equals(room.getString("inviteStatus"))) {
+                throw new IllegalStateException("Zahtev vise nije aktivan.");
+            }
+
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("inviteStatus", "cancelled");
+            updates.put("phase", "inviteCancelled");
+            updates.put("currentGame", "inviteCancelled");
+            updates.put("statusMessage", "Poziv za partiju je prekinut.");
+            updates.put("updatedAt", FieldValue.serverTimestamp());
+            transaction.set(roomRef, updates, SetOptions.merge());
+
+            String player2Id = room.getString("player2Id");
+            String notifId = isEmpty(notificationId) ? room.getString("inviteNotificationId") : notificationId;
+            if (!isEmpty(player2Id) && !isEmpty(notifId)) {
+                transaction.set(firestore.collection("users").document(player2Id)
+                                .collection("notifications").document(notifId),
+                        inviteNotificationState("cancelled"),
                         SetOptions.merge());
             }
             return null;
@@ -465,7 +511,9 @@ public class FriendsRepository {
             return false;
         }
         String inviteStatus = room.getString("inviteStatus");
-        if ("declined".equals(inviteStatus) || "expired".equals(inviteStatus)) {
+        if ("declined".equals(inviteStatus)
+                || "expired".equals(inviteStatus)
+                || "cancelled".equals(inviteStatus)) {
             return false;
         }
         String phase = room.getString("phase");
@@ -482,6 +530,7 @@ public class FriendsRepository {
         return !"finished".equals(phase)
                 && !"inviteDeclined".equals(phase)
                 && !"inviteExpired".equals(phase)
+                && !"inviteCancelled".equals(phase)
                 && !"matchFinished".equals(phase);
     }
 

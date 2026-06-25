@@ -142,6 +142,7 @@ exports.pushNotification = onDocumentCreated({
     targetId: notification.targetId,
     title: notification.title,
     message: notification.message,
+    ...(notification.data || {}),
   });
   const response = await getMessaging().sendEachForMulticast({
     tokens: tokenDocs.map((document) => document.get("token")),

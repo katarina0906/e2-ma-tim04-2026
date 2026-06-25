@@ -25,9 +25,6 @@ import com.example.slagalicatim04.friends.FriendQr;
 import com.example.slagalicatim04.friends.FriendsAdapter;
 import com.example.slagalicatim04.friends.FriendsRepository;
 import com.example.slagalicatim04.friends.GameInviteResult;
-import com.example.slagalicatim04.notifications.InAppNotification;
-import com.example.slagalicatim04.notifications.NotificationDispatchService;
-import com.example.slagalicatim04.notifications.NotificationRouter;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -35,9 +32,7 @@ import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanIntentResult;
 import com.journeyapps.barcodescanner.ScanOptions;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class FriendsFragment extends Fragment {
     private FriendsAdapter adapter;
@@ -47,6 +42,7 @@ public class FriendsFragment extends Fragment {
     private AuthUser currentUser;
     private ListenerRegistration pendingInviteRegistration;
     private boolean inviteNavigationHandled;
+    private GameInviteResult pendingInvite;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ActivityResultLauncher<ScanOptions> qrScanner =
             registerForActivityResult(new ScanContract(), this::handleQrResult);
@@ -64,7 +60,7 @@ public class FriendsFragment extends Fragment {
         countText = view.findViewById(R.id.friendsCountText);
         searchInput = view.findViewById(R.id.friendSearchInput);
         RecyclerView list = view.findViewById(R.id.friendsList);
-        adapter = new FriendsAdapter(this::startGameWithFriend);
+        adapter = new FriendsAdapter(this::startGameWithFriend, this::cancelGameInvite);
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         list.setAdapter(adapter);
         view.findViewById(R.id.addFriendByUsernameButton)
@@ -169,6 +165,12 @@ public class FriendsFragment extends Fragment {
             Toast.makeText(requireContext(), "Korisnik nije prijavljen.", Toast.LENGTH_LONG).show();
             return;
         }
+        if (friend != null && currentUser.getId().equals(friend.id)) {
+            Toast.makeText(requireContext(),
+                    "Ne mozes poslati zahtev za partiju samom sebi.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
         new Thread(() -> {
             try {
                 FriendsRepository repository = new FriendsRepository();
@@ -176,12 +178,13 @@ public class FriendsFragment extends Fragment {
                         currentUser.getId(),
                         currentUser.getUsername(),
                         friend);
-                requestPushInvite(friend, invite);
                 scheduleInviteExpiration(invite);
                 if (!isAdded()) {
                     return;
                 }
                 requireActivity().runOnUiThread(() -> {
+                    pendingInvite = invite;
+                    adapter.setPendingInviteFriendId(friend.id);
                     listenForInviteAnswer(invite, friend);
                     Toast.makeText(requireContext(),
                             "Poziv za partiju je poslat igracu " + friend.username + ".",
@@ -193,20 +196,32 @@ public class FriendsFragment extends Fragment {
         }).start();
     }
 
-    private void requestPushInvite(FriendItem friend, GameInviteResult invite) {
-        Map<String, String> data = new HashMap<>();
-        data.put("roomId", invite.roomId);
-        data.put("inviterId", currentUser.getId());
-        data.put("expiresAt", String.valueOf(System.currentTimeMillis()
-                + FriendsRepository.GAME_INVITE_TIMEOUT_MS));
-        new NotificationDispatchService().send(
-                friend.id,
-                InAppNotification.Category.OTHER,
-                NotificationRouter.ACTION_GAME_INVITE,
-                "Novi poziv za partiju",
-                currentUser.getUsername() + " te poziva na partiju. Imas 10 sekundi da prihvatis.",
-                invite.roomId,
-                data);
+    private void cancelGameInvite(FriendItem friend) {
+        GameInviteResult invite = pendingInvite;
+        if (currentUser == null || invite == null) {
+            clearPendingInviteUi();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                new FriendsRepository().cancelGameInvite(
+                        currentUser.getId(),
+                        invite.roomId,
+                        invite.notificationId);
+                if (!isAdded()) {
+                    return;
+                }
+                requireActivity().runOnUiThread(() -> {
+                    closeInviteListener();
+                    clearPendingInviteUi();
+                    Toast.makeText(requireContext(),
+                            "Zahtev za partiju je prekinut.",
+                            Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception error) {
+                showError(error);
+            }
+        }).start();
     }
 
     private void scheduleInviteExpiration(GameInviteResult invite) {
@@ -236,10 +251,17 @@ public class FriendsFragment extends Fragment {
                         navigateSenderToWaitingRoom(invite.roomId, friend.username);
                     } else if ("declined".equals(status) || "expired".equals(status)) {
                         closeInviteListener();
+                        clearPendingInviteUi();
                         String message = "declined".equals(status)
                                 ? friend.username + " je odbio poziv za partiju."
                                 : "Poziv za partiju je istekao.";
                         Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+                    } else if ("cancelled".equals(status)) {
+                        closeInviteListener();
+                        clearPendingInviteUi();
+                        Toast.makeText(requireContext(),
+                                "Zahtev za partiju je prekinut.",
+                                Toast.LENGTH_LONG).show();
                     }
                 });
     }
@@ -250,6 +272,7 @@ public class FriendsFragment extends Fragment {
         }
         inviteNavigationHandled = true;
         closeInviteListener();
+        clearPendingInviteUi();
         Bundle args = new Bundle();
         args.putString("roomId", roomId);
         Toast.makeText(requireContext(),
@@ -263,6 +286,13 @@ public class FriendsFragment extends Fragment {
         if (pendingInviteRegistration != null) {
             pendingInviteRegistration.remove();
             pendingInviteRegistration = null;
+        }
+    }
+
+    private void clearPendingInviteUi() {
+        pendingInvite = null;
+        if (adapter != null) {
+            adapter.setPendingInviteFriendId("");
         }
     }
 

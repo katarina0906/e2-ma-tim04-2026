@@ -16,6 +16,7 @@ public class SlagalicaMessagingService extends FirebaseMessagingService {
     public static final String EXTRA_TARGET_ID = "notificationTargetId";
     public static final String EXTRA_TITLE = "notificationTitle";
     public static final String EXTRA_MESSAGE = "notificationMessage";
+    public static final String EXTRA_EXPIRES_AT = "notificationExpiresAt";
 
     @Override
     public void onNewToken(@NonNull String token) {
@@ -35,7 +36,7 @@ public class SlagalicaMessagingService extends FirebaseMessagingService {
                 "");
         String category = firstNonEmpty(data.get("category"), "other");
         SystemNotificationPublisher.show(this, data.get("notificationId"), category, data.get("action"),
-                data.get("targetId"), title, message);
+                data.get("targetId"), title, message, data.get("expiresAt"));
     }
 
     private static String firstNonEmpty(String... values) {

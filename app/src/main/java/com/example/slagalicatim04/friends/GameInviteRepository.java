@@ -173,7 +173,9 @@ public class GameInviteRepository {
             return false;
         }
         String inviteStatus = room.getString("inviteStatus");
-        if ("declined".equals(inviteStatus) || "expired".equals(inviteStatus)) {
+        if ("declined".equals(inviteStatus)
+                || "expired".equals(inviteStatus)
+                || "cancelled".equals(inviteStatus)) {
             return false;
         }
         String phase = room.getString("phase");
@@ -190,6 +192,7 @@ public class GameInviteRepository {
         return !"finished".equals(phase)
                 && !"inviteDeclined".equals(phase)
                 && !"inviteExpired".equals(phase)
+                && !"inviteCancelled".equals(phase)
                 && !"matchFinished".equals(phase);
     }
 

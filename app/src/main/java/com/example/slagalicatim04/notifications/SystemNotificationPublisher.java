@@ -20,11 +20,17 @@ public final class SystemNotificationPublisher {
 
     public static boolean show(Context context, InAppNotification item) {
         return show(context, item.id, item.categoryKey(), item.actionHint,
-                item.targetId, item.title, item.message);
+                item.targetId, item.title, item.message, item.data.get("expiresAt"));
     }
 
     public static boolean show(Context context, String notificationId, String category,
                                String action, String targetId, String title, String message) {
+        return show(context, notificationId, category, action, targetId, title, message, "");
+    }
+
+    public static boolean show(Context context, String notificationId, String category,
+                               String action, String targetId, String title, String message,
+                               String expiresAt) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
             return false;
@@ -37,7 +43,8 @@ public final class SystemNotificationPublisher {
                 .putExtra(SlagalicaMessagingService.EXTRA_ACTION, action)
                 .putExtra(SlagalicaMessagingService.EXTRA_TARGET_ID, targetId)
                 .putExtra(SlagalicaMessagingService.EXTRA_TITLE, title)
-                .putExtra(SlagalicaMessagingService.EXTRA_MESSAGE, message);
+                .putExtra(SlagalicaMessagingService.EXTRA_MESSAGE, message)
+                .putExtra(SlagalicaMessagingService.EXTRA_EXPIRES_AT, expiresAt);
         int requestCode = notificationId == null
                 ? (int) System.currentTimeMillis()
                 : notificationId.hashCode();
