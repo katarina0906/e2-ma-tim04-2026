@@ -1,6 +1,7 @@
 package com.example.slagalicatim04.fragments;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -211,23 +212,40 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
         }
         boolean myTurn = myPlayer != 0 && myPlayer == currentState.getActivePlayer();
         roundText.setText(getString(R.string.aso_round_label, currentState.getRound(), 2));
-        turnText.setText("Na potezu: Igrac " + currentState.getActivePlayer());
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            turnText.setText("Protivnik je napustio partiju");
+        } else {
+            String activeLabel = currentState.getActivePlayer() == 1
+                    ? playerLabel(currentState.getPlayer1Id(), currentState.getPlayer1Name(), "Igrac 1")
+                    : playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2");
+            turnText.setText("Na potezu: " + activeLabel);
+        }
         int seconds = currentState.getSecondsLeft();
         timerText.setText(getString(R.string.aso_timer_fmt, seconds / 60, seconds % 60));
-        scoreP1.setText(getString(R.string.aso_player_points, 1,
-                (int) currentState.getPlayer1Score()));
-        scoreP2.setText(getString(R.string.aso_player_points, 2,
-                (int) currentState.getPlayer2Score()));
+        scoreP1.setText(playerLabel(currentState.getPlayer1Id(), currentState.getPlayer1Name(), "Igrac 1")
+                + ": " + (int) currentState.getPlayer1Score());
+        scoreP2.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2")
+                + ": " + (int) currentState.getPlayer2Score());
+        scoreP1.setTextColor(currentState.isForfeited(currentState.getPlayer1Id()) ? 0xFFD32F2F : Color.BLACK);
+        scoreP2.setTextColor(currentState.isForfeited(currentState.getPlayer2Id()) ? 0xFFD32F2F : Color.BLACK);
         roundPointsText.setText(getString(R.string.aso_round_points_fmt,
                 currentState.getRoundPlayer1Score(), currentState.getRoundPlayer2Score()));
         resultText.setText(currentState.getStatusMessage());
-        phaseHint.setText(myTurn
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            phaseHint.setText(isEmpty(currentState.getStatusMessage())
+                    ? "Protivnik je napustio partiju. Nastavljas bez cekanja."
+                    : currentState.getStatusMessage());
+        } else {
+            phaseHint.setText(myTurn
                 ? (currentState.isOpenPhase()
                 ? "Tvoj potez: otvori jedno skriveno polje."
                 : (currentState.canContinueAfterCorrect()
                 ? "Tacan odgovor: pogadjaj dalje ili otvori novo polje."
                 : "Pogodi kolonu ili konacno resenje, ili predaj potez."))
                 : "Igrac " + currentState.getActivePlayer() + " je na potezu. Cekaj svoj red.");
+        }
 
         renderBoard(myTurn);
         publishClockIfOwner(myPlayer);
@@ -386,6 +404,13 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String playerLabel(String playerId, String name, String fallback) {
+        if (!isEmpty(name)) {
+            return name;
+        }
+        return isEmpty(playerId) ? fallback : playerId;
     }
 
     @Override

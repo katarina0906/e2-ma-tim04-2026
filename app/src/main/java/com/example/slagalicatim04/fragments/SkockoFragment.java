@@ -1,6 +1,7 @@
 package com.example.slagalicatim04.fragments;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -251,10 +252,12 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
         }
 
         roundText.setText(getString(R.string.sk_round_fmt, currentState.getRound(), 2));
-        score0.setText(getString(
-                R.string.sk_player_pts, 1, (int) currentState.getPlayer1Score()));
-        score1.setText(getString(
-                R.string.sk_player_pts, 2, (int) currentState.getPlayer2Score()));
+        score0.setText(playerLabel(currentState.getPlayer1Id(), currentState.getPlayer1Name(), "Igrac 1")
+                + ": " + (int) currentState.getPlayer1Score());
+        score1.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2")
+                + ": " + (int) currentState.getPlayer2Score());
+        score0.setTextColor(currentState.isForfeited(currentState.getPlayer1Id()) ? 0xFFD32F2F : Color.BLACK);
+        score1.setTextColor(currentState.isForfeited(currentState.getPlayer2Id()) ? 0xFFD32F2F : Color.BLACK);
         renderHistory();
 
         boolean steal = SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase());
@@ -339,6 +342,10 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
     }
 
     private String statusForPlayer(int myPlayer, boolean myTurn) {
+        if (currentState.hasForfeit()) {
+            String status = currentState.getStatusMessage();
+            return isEmpty(status) ? "Protivnik je napustio partiju." : status;
+        }
         if (currentState.isFinished()) {
             return "Skočko je završen.";
         }
@@ -479,5 +486,12 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String playerLabel(String playerId, String name, String fallback) {
+        if (!isEmpty(name)) {
+            return name;
+        }
+        return isEmpty(playerId) ? fallback : playerId;
     }
 }

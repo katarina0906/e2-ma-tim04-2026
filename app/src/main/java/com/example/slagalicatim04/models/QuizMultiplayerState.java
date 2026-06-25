@@ -26,9 +26,9 @@ public class QuizMultiplayerState {
         currentQuestion = intValue(snapshot.getLong("kzzCurrentQuestion"));
         deadlineAt = 0L;
         player1Id = stringValue(snapshot.getString("player1Id"), "");
-        player1Name = stringValue(snapshot.getString("player1Name"), "Igrac 1");
+        player1Name = stringValue(snapshot.getString("player1Name"), "");
         player2Id = stringValue(snapshot.getString("player2Id"), "");
-        player2Name = stringValue(snapshot.getString("player2Name"), "Igrac 2");
+        player2Name = stringValue(snapshot.getString("player2Name"), "");
         forfeitedPlayerId = stringValue(snapshot.getString("forfeitedPlayerId"), "");
         statusMessage = stringValue(snapshot.getString("statusMessage"), "");
         scores = scoreMap(snapshot);

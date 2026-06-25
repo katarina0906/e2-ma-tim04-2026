@@ -124,6 +124,9 @@ public class StepByStepWaitingRoomRepository {
     }
 
     private boolean needsFreshRoom(StepByStepMatchState state, String playerId) {
+        if (state.isParticipant(playerId)) {
+            return state.getRound() < 1 || state.getRound() > 2;
+        }
         boolean gameAlreadyStarted = StepByStepMatchState.PHASE_PLAYING.equals(state.getPhase())
                 || "koZnaZnaPlaying".equals(state.getPhase())
                 || "spojnicePlaying".equals(state.getPhase())

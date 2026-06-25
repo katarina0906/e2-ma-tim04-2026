@@ -128,13 +128,14 @@ public class StepByStepWaitingRoomFragment extends Fragment {
     }
 
     private String playerLabel(String playerId, String name, boolean ready, StepByStepMatchState state) {
-        if (isEmpty(name)) {
+        String visibleName = !isEmpty(name) ? name : (!isEmpty(playerId) ? playerId : "");
+        if (isEmpty(visibleName)) {
             return "ceka se";
         }
         if (state.isForfeited(playerId)) {
-            return name + " - napustio partiju";
+            return visibleName + " - napustio partiju";
         }
-        return name + (ready ? " - spreman" : " - nije potvrdio");
+        return visibleName + (ready ? " - spreman" : " - nije potvrdio");
     }
 
     private void navigateToKoZnaZna() {

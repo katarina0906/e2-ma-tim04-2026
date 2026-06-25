@@ -3,6 +3,7 @@ package com.example.slagalicatim04.fragments;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -256,9 +257,11 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
         roundLabelText.setText("Runda " + currentState.getRound() + " / 2");
         timerValue.setText(timerText(currentState, phase, waitingForServerTime, secondsLeft));
         currentStepValue.setText(openedSteps + " / 7");
-        player1ScoreText.setText(playerName(currentState.getPlayer1Name(), "Igrac 1") + ": "
+        player1ScoreText.setText(playerLabel(currentState.getPlayer1Id(),
+                        currentState.getPlayer1Name(), "Igrac 1") + ": "
                 + currentState.getPlayer1Score());
-        player2ScoreText.setText(playerName(currentState.getPlayer2Name(), "Igrac 2") + ": "
+        player2ScoreText.setText(playerLabel(currentState.getPlayer2Id(),
+                        currentState.getPlayer2Name(), "Igrac 2") + ": "
                 + currentState.getPlayer2Score());
         PlayerHeaderLoader.loadAvatar(currentState.getPlayer1Id(), player1Avatar);
         PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
@@ -313,6 +316,10 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
         player2ScoreText.setTypeface(null, myPlayer == 2 ? Typeface.BOLD : Typeface.NORMAL);
         player1ScoreText.setBackgroundColor(myPlayer == 1 ? 0xFFEFEAF8 : 0xFFF5F5F5);
         player2ScoreText.setBackgroundColor(myPlayer == 2 ? 0xFFEFEAF8 : 0xFFF5F5F5);
+        player1ScoreText.setTextColor(currentState != null && currentState.isForfeited(currentState.getPlayer1Id())
+                ? 0xFFD32F2F : Color.BLACK);
+        player2ScoreText.setTextColor(currentState != null && currentState.isForfeited(currentState.getPlayer2Id())
+                ? 0xFFD32F2F : Color.BLACK);
     }
 
     private void updateStepCards(StepByStepRound roundData, int openedSteps) {
@@ -453,8 +460,11 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
         return value == null || value.trim().isEmpty();
     }
 
-    private String playerName(String name, String fallback) {
-        return isEmpty(name) ? fallback : name;
+    private String playerLabel(String playerId, String name, String fallback) {
+        if (!isEmpty(name)) {
+            return name;
+        }
+        return isEmpty(playerId) ? fallback : playerId;
     }
 
     private void scrollToTop() {
