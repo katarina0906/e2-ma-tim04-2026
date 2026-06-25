@@ -2,8 +2,10 @@ package com.example.slagalicatim04.regions;
 
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 
 import java.text.SimpleDateFormat;
@@ -40,6 +42,7 @@ public class RegionRepository {
         WriteBatch staleCycleReset = firestore.batch();
         int staleCycleUpdates = 0;
         long now = System.currentTimeMillis();
+        Map<String, Map<String, Long>> finishedCycleStars = new HashMap<>();
 
         for (DocumentSnapshot user : users.getDocuments()) {
             RegionInfo region = RegionInfo.byName(user.getString("region"));
@@ -48,7 +51,16 @@ public class RegionRepository {
             String userCycle = user.getString("monthlyStarsCycle");
             if (cycle.equals(userCycle)) {
                 starsByRegion.put(region.key, starsByRegion.get(region.key) + longValue(user, "monthlyStars"));
-            } else if (longValue(user, "monthlyStars") != 0L || userCycle == null || !userCycle.isEmpty()) {
+            } else {
+                long staleStars = longValue(user, "monthlyStars");
+                if (userCycle != null && !userCycle.trim().isEmpty() && staleStars > 0L) {
+                    Map<String, Long> cycleStars = finishedCycleStars.get(userCycle);
+                    if (cycleStars == null) {
+                        cycleStars = emptyLongMap();
+                        finishedCycleStars.put(userCycle, cycleStars);
+                    }
+                    cycleStars.put(region.key, cycleStars.get(region.key) + staleStars);
+                }
                 staleCycleReset.update(user.getReference(),
                         "monthlyStars", 0L,
                         "monthlyStarsCycle", cycle);
@@ -68,6 +80,7 @@ public class RegionRepository {
             }
             points.add(new RegionPlayerPoint(user.getId(), region.key, latitude, longitude));
         }
+        finalizeFinishedCycles(finishedCycleStars);
         if (staleCycleUpdates > 0) {
             Tasks.await(staleCycleReset.commit());
         }
@@ -142,6 +155,95 @@ public class RegionRepository {
         }
         result.sort(Comparator.comparingInt(item -> item.rank));
         return result;
+    }
+
+    private void finalizeFinishedCycles(Map<String, Map<String, Long>> starsByCycle)
+            throws ExecutionException, InterruptedException {
+        for (Map.Entry<String, Map<String, Long>> cycleEntry : starsByCycle.entrySet()) {
+            String cycle = cycleEntry.getKey();
+            List<RegionRankItem> ranking = buildRanking(cycleEntry.getValue(), "");
+            Map<String, Integer> podiumByRegion = podiumByRegion(ranking);
+            Boolean applied = Tasks.await(firestore.runTransaction(transaction -> {
+                DocumentSnapshot cycleDoc = transaction.get(firestore.collection("regionMonthlyCycles")
+                        .document(cycle));
+                if (Boolean.TRUE.equals(cycleDoc.getBoolean("statsApplied"))) {
+                    return false;
+                }
+
+                for (int i = 0; i < ranking.size(); i++) {
+                    RegionRankItem item = ranking.get(i);
+                    if (item.monthlyStars <= 0L) {
+                        continue;
+                    }
+                    String field = podiumField(i + 1);
+                    if (field == null) {
+                        continue;
+                    }
+                    transaction.set(firestore.collection("regionStats").document(item.region.key),
+                            Collections.singletonMap(field, FieldValue.increment(1L)),
+                            SetOptions.merge());
+                }
+                Map<String, Object> cycleData = new HashMap<>();
+                cycleData.put("statsApplied", true);
+                cycleData.put("appliedAt", FieldValue.serverTimestamp());
+                transaction.set(firestore.collection("regionMonthlyCycles").document(cycle),
+                        cycleData,
+                        SetOptions.merge());
+                return true;
+            }));
+            if (Boolean.TRUE.equals(applied)) {
+                applyAvatarFramesForCycle(cycle, podiumByRegion);
+            }
+        }
+    }
+
+    private Map<String, Integer> podiumByRegion(List<RegionRankItem> ranking) {
+        Map<String, Integer> podium = new HashMap<>();
+        for (int i = 0; i < ranking.size(); i++) {
+            RegionRankItem item = ranking.get(i);
+            int place = i + 1;
+            if (item.monthlyStars <= 0L || podiumField(place) == null) {
+                continue;
+            }
+            podium.put(item.region.key, place);
+        }
+        return podium;
+    }
+
+    private void applyAvatarFramesForCycle(String cycle, Map<String, Integer> podiumByRegion)
+            throws ExecutionException, InterruptedException {
+        QuerySnapshot users = Tasks.await(firestore.collection("users").get());
+        WriteBatch batch = firestore.batch();
+        int pendingWrites = 0;
+        for (DocumentSnapshot user : users.getDocuments()) {
+            RegionInfo region = RegionInfo.byName(user.getString("region"));
+            Integer place = podiumByRegion.get(region.key);
+            batch.update(user.getReference(),
+                    "avatarFramePlace", place == null ? 0L : place.longValue(),
+                    "avatarFrameCycle", cycle);
+            pendingWrites++;
+            if (pendingWrites == 450) {
+                Tasks.await(batch.commit());
+                batch = firestore.batch();
+                pendingWrites = 0;
+            }
+        }
+        if (pendingWrites > 0) {
+            Tasks.await(batch.commit());
+        }
+    }
+
+    private String podiumField(int rank) {
+        if (rank == 1) {
+            return "firstPlaces";
+        }
+        if (rank == 2) {
+            return "secondPlaces";
+        }
+        if (rank == 3) {
+            return "thirdPlaces";
+        }
+        return null;
     }
 
     private static Map<String, Long> emptyLongMap() {

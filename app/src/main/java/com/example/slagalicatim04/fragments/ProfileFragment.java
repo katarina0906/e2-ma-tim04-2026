@@ -24,6 +24,7 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.example.slagalicatim04.regions.AvatarFrameStyler;
 import com.example.slagalicatim04.regions.OpenStreetRegionMapStyler;
 import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
 import com.example.slagalicatim04.regions.RegionInfo;
@@ -41,6 +42,7 @@ public class ProfileFragment extends Fragment {
     private TextView regionText;
     private TextView regionMapTitle;
     private ImageView avatarImage;
+    private View avatarFrame;
     private MapView regionMapView;
     private AuthService authService;
     private AuthUser currentUser;
@@ -62,6 +64,7 @@ public class ProfileFragment extends Fragment {
         regionText = view.findViewById(R.id.profileRegion);
         regionMapTitle = view.findViewById(R.id.profileRegionMapTitle);
         avatarImage = view.findViewById(R.id.profileAvatar);
+        avatarFrame = view.findViewById(R.id.profileAvatarFrame);
         regionMapView = view.findViewById(R.id.profileRegionMap);
         OpenStreetRegionMapStyler.configure(requireContext(), regionMapView, 7.2);
         View changePasswordForm = view.findViewById(R.id.changePasswordForm);
@@ -123,6 +126,7 @@ public class ProfileFragment extends Fragment {
         emailText.setText(user.getEmail());
         regionText.setText(user.getRegion());
         showRegionMap(user);
+        AvatarFrameStyler.apply(avatarFrame, user.getAvatarFramePlace());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }
 

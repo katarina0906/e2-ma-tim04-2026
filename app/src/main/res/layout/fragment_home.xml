@@ -32,6 +32,7 @@
                 android:padding="16dp">
 
                 <FrameLayout
+                    android:id="@+id/homeProfileAvatarFrame"
                     android:layout_width="64dp"
                     android:layout_height="64dp"
                     android:background="#D4AF37"

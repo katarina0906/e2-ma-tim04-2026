@@ -33,6 +33,7 @@
                     android:layout_height="120dp">
 
                     <FrameLayout
+                        android:id="@+id/profileAvatarFrame"
                         android:layout_width="112dp"
                         android:layout_height="112dp"
                         android:layout_gravity="center"
