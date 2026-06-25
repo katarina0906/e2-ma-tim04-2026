@@ -18,6 +18,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.example.slagalicatim04.notifications.NotificationTokenManager;
+import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,6 +34,7 @@ public class AuthService {
     private static final String KEY_CURRENT_USERNAME = "current_username";
     private static final String KEY_CURRENT_REGION = "current_region";
     private static final String KEY_CURRENT_AVATAR_DATA = "current_avatar_data";
+    private static final String KEY_CURRENT_AVATAR_FRAME_PLACE = "current_avatar_frame_place";
     private static final int AVATAR_MAX_SIZE = 512;
 
     private static AuthService instance;
@@ -63,6 +65,12 @@ public class AuthService {
 
     public AuthResult<AuthUser> register(String email, String username, String region,
                                          String password, String repeatedPassword) {
+        return register(email, username, region, password, repeatedPassword, null, null);
+    }
+
+    public AuthResult<AuthUser> register(String email, String username, String region,
+                                         String password, String repeatedPassword,
+                                         Double regionMapLatitude, Double regionMapLongitude) {
         if (!isFirebaseConfigured()) {
             return firebaseNotConfigured();
         }
@@ -92,7 +100,8 @@ public class AuthService {
             }
 
             AuthUser authUser = new AuthUser(firebaseUser.getUid(), normalizedEmail,
-                    normalizedUsername, cleanedRegion, "", "", false, "");
+                    normalizedUsername, cleanedRegion, "", "", false, "", "",
+                    regionMapLatitude, regionMapLongitude);
             saveProfile(authUser);
             Tasks.await(firebaseUser.sendEmailVerification());
 
@@ -225,7 +234,10 @@ public class AuthService {
                 "",
                 true,
                 "",
-                preferences.getString(KEY_CURRENT_AVATAR_DATA, "")
+                preferences.getString(KEY_CURRENT_AVATAR_DATA, ""),
+                null,
+                null,
+                preferences.getInt(KEY_CURRENT_AVATAR_FRAME_PLACE, 0)
         );
     }
 
@@ -288,6 +300,10 @@ public class AuthService {
         userData.put("email", authUser.getEmail());
         userData.put("username", authUser.getUsername());
         userData.put("region", authUser.getRegion());
+        double[] osmLocation = osmLocationFor(authUser);
+        userData.put("regionMapLatitude", osmLocation[0]);
+        userData.put("regionMapLongitude", osmLocation[1]);
+        userData.put("avatarFramePlace", authUser.getAvatarFramePlace());
         userData.put("avatarData", authUser.getAvatarData());
 
         Map<String, Object> usernameData = new HashMap<>();
@@ -314,11 +330,15 @@ public class AuthService {
         String username = userDoc.getString("username");
         String region = userDoc.getString("region");
         String avatarData = userDoc.getString("avatarData");
+        Double regionMapLatitude = userDoc.getDouble("regionMapLatitude");
+        Double regionMapLongitude = userDoc.getDouble("regionMapLongitude");
+        int avatarFramePlace = (int) longValue(userDoc, "avatarFramePlace");
         return new AuthUser(firebaseUser.getUid(), email,
                 username == null ? "" : username,
                 region == null ? "" : region,
                 "", "", firebaseUser.isEmailVerified(), "",
-                avatarData == null ? "" : avatarData);
+                avatarData == null ? "" : avatarData,
+                regionMapLatitude, regionMapLongitude, avatarFramePlace);
     }
 
     private AuthUser firebaseUserOnly(FirebaseUser firebaseUser) {
@@ -348,6 +368,7 @@ public class AuthService {
                 .putString(KEY_CURRENT_USERNAME, user.getUsername())
                 .putString(KEY_CURRENT_REGION, user.getRegion())
                 .putString(KEY_CURRENT_AVATAR_DATA, user.getAvatarData())
+                .putInt(KEY_CURRENT_AVATAR_FRAME_PLACE, user.getAvatarFramePlace())
                 .apply();
     }
 
@@ -358,6 +379,7 @@ public class AuthService {
                 .remove(KEY_CURRENT_USERNAME)
                 .remove(KEY_CURRENT_REGION)
                 .remove(KEY_CURRENT_AVATAR_DATA)
+                .remove(KEY_CURRENT_AVATAR_FRAME_PLACE)
                 .apply();
     }
 
@@ -424,5 +446,19 @@ public class AuthService {
 
     private String clean(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private long longValue(DocumentSnapshot snapshot, String field) {
+        Long value = snapshot.getLong(field);
+        return value == null ? 0L : value;
+    }
+
+    private double[] osmLocationFor(AuthUser authUser) {
+        Double latitude = authUser.getRegionMapLatitude();
+        Double longitude = authUser.getRegionMapLongitude();
+        if (latitude != null && longitude != null) {
+            return new double[]{latitude, longitude};
+        }
+        return OpenStreetRegionResolver.randomLocationForRegion(authUser.getRegion());
     }
 }

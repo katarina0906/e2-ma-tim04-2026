@@ -11,6 +11,9 @@ public class AuthUser {
     private final boolean emailVerified;
     private final String verificationToken;
     private final String avatarData;
+    private final Double regionMapLatitude;
+    private final Double regionMapLongitude;
+    private final int avatarFramePlace;
 
     public AuthUser(String id, String email, String username, String region, String passwordHash,
                     String passwordSalt, boolean emailVerified, String verificationToken) {
@@ -21,6 +24,21 @@ public class AuthUser {
     public AuthUser(String id, String email, String username, String region, String passwordHash,
                     String passwordSalt, boolean emailVerified, String verificationToken,
                     String avatarData) {
+        this(id, email, username, region, passwordHash, passwordSalt, emailVerified,
+                verificationToken, avatarData, null, null);
+    }
+
+    public AuthUser(String id, String email, String username, String region, String passwordHash,
+                    String passwordSalt, boolean emailVerified, String verificationToken,
+                    String avatarData, Double regionMapLatitude, Double regionMapLongitude) {
+        this(id, email, username, region, passwordHash, passwordSalt, emailVerified,
+                verificationToken, avatarData, regionMapLatitude, regionMapLongitude, 0);
+    }
+
+    public AuthUser(String id, String email, String username, String region, String passwordHash,
+                    String passwordSalt, boolean emailVerified, String verificationToken,
+                    String avatarData, Double regionMapLatitude, Double regionMapLongitude,
+                    int avatarFramePlace) {
         this.id = id;
         this.email = email;
         this.username = username;
@@ -30,6 +48,9 @@ public class AuthUser {
         this.emailVerified = emailVerified;
         this.verificationToken = verificationToken;
         this.avatarData = avatarData;
+        this.regionMapLatitude = regionMapLatitude;
+        this.regionMapLongitude = regionMapLongitude;
+        this.avatarFramePlace = avatarFramePlace;
     }
 
     public String getId() {
@@ -68,18 +89,32 @@ public class AuthUser {
         return avatarData;
     }
 
+    public Double getRegionMapLatitude() {
+        return regionMapLatitude;
+    }
+
+    public Double getRegionMapLongitude() {
+        return regionMapLongitude;
+    }
+
+    public int getAvatarFramePlace() {
+        return avatarFramePlace;
+    }
+
     public AuthUser verified() {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, true, "",
-                avatarData);
+                avatarData, regionMapLatitude, regionMapLongitude, avatarFramePlace);
     }
 
     public AuthUser withPassword(String passwordHash, String passwordSalt) {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified,
-                verificationToken, avatarData);
+                verificationToken, avatarData, regionMapLatitude, regionMapLongitude,
+                avatarFramePlace);
     }
 
     public AuthUser withVerificationToken(String verificationToken) {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, emailVerified,
-                verificationToken, avatarData);
+                verificationToken, avatarData, regionMapLatitude, regionMapLongitude,
+                avatarFramePlace);
     }
 }

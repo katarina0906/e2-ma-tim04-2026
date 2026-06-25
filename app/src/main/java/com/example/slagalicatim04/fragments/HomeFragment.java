@@ -17,6 +17,7 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.example.slagalicatim04.regions.AvatarFrameStyler;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class HomeFragment extends Fragment {
@@ -24,6 +25,7 @@ public class HomeFragment extends Fragment {
     private TextView usernameText;
     private TextView regionText;
     private ImageView avatarImage;
+    private View avatarFrame;
     private AuthService authService;
 
     @Override
@@ -39,6 +41,7 @@ public class HomeFragment extends Fragment {
         usernameText = view.findViewById(R.id.homeProfileUsername);
         regionText = view.findViewById(R.id.homeProfileRegion);
         avatarImage = view.findViewById(R.id.homeProfileAvatar);
+        avatarFrame = view.findViewById(R.id.homeProfileAvatarFrame);
 
         view.findViewById(R.id.homeProfileCard).setOnClickListener(v -> {
             BottomNavigationView bnv = requireActivity().findViewById(R.id.bottom_navigation);
@@ -73,7 +76,8 @@ public class HomeFragment extends Fragment {
 
     private void showProfile(AuthUser user) {
         usernameText.setText(user.getUsername());
-        regionText.setText(user.getRegion());
+        regionText.setText("Region\n" + user.getRegion());
+        AvatarFrameStyler.apply(avatarFrame, user.getAvatarFramePlace());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }
 }
