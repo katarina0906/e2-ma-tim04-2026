@@ -21,6 +21,7 @@ import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.mynumber.MyNumberGameService;
 import com.example.slagalicatim04.mynumber.MyNumberMatchState;
 import com.example.slagalicatim04.mynumber.MyNumberRepository;
@@ -102,6 +103,9 @@ public class MyNumberFragment extends Fragment {
             listenerRegistration = null;
         }
         uiHandler.removeCallbacks(ticker);
+        if (!navigatedToMatchResult) {
+            new GameSessionRepository().abandonRoom(roomId);
+        }
         super.onDestroyView();
     }
 
@@ -485,7 +489,9 @@ public class MyNumberFragment extends Fragment {
     private StepByStepPlayerSession resolveCurrentUser() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        String userId = new TestRoomPlayerProvider(requireContext()).getPlayerId();
+        String userId = firebaseUser == null
+                ? new TestRoomPlayerProvider(requireContext()).getPlayerId()
+                : firebaseUser.getUid();
         String userName;
 
         if (authUser != null) {

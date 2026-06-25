@@ -23,6 +23,7 @@ import androidx.navigation.Navigation;
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.skocko.SkockoMatchRepository;
 import com.example.slagalicatim04.skocko.SkockoMatchState;
@@ -129,6 +130,9 @@ public class SkockoFragment extends Fragment {
             listenerRegistration = null;
         }
         uiHandler.removeCallbacks(ticker);
+        if (!navigatedToStepByStep) {
+            new GameSessionRepository().abandonRoom(roomId);
+        }
         super.onDestroyView();
     }
 
@@ -401,7 +405,9 @@ public class SkockoFragment extends Fragment {
     private StepByStepPlayerSession resolveCurrentUser() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        String userId = new TestRoomPlayerProvider(requireContext()).getPlayerId();
+        String userId = firebaseUser == null
+                ? new TestRoomPlayerProvider(requireContext()).getPlayerId()
+                : firebaseUser.getUid();
         String userName;
         if (authUser != null) {
             userName = authUser.getUsername().isEmpty()

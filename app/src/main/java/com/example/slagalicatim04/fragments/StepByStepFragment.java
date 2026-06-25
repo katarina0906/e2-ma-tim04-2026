@@ -22,6 +22,7 @@ import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.stepbystep.StepByStepGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
@@ -110,6 +111,9 @@ public class StepByStepFragment extends Fragment {
             listenerRegistration = null;
         }
         uiHandler.removeCallbacks(ticker);
+        if (!navigatedToMyNumber) {
+            new GameSessionRepository().abandonRoom(roomId);
+        }
         super.onDestroyView();
     }
 

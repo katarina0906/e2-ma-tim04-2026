@@ -50,6 +50,9 @@ public class HomeFragment extends Fragment {
         view.findViewById(R.id.homeQuickNotifications).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
                         .navigate(R.id.action_homeFragment_to_notificationsFragment));
+        view.findViewById(R.id.homeQuickFriends).setOnClickListener(v ->
+                Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
+                        .navigate(R.id.action_homeFragment_to_friendsFragment));
         view.findViewById(R.id.startGameCard).setOnClickListener(v ->
                 Navigation.findNavController(v).navigate(R.id.stepByStepWaitingRoomFragment));
 
