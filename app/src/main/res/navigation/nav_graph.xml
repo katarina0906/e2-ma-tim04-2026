@@ -95,6 +95,12 @@
         tools:layout="@layout/fragment_games" />
 
     <fragment
+        android:id="@+id/regionsFragment"
+        android:name="com.example.slagalicatim04.fragments.RegionsFragment"
+        android:label="Regioni"
+        tools:layout="@layout/fragment_regions" />
+
+    <fragment
         android:id="@+id/koZnaZnaFragment"
         android:name="com.example.slagalicatim04.fragments.KoZnaZnaFragment"
         android:label="Ko zna zna"

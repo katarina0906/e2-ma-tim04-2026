@@ -52,6 +52,7 @@ dependencies {
     implementation libs.firebase.firestore
     implementation libs.firebase.messaging
     implementation libs.firebase.functions
+    implementation libs.osmdroid.android
     testImplementation libs.junit
     androidTestImplementation libs.espresso.core
     androidTestImplementation libs.ext.junit

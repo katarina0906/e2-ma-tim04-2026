@@ -7,4 +7,57 @@
         <item>Region Juzne i Istocne Srbije</item>
         <item>Region Kosova i Metohije</item>
     </string-array>
+
+    <string-array name="serbia_cities">
+        <item>Beograd</item>
+        <item>Obrenovac</item>
+        <item>Lazarevac</item>
+        <item>Mladenovac</item>
+        <item>Grocka</item>
+        <item>Surcin</item>
+        <item>Novi Sad</item>
+        <item>Subotica</item>
+        <item>Zrenjanin</item>
+        <item>Pancevo</item>
+        <item>Sombor</item>
+        <item>Kikinda</item>
+        <item>Sremska Mitrovica</item>
+        <item>Vrsac</item>
+        <item>Ruma</item>
+        <item>Backa Palanka</item>
+        <item>Indjija</item>
+        <item>Apatin</item>
+        <item>Kragujevac</item>
+        <item>Cacak</item>
+        <item>Uzice</item>
+        <item>Kraljevo</item>
+        <item>Novi Pazar</item>
+        <item>Valjevo</item>
+        <item>Sabac</item>
+        <item>Loznica</item>
+        <item>Jagodina</item>
+        <item>Krusevac</item>
+        <item>Prijepolje</item>
+        <item>Arandjelovac</item>
+        <item>Nis</item>
+        <item>Leskovac</item>
+        <item>Vranje</item>
+        <item>Pirot</item>
+        <item>Zajecar</item>
+        <item>Bor</item>
+        <item>Prokuplje</item>
+        <item>Smederevo</item>
+        <item>Pozarevac</item>
+        <item>Kladovo</item>
+        <item>Negotin</item>
+        <item>Aleksinac</item>
+        <item>Pristina</item>
+        <item>Prizren</item>
+        <item>Pec</item>
+        <item>Kosovska Mitrovica</item>
+        <item>Gnjilane</item>
+        <item>Urosevac</item>
+        <item>Djakovica</item>
+        <item>Gracanica</item>
+    </string-array>
 </resources>

@@ -24,15 +24,24 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.example.slagalicatim04.regions.OpenStreetRegionMapStyler;
+import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
+import com.example.slagalicatim04.regions.RegionInfo;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+
+import org.osmdroid.util.GeoPoint;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.Marker;
 
 public class ProfileFragment extends Fragment {
 
     private TextView usernameText;
     private TextView emailText;
     private TextView regionText;
+    private TextView regionMapTitle;
     private ImageView avatarImage;
+    private MapView regionMapView;
     private AuthService authService;
     private AuthUser currentUser;
     private final ActivityResultLauncher<String> avatarPicker =
@@ -51,7 +60,10 @@ public class ProfileFragment extends Fragment {
         usernameText = view.findViewById(R.id.profileUsername);
         emailText = view.findViewById(R.id.profileEmail);
         regionText = view.findViewById(R.id.profileRegion);
+        regionMapTitle = view.findViewById(R.id.profileRegionMapTitle);
         avatarImage = view.findViewById(R.id.profileAvatar);
+        regionMapView = view.findViewById(R.id.profileRegionMap);
+        OpenStreetRegionMapStyler.configure(requireContext(), regionMapView, 7.2);
         View changePasswordForm = view.findViewById(R.id.changePasswordForm);
         MaterialButton toggleChangePasswordButton = view.findViewById(R.id.toggleChangePasswordButton);
         TextInputEditText oldPasswordInput = view.findViewById(R.id.profileOldPasswordInput);
@@ -110,7 +122,24 @@ public class ProfileFragment extends Fragment {
         usernameText.setText(user.getUsername());
         emailText.setText(user.getEmail());
         regionText.setText(user.getRegion());
+        showRegionMap(user);
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (regionMapView != null) {
+            regionMapView.onResume();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        if (regionMapView != null) {
+            regionMapView.onPause();
+        }
+        super.onPause();
     }
 
     private void uploadAvatar(Uri imageUri) {
@@ -204,5 +233,26 @@ public class ProfileFragment extends Fragment {
     private String textOf(TextInputEditText input) {
         Editable text = input.getText();
         return text == null ? "" : text.toString();
+    }
+
+    private void showRegionMap(AuthUser user) {
+        RegionInfo region = RegionInfo.byName(user.getRegion());
+        regionMapTitle.setText("Moj region: " + region.name);
+        regionMapView.getOverlays().clear();
+        OpenStreetRegionMapStyler.addRegionOverlays(regionMapView, region.key);
+        OpenStreetRegionMapStyler.focusRegion(regionMapView, region, 7.6);
+
+        double[] fallbackLocation = OpenStreetRegionResolver.centerForRegion(region);
+        double latitude = user.getRegionMapLatitude() == null
+                ? fallbackLocation[0] : user.getRegionMapLatitude();
+        double longitude = user.getRegionMapLongitude() == null
+                ? fallbackLocation[1] : user.getRegionMapLongitude();
+
+        Marker marker = new Marker(regionMapView);
+        marker.setPosition(new GeoPoint(latitude, longitude));
+        marker.setTitle(user.getUsername());
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        regionMapView.getOverlays().add(marker);
+        regionMapView.invalidate();
     }
 }

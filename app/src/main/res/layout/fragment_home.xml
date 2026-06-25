@@ -92,7 +92,6 @@
             android:layout_marginBottom="16dp">
 
             <TextView
-                android:id="@+id/homeProfileRegion"
                 android:layout_width="0dp"
                 android:layout_height="78dp"
                 android:layout_weight="1"
@@ -115,12 +114,13 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/homeProfileRegion"
                 android:layout_width="0dp"
                 android:layout_height="78dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="📍\nJužnobački\nokrug"
+                android:text="Region"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
         </LinearLayout>
