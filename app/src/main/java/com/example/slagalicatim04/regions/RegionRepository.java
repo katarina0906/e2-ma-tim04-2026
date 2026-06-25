@@ -4,6 +4,7 @@ import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -28,13 +29,16 @@ public class RegionRepository {
     public RegionDashboard loadDashboard(String currentRegionName)
             throws ExecutionException, InterruptedException {
         String cycle = currentCycle();
-        RegionInfo currentRegion = RegionInfo.byName(currentRegionName);
+        RegionInfo currentRegion = currentRegionName == null || currentRegionName.trim().isEmpty()
+                ? null : RegionInfo.byName(currentRegionName);
         QuerySnapshot users = Tasks.await(firestore.collection("users").get());
 
         Map<String, Long> starsByRegion = emptyLongMap();
         Map<String, Long> activeByRegion = emptyLongMap();
         Map<String, Long> totalByRegion = emptyLongMap();
         List<RegionPlayerPoint> points = new ArrayList<>();
+        WriteBatch staleCycleReset = firestore.batch();
+        int staleCycleUpdates = 0;
         long now = System.currentTimeMillis();
 
         for (DocumentSnapshot user : users.getDocuments()) {
@@ -44,6 +48,11 @@ public class RegionRepository {
             String userCycle = user.getString("monthlyStarsCycle");
             if (cycle.equals(userCycle)) {
                 starsByRegion.put(region.key, starsByRegion.get(region.key) + longValue(user, "monthlyStars"));
+            } else if (longValue(user, "monthlyStars") != 0L || userCycle == null || !userCycle.isEmpty()) {
+                staleCycleReset.update(user.getReference(),
+                        "monthlyStars", 0L,
+                        "monthlyStarsCycle", cycle);
+                staleCycleUpdates++;
             }
 
             if (isActive(user, now)) {
@@ -59,10 +68,31 @@ public class RegionRepository {
             }
             points.add(new RegionPlayerPoint(user.getId(), region.key, latitude, longitude));
         }
+        if (staleCycleUpdates > 0) {
+            Tasks.await(staleCycleReset.commit());
+        }
 
         Map<String, RegionStats> statsByRegion = loadStats(activeByRegion, totalByRegion);
-        List<RegionRankItem> ranking = buildRanking(starsByRegion, currentRegion.key);
+        List<RegionRankItem> ranking = buildRanking(starsByRegion,
+                currentRegion == null ? "" : currentRegion.key);
         return new RegionDashboard(ranking, points, statsByRegion);
+    }
+
+    public void addMonthlyStars(String userId, long stars)
+            throws ExecutionException, InterruptedException {
+        if (userId == null || userId.trim().isEmpty() || stars <= 0L) {
+            return;
+        }
+        String cycle = currentCycle();
+        Tasks.await(firestore.runTransaction(transaction -> {
+            DocumentSnapshot user = transaction.get(firestore.collection("users").document(userId));
+            String userCycle = user.getString("monthlyStarsCycle");
+            long currentStars = cycle.equals(userCycle) ? longValue(user, "monthlyStars") : 0L;
+            transaction.update(user.getReference(),
+                    "monthlyStars", currentStars + stars,
+                    "monthlyStarsCycle", cycle);
+            return null;
+        }));
     }
 
     public static float[] randomPointForRegion(String regionName) {

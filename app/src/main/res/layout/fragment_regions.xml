@@ -84,17 +84,25 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:text="Mesecna rang lista regiona"
+            android:text="Mesecna rang lista po regionima"
             android:textColor="#1E1E2F"
             android:textSize="20sp"
             android:textStyle="bold" />
 
-        <androidx.recyclerview.widget.RecyclerView
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Prikazuje se svih 5 regiona. Sabiraju se zvezde svih igraca koji pripadaju regionu. Na pocetku novog mesecnog ciklusa lista krece od nule."
+            android:textColor="#6C6780"
+            android:textSize="14sp" />
+
+        <LinearLayout
             android:id="@+id/regionRankingList"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:nestedScrollingEnabled="false"
+            android:orientation="vertical"
             tools:itemCount="5"
             tools:listitem="@layout/item_region_rank" />
     </LinearLayout>

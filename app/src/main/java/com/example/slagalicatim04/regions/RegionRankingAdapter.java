@@ -36,10 +36,11 @@ public class RegionRankingAdapter extends RecyclerView.Adapter<RegionRankingAdap
     @Override
     public void onBindViewHolder(@NonNull Holder holder, int position) {
         RegionRankItem item = items.get(position);
-        holder.place.setText(String.valueOf(item.rank));
+        holder.place.setText(String.valueOf(position + 1));
         holder.icon.setText(item.region.iconLabel);
         holder.name.setText(item.region.name);
         holder.stars.setText(item.monthlyStars + " zvezda");
+        holder.currentBadge.setVisibility(item.currentPlayerRegion ? View.VISIBLE : View.GONE);
         holder.itemView.setBackgroundColor(item.currentPlayerRegion ? 0xFFEDE7F6 : Color.WHITE);
     }
 
@@ -53,6 +54,7 @@ public class RegionRankingAdapter extends RecyclerView.Adapter<RegionRankingAdap
         final TextView icon;
         final TextView name;
         final TextView stars;
+        final TextView currentBadge;
 
         Holder(@NonNull View itemView) {
             super(itemView);
@@ -60,6 +62,7 @@ public class RegionRankingAdapter extends RecyclerView.Adapter<RegionRankingAdap
             icon = itemView.findViewById(R.id.regionRankIcon);
             name = itemView.findViewById(R.id.regionRankName);
             stars = itemView.findViewById(R.id.regionRankStars);
+            currentBadge = itemView.findViewById(R.id.regionRankCurrentBadge);
         }
     }
 }

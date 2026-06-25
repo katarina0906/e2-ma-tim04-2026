@@ -32,16 +32,39 @@
         android:textStyle="bold"
         tools:text="BG" />
 
-    <TextView
-        android:id="@+id/regionRankName"
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
         android:layout_weight="1"
-        android:textColor="#1E1E2F"
-        android:textSize="15sp"
-        android:textStyle="bold"
-        tools:text="Beogradski region" />
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/regionRankName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#1E1E2F"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="Beogradski region" />
+
+        <TextView
+            android:id="@+id/regionRankCurrentBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="#6F4BB2"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="3dp"
+            android:text="Tvoj region"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:visibility="visible" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/regionRankStars"

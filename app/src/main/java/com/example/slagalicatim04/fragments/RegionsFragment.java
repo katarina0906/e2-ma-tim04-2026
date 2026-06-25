@@ -4,14 +4,13 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
@@ -21,7 +20,6 @@ import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
 import com.example.slagalicatim04.regions.RegionDashboard;
 import com.example.slagalicatim04.regions.RegionInfo;
 import com.example.slagalicatim04.regions.RegionPlayerPoint;
-import com.example.slagalicatim04.regions.RegionRankingAdapter;
 import com.example.slagalicatim04.regions.RegionRepository;
 import com.example.slagalicatim04.regions.RegionStats;
 
@@ -36,7 +34,7 @@ public class RegionsFragment extends Fragment {
     private TextView selectedRegionTitle;
     private TextView selectedRegionStats;
     private TextView cycleText;
-    private RegionRankingAdapter adapter;
+    private LinearLayout rankingList;
     private RegionDashboard dashboard;
     private AuthUser currentUser;
     private RegionInfo selectedRegion = RegionInfo.SUMADIJA;
@@ -54,10 +52,7 @@ public class RegionsFragment extends Fragment {
         selectedRegionTitle = view.findViewById(R.id.selectedRegionTitle);
         selectedRegionStats = view.findViewById(R.id.selectedRegionStats);
         cycleText = view.findViewById(R.id.regionCycleText);
-        RecyclerView rankingList = view.findViewById(R.id.regionRankingList);
-        adapter = new RegionRankingAdapter();
-        rankingList.setLayoutManager(new LinearLayoutManager(requireContext()));
-        rankingList.setAdapter(adapter);
+        rankingList = view.findViewById(R.id.regionRankingList);
 
         OpenStreetRegionMapStyler.configure(requireContext(), mapView, 7.0);
         currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
@@ -96,7 +91,7 @@ public class RegionsFragment extends Fragment {
                 }
                 requireActivity().runOnUiThread(() -> {
                     dashboard = loaded;
-                    adapter.submit(loaded.ranking);
+                    renderRanking();
                     showStats(RegionInfo.byName(currentRegion));
                     drawMap();
                 });
@@ -170,5 +165,29 @@ public class RegionsFragment extends Fragment {
         }
         OpenStreetRegionMapStyler.focusRegion(mapView, selectedRegion, 7.1);
         mapView.invalidate();
+    }
+
+    private void renderRanking() {
+        rankingList.removeAllViews();
+        if (dashboard == null || dashboard.ranking == null) {
+            return;
+        }
+        LayoutInflater inflater = LayoutInflater.from(requireContext());
+        for (int i = 0; i < dashboard.ranking.size(); i++) {
+            com.example.slagalicatim04.regions.RegionRankItem item = dashboard.ranking.get(i);
+            View row = inflater.inflate(R.layout.item_region_rank, rankingList, false);
+            TextView place = row.findViewById(R.id.regionRankPlace);
+            TextView icon = row.findViewById(R.id.regionRankIcon);
+            TextView name = row.findViewById(R.id.regionRankName);
+            TextView stars = row.findViewById(R.id.regionRankStars);
+            TextView badge = row.findViewById(R.id.regionRankCurrentBadge);
+            place.setText(String.valueOf(i + 1));
+            icon.setText(item.region.iconLabel);
+            name.setText(item.region.name);
+            stars.setText(item.monthlyStars + " zvezda");
+            badge.setVisibility(item.currentPlayerRegion ? View.VISIBLE : View.GONE);
+            row.setBackgroundColor(item.currentPlayerRegion ? 0xFFEDE7F6 : 0xFFFFFFFF);
+            rankingList.addView(row);
+        }
     }
 }
