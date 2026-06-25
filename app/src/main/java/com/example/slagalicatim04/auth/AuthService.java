@@ -34,6 +34,7 @@ public class AuthService {
     private static final String KEY_CURRENT_REGION = "current_region";
     private static final String KEY_CURRENT_AVATAR_DATA = "current_avatar_data";
     private static final String KEY_CURRENT_TOKENS = "current_tokens";
+    private static final String KEY_CURRENT_STARS = "current_stars";
     private static final int AVATAR_MAX_SIZE = 512;
 
     private static AuthService instance;
@@ -94,7 +95,7 @@ public class AuthService {
 
             AuthUser authUser = new AuthUser(firebaseUser.getUid(), normalizedEmail,
                     normalizedUsername, cleanedRegion, "", "", false, "", "",
-                    TokenService.INITIAL_TOKENS);
+                    TokenService.INITIAL_TOKENS, 0);
             saveProfile(authUser);
             Tasks.await(firebaseUser.sendEmailVerification());
 
@@ -229,7 +230,8 @@ public class AuthService {
                 true,
                 "",
                 preferences.getString(KEY_CURRENT_AVATAR_DATA, ""),
-                preferences.getInt(KEY_CURRENT_TOKENS, 0)
+                preferences.getInt(KEY_CURRENT_TOKENS, 0),
+                preferences.getInt(KEY_CURRENT_STARS, 0)
         );
     }
 
@@ -295,6 +297,7 @@ public class AuthService {
         userData.put("region", authUser.getRegion());
         userData.put("avatarData", authUser.getAvatarData());
         userData.put("tokens", TokenService.INITIAL_TOKENS);
+        userData.put("stars", authUser.getStars());
         userData.put("lastTokenGrantDate",
                 new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
                         .format(new java.util.Date()));
@@ -324,12 +327,14 @@ public class AuthService {
         String region = userDoc.getString("region");
         String avatarData = userDoc.getString("avatarData");
         Long tokens = userDoc.getLong("tokens");
+        Long stars = userDoc.getLong("stars");
         return new AuthUser(firebaseUser.getUid(), email,
                 username == null ? "" : username,
                 region == null ? "" : region,
                 "", "", firebaseUser.isEmailVerified(), "",
                 avatarData == null ? "" : avatarData,
-                tokens == null ? 0 : Math.max(0, tokens.intValue()));
+                tokens == null ? 0 : Math.max(0, tokens.intValue()),
+                stars == null ? 0 : Math.max(0, stars.intValue()));
     }
 
     private AuthUser firebaseUserOnly(FirebaseUser firebaseUser) {
@@ -360,6 +365,7 @@ public class AuthService {
                 .putString(KEY_CURRENT_REGION, user.getRegion())
                 .putString(KEY_CURRENT_AVATAR_DATA, user.getAvatarData())
                 .putInt(KEY_CURRENT_TOKENS, user.getTokens())
+                .putInt(KEY_CURRENT_STARS, user.getStars())
                 .apply();
     }
 
@@ -371,6 +377,7 @@ public class AuthService {
                 .remove(KEY_CURRENT_REGION)
                 .remove(KEY_CURRENT_AVATAR_DATA)
                 .remove(KEY_CURRENT_TOKENS)
+                .remove(KEY_CURRENT_STARS)
                 .apply();
     }
 

@@ -25,6 +25,7 @@ public class HomeFragment extends Fragment {
     private TextView usernameText;
     private TextView regionText;
     private TextView tokensText;
+    private TextView starsText;
     private ImageView avatarImage;
     private AuthService authService;
 
@@ -41,6 +42,7 @@ public class HomeFragment extends Fragment {
         usernameText = view.findViewById(R.id.homeProfileUsername);
         regionText = view.findViewById(R.id.homeProfileRegion);
         tokensText = view.findViewById(R.id.homeProfileTokens);
+        starsText = view.findViewById(R.id.homeProfileStars);
         avatarImage = view.findViewById(R.id.homeProfileAvatar);
 
         view.findViewById(R.id.homeProfileCard).setOnClickListener(v -> {
@@ -84,6 +86,7 @@ public class HomeFragment extends Fragment {
         usernameText.setText(user.getUsername());
         regionText.setText(user.getRegion());
         tokensText.setText(getString(R.string.home_tokens_fmt, user.getTokens()));
+        starsText.setText("⭐\n" + user.getStars() + "\nZvezda");
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }
 }
