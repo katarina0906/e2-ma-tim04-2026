@@ -63,6 +63,9 @@
         <action
             android:id="@+id/action_homeFragment_to_notificationsFragment"
             app:destination="@id/notificationsFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_friendsFragment"
+            app:destination="@id/friendsFragment" />
     </fragment>
 
     <fragment
@@ -81,6 +84,12 @@
         android:name="com.example.slagalicatim04.fragments.NotificationsFragment"
         android:label="@string/notifications_title"
         tools:layout="@layout/fragment_notifications" />
+
+    <fragment
+        android:id="@+id/friendsFragment"
+        android:name="com.example.slagalicatim04.fragments.FriendsFragment"
+        android:label="Prijatelji"
+        tools:layout="@layout/fragment_friends" />
 
     <fragment
         android:id="@+id/notificationTargetFragment"

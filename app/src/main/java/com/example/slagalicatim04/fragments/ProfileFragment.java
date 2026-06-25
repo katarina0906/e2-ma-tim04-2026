@@ -24,6 +24,7 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.example.slagalicatim04.friends.FriendQr;
 import com.example.slagalicatim04.regions.AvatarFrameStyler;
 import com.example.slagalicatim04.regions.OpenStreetRegionMapStyler;
 import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
@@ -42,6 +43,7 @@ public class ProfileFragment extends Fragment {
     private TextView regionText;
     private TextView regionMapTitle;
     private ImageView avatarImage;
+    private ImageView friendQrImage;
     private View avatarFrame;
     private MapView regionMapView;
     private AuthService authService;
@@ -64,6 +66,7 @@ public class ProfileFragment extends Fragment {
         regionText = view.findViewById(R.id.profileRegion);
         regionMapTitle = view.findViewById(R.id.profileRegionMapTitle);
         avatarImage = view.findViewById(R.id.profileAvatar);
+        friendQrImage = view.findViewById(R.id.profileFriendQr);
         avatarFrame = view.findViewById(R.id.profileAvatarFrame);
         regionMapView = view.findViewById(R.id.profileRegionMap);
         OpenStreetRegionMapStyler.configure(requireContext(), regionMapView, 7.2);
@@ -128,6 +131,7 @@ public class ProfileFragment extends Fragment {
         showRegionMap(user);
         AvatarFrameStyler.apply(avatarFrame, user.getAvatarFramePlace());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
+        showFriendQr(user);
     }
 
     @Override
@@ -258,5 +262,13 @@ public class ProfileFragment extends Fragment {
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
         regionMapView.getOverlays().add(marker);
         regionMapView.invalidate();
+    }
+
+    private void showFriendQr(AuthUser user) {
+        try {
+            friendQrImage.setImageBitmap(FriendQr.bitmapForUser(user.getId(), 420));
+        } catch (Exception error) {
+            friendQrImage.setImageResource(android.R.drawable.ic_menu_share);
+        }
     }
 }
