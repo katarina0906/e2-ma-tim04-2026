@@ -9,6 +9,7 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Patterns;
 
+import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.example.slagalicatim04.notifications.NotificationTokenManager;
 import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
 import com.google.android.gms.tasks.Tasks;
@@ -38,6 +39,7 @@ public class AuthService {
     private static final String KEY_CURRENT_AVATAR_DATA = "current_avatar_data";
     private static final String KEY_CURRENT_TOKENS = "current_tokens";
     private static final String KEY_CURRENT_STARS = "current_stars";
+    private static final String KEY_CURRENT_TOTAL_STARS = "current_total_stars";
     private static final String KEY_CURRENT_AVATAR_FRAME_PLACE = "current_avatar_frame_place";
     private static final int AVATAR_MAX_SIZE = 512;
 
@@ -243,6 +245,7 @@ public class AuthService {
                 preferences.getString(KEY_CURRENT_AVATAR_DATA, ""),
                 preferences.getInt(KEY_CURRENT_TOKENS, 0),
                 preferences.getInt(KEY_CURRENT_STARS, 0),
+                preferences.getInt(KEY_CURRENT_TOTAL_STARS, 0),
                 null,
                 null,
                 preferences.getInt(KEY_CURRENT_AVATAR_FRAME_PLACE, 0)
@@ -330,7 +333,16 @@ public class AuthService {
         userData.put("avatarFramePlace", authUser.getAvatarFramePlace());
         userData.put("avatarData", authUser.getAvatarData());
         userData.put("tokens", TokenService.INITIAL_TOKENS);
+        userData.put("dailyTokens", TokenService.INITIAL_TOKENS);
+        userData.put("bonusDailyTokens", 0L);
         userData.put("stars", authUser.getStars());
+        userData.put("totalStars", authUser.getTotalStars());
+        userData.put("monthlyStars", 0L);
+        userData.put("monthlyStarsCycle", "");
+        LeagueInfo initialLeague = LeagueInfo.forStars(authUser.getTotalStars());
+        userData.put("league", initialLeague.name);
+        userData.put("leagueLevel", initialLeague.level);
+        userData.put("leagueIconRes", initialLeague.iconRes);
         userData.put("lastTokenGrantDate",
                 new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
                         .format(new java.util.Date()));
@@ -362,6 +374,7 @@ public class AuthService {
         String avatarData = userDoc.getString("avatarData");
         Long tokens = userDoc.getLong("tokens");
         Long stars = userDoc.getLong("stars");
+        Long totalStars = userDoc.getLong("totalStars");
         Double regionMapLatitude = userDoc.getDouble("regionMapLatitude");
         Double regionMapLongitude = userDoc.getDouble("regionMapLongitude");
         int avatarFramePlace = (int) longValue(userDoc, "avatarFramePlace");
@@ -372,6 +385,8 @@ public class AuthService {
                 avatarData == null ? "" : avatarData,
                 tokens == null ? 0 : Math.max(0, tokens.intValue()),
                 stars == null ? 0 : Math.max(0, stars.intValue()),
+                totalStars == null ? (stars == null ? 0 : Math.max(0, stars.intValue()))
+                        : Math.max(0, totalStars.intValue()),
                 regionMapLatitude, regionMapLongitude, avatarFramePlace);
     }
 
@@ -405,6 +420,7 @@ public class AuthService {
                 .putString(KEY_CURRENT_AVATAR_DATA, user.getAvatarData())
                 .putInt(KEY_CURRENT_TOKENS, user.getTokens())
                 .putInt(KEY_CURRENT_STARS, user.getStars())
+                .putInt(KEY_CURRENT_TOTAL_STARS, user.getTotalStars())
                 .putInt(KEY_CURRENT_AVATAR_FRAME_PLACE, user.getAvatarFramePlace())
                 .apply();
     }
@@ -428,6 +444,7 @@ public class AuthService {
                 .remove(KEY_CURRENT_AVATAR_DATA)
                 .remove(KEY_CURRENT_TOKENS)
                 .remove(KEY_CURRENT_STARS)
+                .remove(KEY_CURRENT_TOTAL_STARS)
                 .remove(KEY_CURRENT_AVATAR_FRAME_PLACE)
                 .apply();
     }

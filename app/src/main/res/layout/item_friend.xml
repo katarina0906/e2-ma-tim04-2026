@@ -69,7 +69,7 @@
             android:layout_marginTop="2dp"
             android:textColor="#777777"
             android:textSize="12sp"
-            tools:text="Ukupno zvezda: 245" />
+            tools:text="Ukupno zvezda: 0" />
 
         <TextView
             android:id="@+id/friendLeague"
