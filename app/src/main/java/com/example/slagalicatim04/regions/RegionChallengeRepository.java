@@ -27,6 +27,12 @@ public class RegionChallengeRepository {
         void onError(Exception error);
     }
 
+    public interface ChallengeListener {
+        void onChallenge(RegionChallenge challenge);
+
+        void onError(Exception error);
+    }
+
     private static final int MAX_PLAYERS = 4;
     private static final long MAX_STAKE_STARS = 10L;
     private static final long MAX_STAKE_TOKENS = 2L;
@@ -64,6 +70,18 @@ public class RegionChallengeRepository {
                 });
     }
 
+    public ListenerRegistration listenChallenge(String challengeId, @NonNull ChallengeListener listener) {
+        return challengeRef(challengeId).addSnapshotListener((snapshot, error) -> {
+            if (error != null) {
+                listener.onError(error);
+                return;
+            }
+            if (snapshot != null && snapshot.exists()) {
+                listener.onChallenge(RegionChallenge.fromDocument(snapshot));
+            }
+        });
+    }
+
     public void createChallenge(AuthUser user, long stakeStars, long stakeTokens,
                                 Runnable onSuccess,
                                 java.util.function.Consumer<Exception> onError) {
@@ -89,6 +107,7 @@ public class RegionChallengeRepository {
         String challengeId = firestore.collection("regionChallenges").document().getId();
         DocumentReference challengeRef = firestore.collection("regionChallenges").document(challengeId);
         DocumentReference userRef = firestore.collection("users").document(user.getId());
+        Timestamp createdAt = Timestamp.now();
         firestore.runTransaction(transaction -> {
             DocumentSnapshot userSnapshot = transaction.get(userRef);
             ensureFunds(userSnapshot, stakeStars, stakeTokens);
@@ -107,7 +126,7 @@ public class RegionChallengeRepository {
             payload.put("status", RegionChallenge.STATUS_OPEN);
             payload.put("maxPlayers", MAX_PLAYERS);
             payload.put("participants", participants);
-            payload.put("createdAt", FieldValue.serverTimestamp());
+            payload.put("createdAt", createdAt);
             payload.put("startedAt", null);
             payload.put("finishedAt", null);
             transaction.set(challengeRef, payload);
@@ -165,6 +184,7 @@ public class RegionChallengeRepository {
             return;
         }
         DocumentReference challengeRef = challengeRef(challengeId);
+        Timestamp startedAt = Timestamp.now();
         firestore.runTransaction(transaction -> {
             DocumentSnapshot challenge = transaction.get(challengeRef);
             RegionChallenge state = RegionChallenge.fromDocument(challenge);
@@ -173,7 +193,7 @@ public class RegionChallengeRepository {
             }
             Map<String, Object> updates = new HashMap<>();
             updates.put("status", RegionChallenge.STATUS_ACTIVE);
-            updates.put("startedAt", FieldValue.serverTimestamp());
+            updates.put("startedAt", startedAt);
             transaction.set(challengeRef, updates, SetOptions.merge());
             return null;
         }).addOnSuccessListener(ignored -> onSuccess.run())
@@ -256,6 +276,7 @@ public class RegionChallengeRepository {
         long winnerTokens = (existingState.totalStakeTokens() * 75L) / 100L;
         long secondStars = existingState.stakeStars;
         long secondTokens = existingState.stakeTokens;
+        Timestamp finishedAt = Timestamp.now();
         Map<String, Object> participants = new LinkedHashMap<>();
         for (int i = 0; i < ranking.size(); i++) {
             String userId = ranking.get(i).getKey();
@@ -279,7 +300,7 @@ public class RegionChallengeRepository {
         Map<String, Object> updates = new HashMap<>();
         updates.put("participants", participants);
         updates.put("status", RegionChallenge.STATUS_FINISHED);
-        updates.put("finishedAt", FieldValue.serverTimestamp());
+        updates.put("finishedAt", finishedAt);
         updates.put("winnerId", ranking.isEmpty() ? "" : ranking.get(0).getKey());
         updates.put("runnerUpId", ranking.size() > 1 ? ranking.get(1).getKey() : "");
         transaction.set(challengeRef, updates, SetOptions.merge());

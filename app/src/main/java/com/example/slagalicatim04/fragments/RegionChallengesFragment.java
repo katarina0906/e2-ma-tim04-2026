@@ -13,6 +13,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
@@ -128,22 +129,23 @@ public class RegionChallengesFragment extends Fragment {
         TextView status = card.findViewById(R.id.regionChallengeItemStatus);
         TextView participants = card.findViewById(R.id.regionChallengeItemParticipants);
         EditText scoreInput = card.findViewById(R.id.regionChallengeScoreInput);
+        MaterialButton enterButton = card.findViewById(R.id.regionChallengeEnterButton);
         MaterialButton joinButton = card.findViewById(R.id.regionChallengeJoinButton);
         MaterialButton startButton = card.findViewById(R.id.regionChallengeStartButton);
         MaterialButton submitButton = card.findViewById(R.id.regionChallengeSubmitButton);
 
         title.setText(challenge.creatorName + " postavlja izazov");
-        meta.setText("Ulog: " + challenge.stakeStars + " zvezda, " + challenge.stakeTokens
-                + " tokena • Igraci: " + challenge.participantCount() + "/" + challenge.maxPlayers);
+        meta.setText(metaText(challenge));
         status.setText(statusText(challenge));
         participants.setText(participantsText(challenge));
         scoreInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         scoreInput.setHint("Ukupni poeni");
 
         joinButton.setVisibility(challenge.canJoin(currentUserId()) ? View.VISIBLE : View.GONE);
-        startButton.setVisibility(challenge.canStart(currentUserId()) ? View.VISIBLE : View.GONE);
-        submitButton.setVisibility(challenge.canSubmit(currentUserId()) ? View.VISIBLE : View.GONE);
-        scoreInput.setVisibility(challenge.canSubmit(currentUserId()) ? View.VISIBLE : View.GONE);
+        enterButton.setVisibility(challenge.hasParticipant(currentUserId()) ? View.VISIBLE : View.GONE);
+        startButton.setVisibility(View.GONE);
+        submitButton.setVisibility(View.GONE);
+        scoreInput.setVisibility(View.GONE);
 
         joinButton.setOnClickListener(v -> repository.joinChallenge(currentUser, challenge.id,
                 () -> {
@@ -151,28 +153,32 @@ public class RegionChallengesFragment extends Fragment {
                     showToast("Prihvatio si izazov.");
                 },
                 this::showError));
-        startButton.setOnClickListener(v -> repository.startChallenge(currentUser, challenge.id,
-                () -> showToast("Izazov je pokrenut."),
-                this::showError));
-        submitButton.setOnClickListener(v -> repository.submitScore(currentUser, challenge.id,
-                parseNumber(scoreInput),
-                () -> {
-                    refreshCurrentUser();
-                    showToast("Rezultat je poslat.");
-                },
-                this::showError));
+        enterButton.setOnClickListener(v -> openChallengeRoom(challenge.id));
     }
 
     private String statusText(RegionChallenge challenge) {
         if (challenge.isOpen()) {
-            return challenge.participantCount() >= 2
-                    ? "Otvoren izazov. Kreator moze pokrenuti partiju."
-                    : "Otvoren izazov. Moze se odazvati jos igraca, ali ne mora.";
+            return "Otvoren izazov";
         }
         if (challenge.isActive()) {
-            return "Izazov je aktivan. Svaki igrac salje svoj konacni rezultat jednom.";
+            return "Izazov je u toku";
         }
-        return "Izazov je zavrsen. Pobednik uzima 75% ukupnog uloga, drugi vraca svoj ulog.";
+        return "Izazov je zavrsen";
+    }
+
+    private String metaText(RegionChallenge challenge) {
+        String base = "Ulog: " + challenge.stakeStars + " zvezda, " + challenge.stakeTokens
+                + " tokena • Igraci: " + challenge.participantCount() + "/" + challenge.maxPlayers;
+        if (challenge.isOpen()) {
+            if (challenge.participantCount() >= 2) {
+                return base + "\nKreator klikne 'Pokreni izazov'.";
+            }
+            return base + "\nPotrebna su najmanje 2 igraca da bi izazov poceo.";
+        }
+        if (challenge.isActive()) {
+            return base + "\nSvaki igrac posalje svoj konacni rezultat. Kraj je kad svi posalju rezultat.";
+        }
+        return base + "\nRezultat je obracunat. Pobednik dobija 75% ukupnog uloga, drugi vraca svoj ulog.";
     }
 
     private String participantsText(RegionChallenge challenge) {
@@ -216,6 +222,12 @@ public class RegionChallengesFragment extends Fragment {
     private void clearInputs() {
         starsInput.setText("");
         tokensInput.setText("");
+    }
+
+    private void openChallengeRoom(String challengeId) {
+        Bundle args = new Bundle();
+        args.putString(RegionChallengeRoomFragment.ARG_CHALLENGE_ID, challengeId);
+        Navigation.findNavController(requireView()).navigate(R.id.regionChallengeRoomFragment, args);
     }
 
     private void refreshCurrentUser() {

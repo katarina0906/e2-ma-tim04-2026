@@ -66,6 +66,14 @@
             android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/regionChallengeEnterButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Udji u izazov"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/regionChallengeStartButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

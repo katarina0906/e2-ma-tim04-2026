@@ -122,6 +122,12 @@
         tools:layout="@layout/fragment_region_challenges" />
 
     <fragment
+        android:id="@+id/regionChallengeRoomFragment"
+        android:name="com.example.slagalicatim04.fragments.RegionChallengeRoomFragment"
+        android:label="Izazov"
+        tools:layout="@layout/fragment_region_challenge_room" />
+
+    <fragment
         android:id="@+id/koZnaZnaFragment"
         android:name="com.example.slagalicatim04.fragments.KoZnaZnaFragment"
         android:label="Ko zna zna"
