@@ -11,6 +11,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -21,15 +23,18 @@ import com.example.slagalicatim04.models.Answer;
 import com.example.slagalicatim04.models.Question;
 import com.example.slagalicatim04.models.QuizMultiplayerState;
 import com.example.slagalicatim04.repositories.LocalQuizRepository;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 
 import java.util.List;
 
-public class KoZnaZnaFragment extends Fragment {
+public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandler {
 
     private static final long QUESTION_DURATION_MS = 5_000L;
     private static final int COLOR_DEFAULT = Color.rgb(103, 80, 164);
     private static final int COLOR_SELECTED = Color.rgb(249, 168, 37);
+    private static final int COLOR_FORFEITED = Color.RED;
+    private static final int COLOR_SCORE_DEFAULT = Color.BLACK;
 
     private TextView timerText;
     private TextView resultText;
@@ -47,9 +52,12 @@ public class KoZnaZnaFragment extends Fragment {
     private MultiplayerGameRepository.Subscription stateRegistration;
     private QuizMultiplayerState currentState;
     private String roomId = MultiplayerGameRepository.TEST_ROOM_ID;
+    private MatchForfeitRepository forfeitRepository;
     private int renderedQuestion = -1;
     private int timerQuestion = -1;
     private boolean navigatedToSpojnice;
+    private String lastKnownPlayer1Label = "Igrac 1";
+    private String lastKnownPlayer2Label = "Igrac 2";
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -76,6 +84,17 @@ public class KoZnaZnaFragment extends Fragment {
         }
         questions = new LocalQuizRepository().getQuestions();
         multiplayerRepository = new MultiplayerGameRepository(requireContext(), roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
 
         for (int index = 0; index < answerButtons.length; index++) {
             int answerIndex = index;
@@ -115,7 +134,7 @@ public class KoZnaZnaFragment extends Fragment {
             return;
         }
         if (!"playing".equals(state.getStatus())) {
-            showWaitingState();
+            showWaitingState(state);
             return;
         }
 
@@ -130,11 +149,17 @@ public class KoZnaZnaFragment extends Fragment {
         }
 
         boolean answered = state.hasAnswered(multiplayerRepository.getPlayerId());
+        if (state.hasForfeit()) {
+            resultText.setText(nonEmpty(state.getStatusMessage(),
+                    "Protivnik je napustio partiju. Nastavljas bez cekanja."));
+        }
         setButtonsEnabled(!answered);
-        if (answered) {
+        if (answered && !state.hasForfeit()) {
             resultText.setText("Odgovor je poslat. Ceka se drugi igrac.");
         }
-        if (state.getAnswerCount() >= 2) {
+        int requiredAnswers = (state.isForfeited(state.getPlayer1Id())
+                || state.isForfeited(state.getPlayer2Id())) ? 1 : 2;
+        if (state.getAnswerCount() >= requiredAnswers) {
             multiplayerRepository.advanceQuizIfReady(questionIndex);
         }
         startTimerForQuestion(questionIndex);
@@ -192,24 +217,55 @@ public class KoZnaZnaFragment extends Fragment {
     }
 
     private void updateScores(QuizMultiplayerState state) {
-        playerScoreText.setText(playerName(state.getPlayer1Name(), "Igrac 1") + ": "
+        lastKnownPlayer1Label = resolvePlayerLabel(state.getPlayer1Id(), state.getPlayer1Name(),
+                lastKnownPlayer1Label, "Igrac 1");
+        lastKnownPlayer2Label = resolvePlayerLabel(state.getPlayer2Id(), state.getPlayer2Name(),
+                lastKnownPlayer2Label, "Igrac 2");
+        playerScoreText.setText(lastKnownPlayer1Label + ": "
                 + state.getScore(state.getPlayer1Id()));
-        opponentScoreText.setText(playerName(state.getPlayer2Name(), "Igrac 2") + ": "
+        opponentScoreText.setText(lastKnownPlayer2Label + ": "
                 + state.getScore(state.getPlayer2Id()));
+        playerScoreText.setTextColor(state.isForfeited(state.getPlayer1Id())
+                ? COLOR_FORFEITED : COLOR_SCORE_DEFAULT);
+        opponentScoreText.setTextColor(state.isForfeited(state.getPlayer2Id())
+                ? COLOR_FORFEITED : COLOR_SCORE_DEFAULT);
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
         PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
     }
 
-    private String playerName(String name, String fallback) {
-        return name == null || name.trim().isEmpty() ? fallback : name;
+    private String resolvePlayerLabel(String playerId, String name, String previousLabel,
+                                      String fallback) {
+        if (name != null && !name.trim().isEmpty()) {
+            return name;
+        }
+        if (playerId != null && !playerId.trim().isEmpty()) {
+            return playerId;
+        }
+        return previousLabel == null || previousLabel.trim().isEmpty() ? fallback : previousLabel;
     }
 
     private void showWaitingState() {
+        showWaitingState(null);
+    }
+
+    private void showWaitingState(QuizMultiplayerState state) {
         cancelTimer();
         timerText.setText("5s");
-        questionCounterText.setText("Soba: " + roomId);
-        questionText.setText("Ceka se drugi igrac...");
-        resultText.setText("Oba uredjaja treba da otvore igru Ko zna zna.");
+        questionCounterText.setText("");
+        boolean opponentLeft = state != null && state.hasForfeit();
+        String persistedStatus = state == null ? "" : state.getStatusMessage();
+        boolean hasPersistedStatus = !isEmpty(persistedStatus);
+        boolean hasState = state != null;
+        questionText.setText(opponentLeft
+                ? "Protivnik je napustio partiju."
+                : ((hasPersistedStatus || hasState)
+                ? "Stanje partije je sacuvano."
+                : "Ceka se drugi igrac..."));
+        resultText.setText(hasPersistedStatus
+                ? persistedStatus
+                : (hasState
+                ? "Partija je aktivna. Sacekaj sledece stanje iz baze."
+                : "Oba uredjaja treba da otvore igru Ko zna zna."));
         setButtonsEnabled(false);
     }
 
@@ -255,8 +311,35 @@ public class KoZnaZnaFragment extends Fragment {
         Navigation.findNavController(requireView()).navigate(R.id.spojniceFragment, args);
     }
 
+    private String nonEmpty(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value;
+    }
+
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null
+                || !"playing".equals(currentState.getStatus())) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(multiplayerRepository.getPlayerId());
+                    Navigation.findNavController(requireView()).navigate(
+                            R.id.homeFragment,
+                            null,
+                            new androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build());
+                })
+                .show();
+        return true;
     }
 
     @Override

@@ -58,10 +58,18 @@ public class StepByStepWaitingRoomFragment extends Fragment {
             roomId = getArguments().getString("roomId");
         }
         playerSession = resolveCurrentUser();
+        if (!hasAvailableTokens()) {
+            Toast.makeText(requireContext(), R.string.tokens_missing, Toast.LENGTH_LONG).show();
+            Navigation.findNavController(view).navigate(
+                    R.id.homeFragment,
+                    null,
+                    new androidx.navigation.NavOptions.Builder()
+                            .setPopUpTo(R.id.nav_graph, true)
+                            .build());
+            return view;
+        }
         repository = new StepByStepWaitingRoomRepository(roomId);
-        codeText.setText(roomId.equals(StepByStepMatchRepository.DEFAULT_MATCH_ID)
-                ? "Test soba: " + roomId
-                : "Soba: " + roomId);
+        codeText.setText("");
         confirmButton.setEnabled(false);
         confirmButton.setOnClickListener(v -> repository.confirmReady(playerSession, this::showError));
         resetButton.setOnClickListener(v -> {
@@ -102,15 +110,23 @@ public class StepByStepWaitingRoomFragment extends Fragment {
 
     private void renderState(StepByStepMatchState state) {
         int myPlayer = state.playerNumber(playerSession.getId());
-        player1Text.setText("Igrac 1: " + playerLabel(state.getPlayer1Name(), state.isPlayer1Ready()));
-        player2Text.setText("Igrac 2: " + playerLabel(state.getPlayer2Name(), state.isPlayer2Ready()));
+        boolean opponentLeft = state.hasForfeit();
+        player1Text.setText("Igrac 1: " + playerLabel(state.getPlayer1Id(), state.getPlayer1Name(),
+                state.isPlayer1Ready(), state));
+        player2Text.setText("Igrac 2: " + playerLabel(state.getPlayer2Id(), state.getPlayer2Name(),
+                state.isPlayer2Ready(), state));
+        player1Text.setTextColor(state.isForfeited(state.getPlayer1Id()) ? 0xFFD32F2F : 0xFF000000);
+        player2Text.setTextColor(state.isForfeited(state.getPlayer2Id()) ? 0xFFD32F2F : 0xFF000000);
 
         if ("koZnaZnaPlaying".equals(state.getPhase())) {
             navigateToKoZnaZna();
             return;
         }
 
-        if (!state.hasSecondPlayer()) {
+        if (opponentLeft) {
+            statusText.setText(nonEmpty(state.getStatusMessage(),
+                    "Protivnik je napustio partiju."));
+        } else if (!state.hasSecondPlayer()) {
             statusText.setText("Ceka se drugi igrac.");
         } else if (myPlayer == 0) {
             statusText.setText("Soba je popunjena. Resetuj test sobu za novi test.");
@@ -123,11 +139,15 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         confirmButton.setEnabled(myPlayer != 0 && state.hasSecondPlayer() && !state.isReady(myPlayer));
     }
 
-    private String playerLabel(String name, boolean ready) {
-        if (isEmpty(name)) {
+    private String playerLabel(String playerId, String name, boolean ready, StepByStepMatchState state) {
+        String visibleName = !isEmpty(name) ? name : (!isEmpty(playerId) ? playerId : "");
+        if (isEmpty(visibleName)) {
             return "ceka se";
         }
-        return name + (ready ? " - spreman" : " - nije potvrdio");
+        if (state.isForfeited(playerId)) {
+            return visibleName + " - napustio partiju";
+        }
+        return visibleName + (ready ? " - spreman" : " - nije potvrdio");
     }
 
     private void navigateToKoZnaZna() {
@@ -159,6 +179,11 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         return new StepByStepPlayerSession(userId, userName);
     }
 
+    private boolean hasAvailableTokens() {
+        AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        return authUser == null || authUser.getTokens() > 0;
+    }
+
     private String deviceId() {
         String id = Settings.Secure.getString(
                 requireContext().getContentResolver(),
@@ -175,5 +200,9 @@ public class StepByStepWaitingRoomFragment extends Fragment {
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String nonEmpty(String value, String fallback) {
+        return isEmpty(value) ? fallback : value;
     }
 }

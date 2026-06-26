@@ -112,9 +112,11 @@ public class MultiplayerGameRepository {
         firestore.runTransaction(transaction -> {
             DocumentSnapshot match = transaction.get(matchRef);
             Map<String, Object> answers = mutableObjectMap(match.get("kzzAnswers"));
+            String forfeitedPlayerId = match.getString("forfeitedPlayerId");
+            int requiredAnswers = isEmpty(forfeitedPlayerId) ? 2 : 1;
             if (isPhase(match, "koZnaZnaPlaying")
                     && intValue(match.getLong("kzzCurrentQuestion")) == questionIndex
-                    && answers.size() >= 2) {
+                    && answers.size() >= requiredAnswers) {
                 advanceQuiz(transaction, match, answers);
             }
             return null;
@@ -232,7 +234,7 @@ public class MultiplayerGameRepository {
         state.put("spMatchedPairs", new ArrayList<>());
         state.put("spAttemptedPairs", new ArrayList<>());
         state.put("spTurnPairCount", MATCHING_PAIR_COUNT);
-        state.put("statusMessage", "Ko zna zna je zavrsen. Pokrecu se Spojnice.");
+        state.put("statusMessage", "");
         state.put("updatedAt", FieldValue.serverTimestamp());
         return state;
     }
@@ -240,15 +242,30 @@ public class MultiplayerGameRepository {
     private void advanceMatching(com.google.firebase.firestore.Transaction transaction,
                                  DocumentSnapshot match, List<Long> matched,
                                  Map<String, Object> updates) {
-        boolean secondChance = Boolean.TRUE.equals(match.getBoolean("spSecondChance"));
-        int currentRound = intValue(match.getLong("spCurrentRound"));
-        if (!secondChance && matched.size() < MATCHING_PAIR_COUNT) {
-            String currentPlayer = match.getString("spCurrentPlayer");
-            String nextPlayer = currentPlayer.equals(match.getString("player1Id"))
-                    ? match.getString("player2Id") : match.getString("player1Id");
-            updates.put("spSecondChance", true);
-            updates.put("spCurrentPlayer", nextPlayer);
-            updates.put("spAttemptedPairs", new ArrayList<>());
+            boolean secondChance = Boolean.TRUE.equals(match.getBoolean("spSecondChance"));
+            int currentRound = intValue(match.getLong("spCurrentRound"));
+            String forfeitedPlayerId = match.getString("forfeitedPlayerId");
+            if (!secondChance && matched.size() < MATCHING_PAIR_COUNT) {
+                String currentPlayer = match.getString("spCurrentPlayer");
+                String nextPlayer = currentPlayer.equals(match.getString("player1Id"))
+                        ? match.getString("player2Id") : match.getString("player1Id");
+                if (!isEmpty(forfeitedPlayerId) && forfeitedPlayerId.equals(nextPlayer)) {
+                    if (currentRound + 1 < MATCHING_ROUND_COUNT) {
+                        updates.put("spCurrentRound", currentRound + 1);
+                        updates.put("spCurrentPlayer", match.getString("player2Id"));
+                        updates.put("spSecondChance", false);
+                        updates.put("spMatchedPairs", new ArrayList<>());
+                        updates.put("spAttemptedPairs", new ArrayList<>());
+                        updates.put("spTurnPairCount", MATCHING_PAIR_COUNT);
+                    } else {
+                        updates.putAll(newAssociationState());
+                    }
+                    transaction.set(matchRef, updates, SetOptions.merge());
+                    return;
+                }
+                updates.put("spSecondChance", true);
+                updates.put("spCurrentPlayer", nextPlayer);
+                updates.put("spAttemptedPairs", new ArrayList<>());
             updates.put("spMatchedPairs", matched);
             updates.put("spTurnPairCount", MATCHING_PAIR_COUNT - matched.size());
         } else if (currentRound + 1 < MATCHING_ROUND_COUNT) {
@@ -282,7 +299,7 @@ public class MultiplayerGameRepository {
         state.put("associationRoundPlayer1Score", 0L);
         state.put("associationRoundPlayer2Score", 0L);
         state.put("finished", false);
-        state.put("statusMessage", "Spojnice su zavrsene. Pokrecu se Asocijacije.");
+        state.put("statusMessage", "");
         state.put("updatedAt", FieldValue.serverTimestamp());
         return state;
     }
@@ -315,12 +332,12 @@ public class MultiplayerGameRepository {
                 || playerId.equals(match.getString("player2Id"));
     }
 
-    private boolean isEmpty(String value) {
-        return value == null || value.trim().isEmpty();
-    }
-
     private boolean isPhase(DocumentSnapshot match, String phase) {
         return match.exists() && phase.equals(match.getString("phase"));
+    }
+
+    private static boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private static int intValue(Long value) {

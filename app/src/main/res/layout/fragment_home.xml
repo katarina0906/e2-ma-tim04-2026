@@ -26,9 +26,9 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
                 android:background="#FFFFFF"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
                 android:padding="16dp">
 
                 <FrameLayout
@@ -50,9 +50,9 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:layout_marginStart="14dp">
+                    android:orientation="vertical">
 
                     <TextView
                         android:id="@+id/homeProfileUsername"
@@ -66,21 +66,21 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
                         android:text="🏆 Zlatna liga"
                         android:textColor="#6F4BB2"
                         android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:layout_marginTop="4dp" />
+                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:background="#6F4BB2"
+                    android:padding="8dp"
                     android:text="Online"
                     android:textColor="#FFFFFF"
-                    android:textStyle="bold"
-                    android:background="#6F4BB2"
-                    android:padding="8dp" />
+                    android:textStyle="bold" />
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -88,21 +88,23 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
             android:orientation="horizontal"
-            android:weightSum="3"
-            android:layout_marginBottom="16dp">
+            android:weightSum="3">
 
             <TextView
+                android:id="@+id/homeProfileTokens"
                 android:layout_width="0dp"
                 android:layout_height="78dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="🪙\n8\nTokena"
+                android:text="🪙&#10;0&#10;Tokena"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/homeProfileStars"
                 android:layout_width="0dp"
                 android:layout_height="78dp"
                 android:layout_weight="1"
@@ -110,7 +112,7 @@
                 android:layout_marginEnd="8dp"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="⭐\n245\nZvezda"
+                android:text="⭐&#10;0&#10;Zvezda"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
 
@@ -151,19 +153,19 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
                     android:text="Započni partiju"
                     android:textColor="#FFFFFF"
                     android:textSize="25sp"
-                    android:textStyle="bold"
-                    android:layout_marginTop="6dp" />
+                    android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
                     android:text="Jedan token • šest igara • duel 1 na 1"
                     android:textColor="#EDE7F6"
-                    android:textSize="14sp"
-                    android:layout_marginTop="6dp" />
+                    android:textSize="14sp" />
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -171,18 +173,18 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
             android:text="Brzi pregled"
             android:textColor="#1E1E2F"
             android:textSize="19sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="10dp" />
+            android:textStyle="bold" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
             android:orientation="horizontal"
-            android:weightSum="2"
-            android:layout_marginBottom="12dp">
+            android:weightSum="2">
 
             <TextView
                 android:layout_width="0dp"
@@ -222,7 +224,7 @@
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="🏅\nRang lista"
+                android:text="🗺\nRang lista"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
 

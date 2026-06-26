@@ -3,6 +3,7 @@ package com.example.slagalicatim04.fragments;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +15,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -24,6 +27,7 @@ import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchState;
@@ -39,7 +43,7 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.util.ArrayList;
 import java.util.List;
 
-public class StepByStepFragment extends Fragment {
+public class StepByStepFragment extends Fragment implements ExitConfirmationHandler {
     private final TextView[] stepViews = new TextView[7];
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable ticker = this::renderCurrentState;
@@ -48,6 +52,7 @@ public class StepByStepFragment extends Fragment {
     private final List<StepByStepRound> rounds = new ArrayList<>();
 
     private StepByStepMatchRepository matchRepository;
+    private MatchForfeitRepository forfeitRepository;
     private ListenerRegistration listenerRegistration;
     private StepByStepPlayerSession playerSession;
     private StepByStepMatchState currentState;
@@ -90,6 +95,17 @@ public class StepByStepFragment extends Fragment {
             roomId = getArguments().getString("roomId");
         }
         matchRepository = new StepByStepMatchRepository(gameService, roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
 
         resultBanner.setVisibility(View.GONE);
         newGameButton.setVisibility(View.GONE);
@@ -227,6 +243,10 @@ public class StepByStepFragment extends Fragment {
         }
 
         int myPlayer = currentState.playerNumber(playerSession.getId());
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            matchRepository.resolveForfeitTurn(currentState);
+        }
         publishSharedClock(myPlayer);
         int openedSteps = gameService.openedSteps(currentState);
         int secondsLeft = gameService.secondsLeft(currentState);
@@ -241,9 +261,11 @@ public class StepByStepFragment extends Fragment {
         roundLabelText.setText("Runda " + currentState.getRound() + " / 2");
         timerValue.setText(timerText(currentState, phase, waitingForServerTime, secondsLeft));
         currentStepValue.setText(openedSteps + " / 7");
-        player1ScoreText.setText(playerName(currentState.getPlayer1Name(), "Igrac 1") + ": "
+        player1ScoreText.setText(playerLabel(currentState.getPlayer1Id(),
+                        currentState.getPlayer1Name(), "Igrac 1") + ": "
                 + currentState.getPlayer1Score());
-        player2ScoreText.setText(playerName(currentState.getPlayer2Name(), "Igrac 2") + ": "
+        player2ScoreText.setText(playerLabel(currentState.getPlayer2Id(),
+                        currentState.getPlayer2Name(), "Igrac 2") + ": "
                 + currentState.getPlayer2Score());
         PlayerHeaderLoader.loadAvatar(currentState.getPlayer1Id(), player1Avatar);
         PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
@@ -298,6 +320,10 @@ public class StepByStepFragment extends Fragment {
         player2ScoreText.setTypeface(null, myPlayer == 2 ? Typeface.BOLD : Typeface.NORMAL);
         player1ScoreText.setBackgroundColor(myPlayer == 1 ? 0xFFEFEAF8 : 0xFFF5F5F5);
         player2ScoreText.setBackgroundColor(myPlayer == 2 ? 0xFFEFEAF8 : 0xFFF5F5F5);
+        player1ScoreText.setTextColor(currentState != null && currentState.isForfeited(currentState.getPlayer1Id())
+                ? 0xFFD32F2F : Color.BLACK);
+        player2ScoreText.setTextColor(currentState != null && currentState.isForfeited(currentState.getPlayer2Id())
+                ? 0xFFD32F2F : Color.BLACK);
     }
 
     private void updateStepCards(StepByStepRound roundData, int openedSteps) {
@@ -438,8 +464,11 @@ public class StepByStepFragment extends Fragment {
         return value == null || value.trim().isEmpty();
     }
 
-    private String playerName(String name, String fallback) {
-        return isEmpty(name) ? fallback : name;
+    private String playerLabel(String playerId, String name, String fallback) {
+        if (!isEmpty(name)) {
+            return name;
+        }
+        return isEmpty(playerId) ? fallback : playerId;
     }
 
     private void scrollToTop() {
@@ -455,5 +484,28 @@ public class StepByStepFragment extends Fragment {
         args.putString("roomId", roomId);
         NavController navController = Navigation.findNavController(requireView());
         navController.navigate(R.id.myNumberFragment, args);
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null || currentState.isFinished()
+                || currentState.effectivePhase().startsWith("myNumber")) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(playerSession.getId());
+                    Navigation.findNavController(requireView()).navigate(
+                            R.id.homeFragment,
+                            null,
+                            new androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build());
+                })
+                .show();
+        return true;
     }
 }

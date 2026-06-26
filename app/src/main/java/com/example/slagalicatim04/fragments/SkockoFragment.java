@@ -1,6 +1,7 @@
 package com.example.slagalicatim04.fragments;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -17,6 +18,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -25,6 +28,7 @@ import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.skocko.SkockoMatchRepository;
 import com.example.slagalicatim04.skocko.SkockoMatchState;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
@@ -35,7 +39,7 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.util.Arrays;
 import java.util.List;
 
-public class SkockoFragment extends Fragment {
+public class SkockoFragment extends Fragment implements ExitConfirmationHandler {
     private static final int CODE_LEN = 4;
     private static final int NUM_SYMBOLS = 6;
     private static final int MAX_ATTEMPTS = 6;
@@ -69,6 +73,7 @@ public class SkockoFragment extends Fragment {
     private Button nextRoundButton;
 
     private SkockoMatchRepository repository;
+    private MatchForfeitRepository forfeitRepository;
     private SkockoMatchState currentState;
     private StepByStepPlayerSession playerSession;
     private ListenerRegistration listenerRegistration;
@@ -98,6 +103,17 @@ public class SkockoFragment extends Fragment {
         }
         playerSession = resolveCurrentUser();
         repository = new SkockoMatchRepository(roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
 
         for (int i = 0; i < NUM_SYMBOLS; i++) {
             final int symbol = i;
@@ -234,12 +250,18 @@ public class SkockoFragment extends Fragment {
             phaseExpirySent = false;
             clearDraft();
         }
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            repository.resolveForfeitTurn(currentState);
+        }
 
         roundText.setText(getString(R.string.sk_round_fmt, currentState.getRound(), 2));
-        score0.setText(getString(
-                R.string.sk_player_pts, 1, (int) currentState.getPlayer1Score()));
-        score1.setText(getString(
-                R.string.sk_player_pts, 2, (int) currentState.getPlayer2Score()));
+        score0.setText(playerLabel(currentState.getPlayer1Id(), currentState.getPlayer1Name(), "Igrac 1")
+                + ": " + (int) currentState.getPlayer1Score());
+        score1.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2")
+                + ": " + (int) currentState.getPlayer2Score());
+        score0.setTextColor(currentState.isForfeited(currentState.getPlayer1Id()) ? 0xFFD32F2F : Color.BLACK);
+        score1.setTextColor(currentState.isForfeited(currentState.getPlayer2Id()) ? 0xFFD32F2F : Color.BLACK);
         renderHistory();
 
         boolean steal = SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase());
@@ -324,6 +346,10 @@ public class SkockoFragment extends Fragment {
     }
 
     private String statusForPlayer(int myPlayer, boolean myTurn) {
+        if (currentState.hasForfeit()) {
+            String status = currentState.getStatusMessage();
+            return isEmpty(status) ? "Protivnik je napustio partiju." : status;
+        }
         if (currentState.isFinished()) {
             return "Skočko je završen.";
         }
@@ -446,7 +472,37 @@ public class SkockoFragment extends Fragment {
         }
     }
 
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null || currentState.isFinished()
+                || "stepByStep".equals(currentState.getCurrentGame())) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(playerSession.getId());
+                    Navigation.findNavController(requireView()).navigate(
+                            R.id.homeFragment,
+                            null,
+                            new androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build());
+                })
+                .show();
+        return true;
+    }
+
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String playerLabel(String playerId, String name, String fallback) {
+        if (!isEmpty(name)) {
+            return name;
+        }
+        return isEmpty(playerId) ? fallback : playerId;
     }
 }

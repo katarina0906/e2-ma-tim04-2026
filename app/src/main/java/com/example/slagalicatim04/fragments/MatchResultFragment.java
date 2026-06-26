@@ -80,8 +80,10 @@ public class MatchResultFragment extends Fragment {
         String secondName = playerName(state.getPlayer2Name(), "Igrac 2");
         player1Name.setText(firstName);
         player2Name.setText(secondName);
-        player1Score.setText(state.getPlayer1Score() + " bodova");
-        player2Score.setText(state.getPlayer2Score() + " bodova");
+        player1Score.setText(scoreSummary(state.getPlayer1Score(), state.getPlayer1StarDelta(),
+                state.getPlayer1EarnedTokens()));
+        player2Score.setText(scoreSummary(state.getPlayer2Score(), state.getPlayer2StarDelta(),
+                state.getPlayer2EarnedTokens()));
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), player1Avatar);
         PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), player2Avatar);
         releasePlayers(state);
@@ -113,6 +115,22 @@ public class MatchResultFragment extends Fragment {
 
     private String playerName(String name, String fallback) {
         return isEmpty(name) ? fallback : name;
+    }
+
+    private String scoreSummary(long score, long starDelta, long earnedTokens) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(score).append(" bodova");
+        if (starDelta != 0) {
+            builder.append(" • ");
+            if (starDelta > 0) {
+                builder.append("+");
+            }
+            builder.append(starDelta).append(" zvezda");
+        }
+        if (earnedTokens > 0) {
+            builder.append(" • +").append(earnedTokens).append(" token");
+        }
+        return builder.toString();
     }
 
     private boolean isEmpty(String value) {

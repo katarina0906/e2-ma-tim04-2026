@@ -121,4 +121,10 @@
     <string name="profile_change_password_description"></string>
     <string name="profile_change_password_toggle_open">Prikaži formu</string>
     <string name="profile_change_password_toggle_close">Sakrij formu</string>
+    <string name="home_region_placeholder">📍
+Region</string>
+    <string name="home_tokens_fmt">🪙
+%1$d
+Tokena</string>
+    <string name="tokens_missing">Nemate dovoljno tokena za novu partiju.</string>
 </resources>

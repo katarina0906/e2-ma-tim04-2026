@@ -1,5 +1,6 @@
 package com.example.slagalicatim04.stepbystep;
 
+import com.example.slagalicatim04.auth.TokenService;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -25,9 +26,11 @@ public class StepByStepWaitingRoomRepository {
     private static final String COLLECTION = "stepByStepMatches";
 
     private final DocumentReference roomRef;
+    private final TokenService tokenService;
 
     public StepByStepWaitingRoomRepository(String roomId) {
         roomRef = FirebaseFirestore.getInstance().collection(COLLECTION).document(roomId);
+        tokenService = new TokenService(roomRef.getFirestore());
     }
 
     public void joinRoom(StepByStepPlayerSession player, ErrorCallback onError) {
@@ -95,6 +98,12 @@ public class StepByStepWaitingRoomRepository {
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
 
             if (otherReady) {
+                DocumentSnapshot player1Snapshot = transaction.get(
+                        roomRef.getFirestore().collection("users").document(state.getPlayer1Id()));
+                DocumentSnapshot player2Snapshot = transaction.get(
+                        roomRef.getFirestore().collection("users").document(state.getPlayer2Id()));
+                tokenService.consumeSingleToken(transaction, state.getPlayer1Id(), player1Snapshot);
+                tokenService.consumeSingleToken(transaction, state.getPlayer2Id(), player2Snapshot);
                 updates.put("phase", "koZnaZnaPlaying");
                 updates.put("currentGame", "koZnaZna");
                 updates.put("finished", false);
@@ -123,6 +132,9 @@ public class StepByStepWaitingRoomRepository {
     }
 
     private boolean needsFreshRoom(StepByStepMatchState state, String playerId) {
+        if (state.isParticipant(playerId)) {
+            return state.getRound() < 1 || state.getRound() > 2;
+        }
         boolean gameAlreadyStarted = StepByStepMatchState.PHASE_PLAYING.equals(state.getPhase())
                 || "koZnaZnaPlaying".equals(state.getPhase())
                 || "spojnicePlaying".equals(state.getPhase())

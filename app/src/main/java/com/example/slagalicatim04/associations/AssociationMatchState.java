@@ -16,6 +16,7 @@ public class AssociationMatchState {
     private final String player1Name;
     private final String player2Id;
     private final String player2Name;
+    private final String forfeitedPlayerId;
     private final long player1Score;
     private final long player2Score;
     private final int round;
@@ -38,6 +39,7 @@ public class AssociationMatchState {
         player1Name = stringValue(snapshot, "player1Name");
         player2Id = stringValue(snapshot, "player2Id");
         player2Name = stringValue(snapshot, "player2Name");
+        forfeitedPlayerId = stringValue(snapshot, "forfeitedPlayerId");
         player1Score = longValue(snapshot, "player1Score", 0);
         player2Score = longValue(snapshot, "player2Score", 0);
         round = (int) longValue(snapshot, "associationRound", 1);
@@ -65,6 +67,7 @@ public class AssociationMatchState {
     public String getPlayer1Name() { return player1Name; }
     public String getPlayer2Id() { return player2Id; }
     public String getPlayer2Name() { return player2Name; }
+    public String getForfeitedPlayerId() { return forfeitedPlayerId; }
     public long getPlayer1Score() { return player1Score; }
     public long getPlayer2Score() { return player2Score; }
     public int getRound() { return round; }
@@ -96,6 +99,10 @@ public class AssociationMatchState {
         if (playerId != null && playerId.equals(player1Id)) return 1;
         if (playerId != null && playerId.equals(player2Id)) return 2;
         return 0;
+    }
+
+    public boolean isForfeited(String playerId) {
+        return playerId != null && playerId.equals(forfeitedPlayerId);
     }
 
     private static boolean booleanAt(List<Boolean> values, int index) {

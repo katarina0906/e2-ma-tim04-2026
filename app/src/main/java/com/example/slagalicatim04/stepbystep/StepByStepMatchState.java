@@ -17,6 +17,7 @@ public class StepByStepMatchState {
     private final String player1Name;
     private final String player2Id;
     private final String player2Name;
+    private final String forfeitedPlayerId;
     private final long player1Score;
     private final long player2Score;
     private final int round;
@@ -41,6 +42,7 @@ public class StepByStepMatchState {
         player1Name = stringValue(snapshot, "player1Name");
         player2Id = stringValue(snapshot, "player2Id");
         player2Name = stringValue(snapshot, "player2Name");
+        forfeitedPlayerId = stringValue(snapshot, "forfeitedPlayerId");
         player1Score = longValue(snapshot, "player1Score", 0);
         player2Score = longValue(snapshot, "player2Score", 0);
         round = (int) longValue(snapshot, "round", 1);
@@ -75,6 +77,10 @@ public class StepByStepMatchState {
 
     public String getPlayer2Name() {
         return player2Name;
+    }
+
+    public String getForfeitedPlayerId() {
+        return forfeitedPlayerId;
     }
 
     public long getPlayer1Score() {
@@ -179,6 +185,14 @@ public class StepByStepMatchState {
 
     public boolean isParticipant(String playerId) {
         return playerNumber(playerId) != 0;
+    }
+
+    public boolean isForfeited(String playerId) {
+        return playerId != null && playerId.equals(forfeitedPlayerId);
+    }
+
+    public boolean hasForfeit() {
+        return !isEmpty(forfeitedPlayerId);
     }
 
     public String effectivePhase() {

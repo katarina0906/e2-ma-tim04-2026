@@ -1,6 +1,7 @@
 package com.example.slagalicatim04.fragments;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -19,6 +20,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
@@ -32,6 +34,7 @@ import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
 import com.google.firebase.auth.FirebaseAuth;
@@ -42,7 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class AsocijacijeFragment extends Fragment {
+public class AsocijacijeFragment extends Fragment implements ExitConfirmationHandler {
     private static final int COLUMN_COUNT = 4;
     private static final int ROW_COUNT = 4;
 
@@ -76,6 +79,7 @@ public class AsocijacijeFragment extends Fragment {
     private Button newGameButton;
 
     private AssociationMatchRepository matchRepository;
+    private MatchForfeitRepository forfeitRepository;
     private ListenerRegistration listenerRegistration;
     private AssociationMatchState currentState;
     private AssociationPuzzle currentPuzzle;
@@ -99,6 +103,17 @@ public class AsocijacijeFragment extends Fragment {
         }
         playerSession = resolveCurrentUser();
         matchRepository = new AssociationMatchRepository(roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
 
         for (int column = 0; column < COLUMN_COUNT; column++) {
             titleViews[column] = view.findViewById(TITLE_IDS[column]);
@@ -192,25 +207,46 @@ public class AsocijacijeFragment extends Fragment {
         }
 
         int myPlayer = currentState.playerNumber(playerSession.getId());
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            matchRepository.resolveForfeitTurn(currentState);
+        }
         boolean myTurn = myPlayer != 0 && myPlayer == currentState.getActivePlayer();
         roundText.setText(getString(R.string.aso_round_label, currentState.getRound(), 2));
-        turnText.setText("Na potezu: Igrac " + currentState.getActivePlayer());
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            turnText.setText("Protivnik je napustio partiju");
+        } else {
+            String activeLabel = currentState.getActivePlayer() == 1
+                    ? playerLabel(currentState.getPlayer1Id(), currentState.getPlayer1Name(), "Igrac 1")
+                    : playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2");
+            turnText.setText("Na potezu: " + activeLabel);
+        }
         int seconds = currentState.getSecondsLeft();
         timerText.setText(getString(R.string.aso_timer_fmt, seconds / 60, seconds % 60));
-        scoreP1.setText(getString(R.string.aso_player_points, 1,
-                (int) currentState.getPlayer1Score()));
-        scoreP2.setText(getString(R.string.aso_player_points, 2,
-                (int) currentState.getPlayer2Score()));
+        scoreP1.setText(playerLabel(currentState.getPlayer1Id(), currentState.getPlayer1Name(), "Igrac 1")
+                + ": " + (int) currentState.getPlayer1Score());
+        scoreP2.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2")
+                + ": " + (int) currentState.getPlayer2Score());
+        scoreP1.setTextColor(currentState.isForfeited(currentState.getPlayer1Id()) ? 0xFFD32F2F : Color.BLACK);
+        scoreP2.setTextColor(currentState.isForfeited(currentState.getPlayer2Id()) ? 0xFFD32F2F : Color.BLACK);
         roundPointsText.setText(getString(R.string.aso_round_points_fmt,
                 currentState.getRoundPlayer1Score(), currentState.getRoundPlayer2Score()));
         resultText.setText(currentState.getStatusMessage());
-        phaseHint.setText(myTurn
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            phaseHint.setText(isEmpty(currentState.getStatusMessage())
+                    ? "Protivnik je napustio partiju. Nastavljas bez cekanja."
+                    : currentState.getStatusMessage());
+        } else {
+            phaseHint.setText(myTurn
                 ? (currentState.isOpenPhase()
                 ? "Tvoj potez: otvori jedno skriveno polje."
                 : (currentState.canContinueAfterCorrect()
                 ? "Tacan odgovor: pogadjaj dalje ili otvori novo polje."
                 : "Pogodi kolonu ili konacno resenje, ili predaj potez."))
                 : "Igrac " + currentState.getActivePlayer() + " je na potezu. Cekaj svoj red.");
+        }
 
         renderBoard(myTurn);
         publishClockIfOwner(myPlayer);
@@ -371,6 +407,35 @@ public class AsocijacijeFragment extends Fragment {
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String playerLabel(String playerId, String name, String fallback) {
+        if (!isEmpty(name)) {
+            return name;
+        }
+        return isEmpty(playerId) ? fallback : playerId;
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null || "skocko".equals(currentState.getCurrentGame())) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(playerSession.getId());
+                    Navigation.findNavController(requireView()).navigate(
+                            R.id.homeFragment,
+                            null,
+                            new androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build());
+                })
+                .show();
+        return true;
     }
 
     @Override

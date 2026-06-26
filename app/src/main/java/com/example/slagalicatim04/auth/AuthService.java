@@ -6,9 +6,11 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Patterns;
 import android.util.Base64;
+import android.util.Patterns;
 
+import com.example.slagalicatim04.notifications.NotificationTokenManager;
+import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.AuthCredential;
@@ -18,8 +20,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
-import com.example.slagalicatim04.notifications.NotificationTokenManager;
-import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,6 +36,8 @@ public class AuthService {
     private static final String KEY_CURRENT_USERNAME = "current_username";
     private static final String KEY_CURRENT_REGION = "current_region";
     private static final String KEY_CURRENT_AVATAR_DATA = "current_avatar_data";
+    private static final String KEY_CURRENT_TOKENS = "current_tokens";
+    private static final String KEY_CURRENT_STARS = "current_stars";
     private static final String KEY_CURRENT_AVATAR_FRAME_PLACE = "current_avatar_frame_place";
     private static final int AVATAR_MAX_SIZE = 512;
 
@@ -79,8 +82,8 @@ public class AuthService {
         String normalizedUsername = normalize(username);
         String cleanedRegion = clean(region);
 
-        String validationError = validateRegistration(normalizedEmail, normalizedUsername, cleanedRegion,
-                password, repeatedPassword);
+        String validationError = validateRegistration(normalizedEmail, normalizedUsername,
+                cleanedRegion, password, repeatedPassword);
         if (validationError != null) {
             return AuthResult.error(validationError);
         }
@@ -102,7 +105,7 @@ public class AuthService {
 
             AuthUser authUser = new AuthUser(firebaseUser.getUid(), normalizedEmail,
                     normalizedUsername, cleanedRegion, "", "", false, "", "",
-                    regionMapLatitude, regionMapLongitude);
+                    TokenService.INITIAL_TOKENS, 0, regionMapLatitude, regionMapLongitude, 0);
             saveProfile(authUser);
             Tasks.await(firebaseUser.sendEmailVerification());
 
@@ -137,6 +140,7 @@ public class AuthService {
                 return AuthResult.error("Prvo potvrdi registraciju klikom na link poslat na mejl.");
             }
 
+            new TokenService(firestore).ensureDailyTokens(firebaseUser.getUid());
             AuthUser authUser = loadProfile(firebaseUser);
             saveCurrentUser(authUser);
             updatePresence(firebaseUser.getUid(), true);
@@ -237,6 +241,8 @@ public class AuthService {
                 true,
                 "",
                 preferences.getString(KEY_CURRENT_AVATAR_DATA, ""),
+                preferences.getInt(KEY_CURRENT_TOKENS, 0),
+                preferences.getInt(KEY_CURRENT_STARS, 0),
                 null,
                 null,
                 preferences.getInt(KEY_CURRENT_AVATAR_FRAME_PLACE, 0)
@@ -253,6 +259,7 @@ public class AuthService {
             return AuthResult.error("Korisnik nije prijavljen.");
         }
         try {
+            new TokenService(firestore).ensureDailyTokens(firebaseUser.getUid());
             AuthUser authUser = loadProfile(firebaseUser);
             saveCurrentUser(authUser);
             updatePresence(firebaseUser.getUid(), true);
@@ -312,6 +319,11 @@ public class AuthService {
         userData.put("regionMapLongitude", osmLocation[1]);
         userData.put("avatarFramePlace", authUser.getAvatarFramePlace());
         userData.put("avatarData", authUser.getAvatarData());
+        userData.put("tokens", TokenService.INITIAL_TOKENS);
+        userData.put("stars", authUser.getStars());
+        userData.put("lastTokenGrantDate",
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
+                        .format(new java.util.Date()));
 
         Map<String, Object> usernameData = new HashMap<>();
         usernameData.put("email", authUser.getEmail());
@@ -329,7 +341,8 @@ public class AuthService {
         return AuthResult.error("Firebase nije konfigurisan. Dodaj app/google-services.json i ukljuci Email/Password auth.");
     }
 
-    private AuthUser loadProfile(FirebaseUser firebaseUser) throws ExecutionException, InterruptedException {
+    private AuthUser loadProfile(FirebaseUser firebaseUser)
+            throws ExecutionException, InterruptedException {
         DocumentSnapshot userDoc = Tasks.await(firestore.collection("users")
                 .document(firebaseUser.getUid())
                 .get());
@@ -337,6 +350,8 @@ public class AuthService {
         String username = userDoc.getString("username");
         String region = userDoc.getString("region");
         String avatarData = userDoc.getString("avatarData");
+        Long tokens = userDoc.getLong("tokens");
+        Long stars = userDoc.getLong("stars");
         Double regionMapLatitude = userDoc.getDouble("regionMapLatitude");
         Double regionMapLongitude = userDoc.getDouble("regionMapLongitude");
         int avatarFramePlace = (int) longValue(userDoc, "avatarFramePlace");
@@ -345,6 +360,8 @@ public class AuthService {
                 region == null ? "" : region,
                 "", "", firebaseUser.isEmailVerified(), "",
                 avatarData == null ? "" : avatarData,
+                tokens == null ? 0 : Math.max(0, tokens.intValue()),
+                stars == null ? 0 : Math.max(0, stars.intValue()),
                 regionMapLatitude, regionMapLongitude, avatarFramePlace);
     }
 
@@ -354,7 +371,8 @@ public class AuthService {
                 firebaseUser.isEmailVerified(), "");
     }
 
-    private String resolveEmail(String identifier) throws ExecutionException, InterruptedException {
+    private String resolveEmail(String identifier)
+            throws ExecutionException, InterruptedException {
         if (Patterns.EMAIL_ADDRESS.matcher(identifier).matches()) {
             return identifier;
         }
@@ -375,6 +393,8 @@ public class AuthService {
                 .putString(KEY_CURRENT_USERNAME, user.getUsername())
                 .putString(KEY_CURRENT_REGION, user.getRegion())
                 .putString(KEY_CURRENT_AVATAR_DATA, user.getAvatarData())
+                .putInt(KEY_CURRENT_TOKENS, user.getTokens())
+                .putInt(KEY_CURRENT_STARS, user.getStars())
                 .putInt(KEY_CURRENT_AVATAR_FRAME_PLACE, user.getAvatarFramePlace())
                 .apply();
     }
@@ -396,6 +416,8 @@ public class AuthService {
                 .remove(KEY_CURRENT_USERNAME)
                 .remove(KEY_CURRENT_REGION)
                 .remove(KEY_CURRENT_AVATAR_DATA)
+                .remove(KEY_CURRENT_TOKENS)
+                .remove(KEY_CURRENT_STARS)
                 .remove(KEY_CURRENT_AVATAR_FRAME_PLACE)
                 .apply();
     }
