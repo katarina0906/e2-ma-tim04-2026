@@ -27,6 +27,7 @@ import androidx.navigation.ui.NavigationUI;
 
 import com.example.slagalicatim04.friends.GameInviteRepository;
 import com.example.slagalicatim04.fragments.ExitConfirmationHandler;
+import com.example.slagalicatim04.fragments.RegionChatFragment;
 import com.example.slagalicatim04.notifications.InAppNotification;
 import com.example.slagalicatim04.databinding.ActivityMainBinding;
 import com.example.slagalicatim04.notifications.NotificationRepository;
@@ -123,6 +124,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        com.example.slagalicatim04.auth.AuthService.getInstance(this).setCurrentUserActive(true);
+    }
+
+    @Override
+    protected void onStop() {
+        com.example.slagalicatim04.auth.AuthService.getInstance(this).setCurrentUserActive(false);
+        super.onStop();
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
@@ -185,6 +198,19 @@ public class MainActivity extends AppCompatActivity {
             InAppNotification invite = inviteFromIntent(notificationId, targetId, title, message, expiresAt);
             showGameInviteDialog(invite);
             scheduleInviteExpiration(invite);
+            return;
+        }
+
+        if (NotificationRouter.ACTION_CHAT.equals(action)) {
+            if (notificationId != null && !notificationId.isEmpty()) {
+                new NotificationRepository().markRead(notificationId, () -> {
+                }, ignored -> {
+                });
+            }
+            intent.removeExtra(SlagalicaMessagingService.EXTRA_NOTIFICATION_ID);
+            Bundle args = new Bundle();
+            args.putString(RegionChatFragment.ARG_REGION_KEY, targetId);
+            navController.navigate(R.id.regionChatFragment, args);
             return;
         }
 

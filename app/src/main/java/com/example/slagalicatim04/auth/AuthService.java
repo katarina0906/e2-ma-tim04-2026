@@ -284,6 +284,16 @@ public class AuthService {
         clearCurrentUser();
     }
 
+    public void setCurrentUserActive(boolean active) {
+        if (!isFirebaseConfigured()) {
+            return;
+        }
+        FirebaseUser currentUser = firebaseAuth.getCurrentUser();
+        if (currentUser != null) {
+            updatePresence(currentUser.getUid(), active);
+        }
+    }
+
     public AuthResult<AuthUser> updateAvatar(Uri imageUri) {
         if (!isFirebaseConfigured()) {
             return firebaseNotConfigured();
