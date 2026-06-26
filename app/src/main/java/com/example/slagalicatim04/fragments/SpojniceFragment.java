@@ -18,6 +18,7 @@ import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.models.MatchingMultiplayerState;
 import com.example.slagalicatim04.models.MatchingPair;
 import com.example.slagalicatim04.repositories.MatchForfeitRepository;
@@ -72,6 +73,7 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
     private MultiplayerGameRepository multiplayerRepository;
     private MultiplayerGameRepository.Subscription stateRegistration;
     private MatchingMultiplayerState currentState;
+    private String roomId = MultiplayerGameRepository.TEST_ROOM_ID;
     private MatchForfeitRepository forfeitRepository;
     private int selectedLeftIndex = -1;
     private String timerChanceKey = "";
@@ -99,8 +101,11 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
             setupRightButton(index);
         }
 
-        multiplayerRepository = new MultiplayerGameRepository(requireContext());
-        forfeitRepository = new MatchForfeitRepository(MultiplayerGameRepository.TEST_ROOM_ID);
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
+        multiplayerRepository = new MultiplayerGameRepository(requireContext(), roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
         requireActivity().getOnBackPressedDispatcher().addCallback(
                 getViewLifecycleOwner(), new OnBackPressedCallback(true) {
                     @Override
@@ -358,12 +363,16 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         }
         navigatedToAssociations = true;
         Bundle args = new Bundle();
-        args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
+        args.putString("roomId", roomId);
         Navigation.findNavController(requireView()).navigate(R.id.asocijacijeFragment, args);
     }
 
     private String nonEmpty(String value, String fallback) {
         return value == null || value.trim().isEmpty() ? fallback : value;
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     @Override
@@ -399,6 +408,9 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         if (stateRegistration != null) {
             stateRegistration.remove();
             stateRegistration = null;
+        }
+        if (!navigatedToAssociations) {
+            new GameSessionRepository().abandonRoom(roomId);
         }
         super.onDestroyView();
     }

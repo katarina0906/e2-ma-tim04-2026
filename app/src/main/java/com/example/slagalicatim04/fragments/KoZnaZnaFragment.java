@@ -18,6 +18,7 @@ import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.models.Answer;
 import com.example.slagalicatim04.models.Question;
 import com.example.slagalicatim04.models.QuizMultiplayerState;
@@ -50,6 +51,7 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
     private MultiplayerGameRepository multiplayerRepository;
     private MultiplayerGameRepository.Subscription stateRegistration;
     private QuizMultiplayerState currentState;
+    private String roomId = MultiplayerGameRepository.TEST_ROOM_ID;
     private MatchForfeitRepository forfeitRepository;
     private int renderedQuestion = -1;
     private int timerQuestion = -1;
@@ -77,9 +79,12 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
                 view.findViewById(R.id.answerD)
         };
 
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
         questions = new LocalQuizRepository().getQuestions();
-        multiplayerRepository = new MultiplayerGameRepository(requireContext());
-        forfeitRepository = new MatchForfeitRepository(MultiplayerGameRepository.TEST_ROOM_ID);
+        multiplayerRepository = new MultiplayerGameRepository(requireContext(), roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
         requireActivity().getOnBackPressedDispatcher().addCallback(
                 getViewLifecycleOwner(), new OnBackPressedCallback(true) {
                     @Override
@@ -302,7 +307,7 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         }
         navigatedToSpojnice = true;
         Bundle args = new Bundle();
-        args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
+        args.putString("roomId", roomId);
         Navigation.findNavController(requireView()).navigate(R.id.spojniceFragment, args);
     }
 
@@ -347,6 +352,9 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         if (stateRegistration != null) {
             stateRegistration.remove();
             stateRegistration = null;
+        }
+        if (!navigatedToSpojnice) {
+            new GameSessionRepository().abandonRoom(roomId);
         }
         super.onDestroyView();
     }

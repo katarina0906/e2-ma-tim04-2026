@@ -63,6 +63,9 @@
         <action
             android:id="@+id/action_homeFragment_to_notificationsFragment"
             app:destination="@id/notificationsFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_friendsFragment"
+            app:destination="@id/friendsFragment" />
     </fragment>
 
     <fragment
@@ -83,6 +86,12 @@
         tools:layout="@layout/fragment_notifications" />
 
     <fragment
+        android:id="@+id/friendsFragment"
+        android:name="com.example.slagalicatim04.fragments.FriendsFragment"
+        android:label="Prijatelji"
+        tools:layout="@layout/fragment_friends" />
+
+    <fragment
         android:id="@+id/notificationTargetFragment"
         android:name="com.example.slagalicatim04.fragments.NotificationTargetFragment"
         android:label="@string/notification_target_title"
@@ -93,6 +102,12 @@
         android:name="com.example.slagalicatim04.fragments.GamesFragment"
         android:label="Games"
         tools:layout="@layout/fragment_games" />
+
+    <fragment
+        android:id="@+id/regionsFragment"
+        android:name="com.example.slagalicatim04.fragments.RegionsFragment"
+        android:label="Regioni"
+        tools:layout="@layout/fragment_regions" />
 
     <fragment
         android:id="@+id/koZnaZnaFragment"

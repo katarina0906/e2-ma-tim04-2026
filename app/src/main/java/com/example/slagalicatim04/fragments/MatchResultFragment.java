@@ -30,6 +30,7 @@ public class MatchResultFragment extends Fragment {
     private TextView player2Score;
     private ImageView player1Avatar;
     private ImageView player2Avatar;
+    private boolean releasedPlayers;
 
     @Nullable
     @Override
@@ -85,6 +86,7 @@ public class MatchResultFragment extends Fragment {
                 state.getPlayer2EarnedTokens()));
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), player1Avatar);
         PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), player2Avatar);
+        releasePlayers(state);
         if (state.winner() == 1) {
             winnerText.setText("Pobednik je " + firstName + "!");
         } else if (state.winner() == 2) {
@@ -92,6 +94,23 @@ public class MatchResultFragment extends Fragment {
         } else {
             winnerText.setText("Partija je zavrsena nereseno.");
         }
+    }
+
+    private void releasePlayers(MatchResultState state) {
+        if (releasedPlayers) {
+            return;
+        }
+        releasedPlayers = true;
+        new Thread(() -> {
+            try {
+                new MatchResultRepository().releasePlayers(
+                        roomId,
+                        state.getPlayer1Id(),
+                        state.getPlayer2Id());
+            } catch (Exception ignored) {
+                releasedPlayers = false;
+            }
+        }).start();
     }
 
     private String playerName(String name, String fallback) {

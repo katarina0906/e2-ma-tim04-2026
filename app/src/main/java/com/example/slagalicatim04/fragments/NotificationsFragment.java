@@ -1,6 +1,8 @@
 package com.example.slagalicatim04.fragments;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,6 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.databinding.FragmentNotificationsBinding;
+import com.example.slagalicatim04.friends.GameInviteRepository;
 import com.example.slagalicatim04.notifications.InAppNotification;
 import com.example.slagalicatim04.notifications.NotificationRepository;
 import com.example.slagalicatim04.notifications.NotificationRouter;
@@ -21,6 +24,8 @@ import com.example.slagalicatim04.notifications.NotificationsAdapter;
 import com.example.slagalicatim04.notifications.SystemNotificationPublisher;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
@@ -39,6 +44,7 @@ public class NotificationsFragment extends Fragment implements NotificationsAdap
     private ListenerRegistration listenerRegistration;
     private FilterMode filterMode = FilterMode.ALL;
     private boolean initialDemoRequested;
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -66,6 +72,7 @@ public class NotificationsFragment extends Fragment implements NotificationsAdap
                 }
                 masterList.clear();
                 masterList.addAll(notifications);
+                scheduleInviteExpirations(notifications);
                 refreshListUi();
                 if (notifications.isEmpty() && !initialDemoRequested) {
                     requestDemoNotifications(true);
@@ -136,13 +143,100 @@ public class NotificationsFragment extends Fragment implements NotificationsAdap
 
     @Override
     public void onOpen(InAppNotification item) {
+        if (NotificationRouter.ACTION_GAME_INVITE.equals(item.actionHint)) {
+            Snackbar.make(binding.getRoot(),
+                    "Koristi dugmad Prihvati ili Odbij za poziv za partiju.",
+                    Snackbar.LENGTH_SHORT).show();
+            return;
+        }
         notificationService.recordOpen(item, () -> {
         }, this::showOperationError);
         Navigation.findNavController(binding.getRoot())
                 .navigate(R.id.notificationTargetFragment, NotificationRouter.targetArgs(item));
     }
 
+    @Override
+    public void onAcceptGameInvite(InAppNotification item) {
+        String roomId = roomIdOf(item);
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            showOperationError(new IllegalStateException("Korisnik nije prijavljen."));
+            return;
+        }
+        new Thread(() -> {
+            try {
+                String acceptedRoomId = new GameInviteRepository()
+                        .acceptInvite(user.getUid(), roomId, item.id);
+                if (binding == null) {
+                    return;
+                }
+                requireActivity().runOnUiThread(() -> {
+                    Bundle args = new Bundle();
+                    args.putString("roomId", acceptedRoomId);
+                    Snackbar.make(binding.getRoot(), "Poziv je prihvacen.",
+                            Snackbar.LENGTH_SHORT).show();
+                    Navigation.findNavController(binding.getRoot())
+                            .navigate(R.id.stepByStepWaitingRoomFragment, args);
+                });
+            } catch (Exception error) {
+                showOperationError(error);
+            }
+        }).start();
+    }
+
+    @Override
+    public void onDeclineGameInvite(InAppNotification item) {
+        String roomId = roomIdOf(item);
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            showOperationError(new IllegalStateException("Korisnik nije prijavljen."));
+            return;
+        }
+        new Thread(() -> {
+            try {
+                new GameInviteRepository().declineInvite(user.getUid(), roomId, item.id);
+                if (binding != null) {
+                    requireActivity().runOnUiThread(() ->
+                            Snackbar.make(binding.getRoot(), "Poziv je odbijen.",
+                                    Snackbar.LENGTH_SHORT).show());
+                }
+            } catch (Exception error) {
+                showOperationError(error);
+            }
+        }).start();
+    }
+
+    private void scheduleInviteExpirations(List<InAppNotification> notifications) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (InAppNotification item : notifications) {
+            if (!NotificationRouter.ACTION_GAME_INVITE.equals(item.actionHint)
+                    || !"pending".equals(item.inviteStatus)) {
+                continue;
+            }
+            long expiresAt = longValue(item.data.get("expiresAt"));
+            if (expiresAt <= 0L) {
+                continue;
+            }
+            long delay = Math.max(0L, expiresAt - now);
+            handler.postDelayed(() -> new Thread(() -> {
+                try {
+                    new GameInviteRepository().expireInviteIfNeeded(
+                            user.getUid(), roomIdOf(item), item.id);
+                } catch (Exception ignored) {
+                }
+            }).start(), delay);
+        }
+    }
+
     private void showOperationError(Exception error) {
+        if (getActivity() != null && Looper.myLooper() != Looper.getMainLooper()) {
+            requireActivity().runOnUiThread(() -> showOperationError(error));
+            return;
+        }
         if (binding != null) {
             Snackbar.make(binding.getRoot(),
                     getString(R.string.notifications_update_error, messageOf(error)),
@@ -186,6 +280,22 @@ public class NotificationsFragment extends Fragment implements NotificationsAdap
 
     private static String messageOf(Exception error) {
         return error.getMessage() == null ? "nepoznata greska" : error.getMessage();
+    }
+
+    private String roomIdOf(InAppNotification item) {
+        String roomId = item.data.get("roomId");
+        return roomId == null || roomId.trim().isEmpty() ? item.targetId : roomId;
+    }
+
+    private long longValue(String value) {
+        if (value == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ignored) {
+            return 0L;
+        }
     }
 
     @Override

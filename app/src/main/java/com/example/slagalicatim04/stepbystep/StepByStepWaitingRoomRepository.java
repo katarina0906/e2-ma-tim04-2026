@@ -112,6 +112,14 @@ public class StepByStepWaitingRoomRepository {
                 updates.put("kzzCurrentQuestion", 0L);
                 updates.put("kzzAnswers", new HashMap<>());
                 updates.put("statusMessage", "Oba igraca su spremna. Pokrece se Ko zna zna.");
+                transaction.set(roomRef.getFirestore().collection("users")
+                                .document(state.getPlayer1Id()),
+                        busyState(roomRef.getId(), state.getPlayer2Id()),
+                        SetOptions.merge());
+                transaction.set(roomRef.getFirestore().collection("users")
+                                .document(state.getPlayer2Id()),
+                        busyState(roomRef.getId(), state.getPlayer1Id()),
+                        SetOptions.merge());
             }
             updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(roomRef, updates, SetOptions.merge());
@@ -168,6 +176,17 @@ public class StepByStepWaitingRoomRepository {
         state.put("finished", false);
         state.put("statusMessage", "Ceka se igrac 2.");
         state.put("updatedAt", FieldValue.serverTimestamp());
+        return state;
+    }
+
+    private Map<String, Object> busyState(String roomId, String opponentId) {
+        Map<String, Object> state = new HashMap<>();
+        state.put("active", true);
+        state.put("lastActiveAt", System.currentTimeMillis());
+        state.put("inGame", true);
+        state.put("currentRoomId", roomId);
+        state.put("currentMatchId", roomId);
+        state.put("currentOpponentId", opponentId);
         return state;
     }
 }

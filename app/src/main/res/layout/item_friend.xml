@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    android:background="#FFFFFF"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="14dp">
+
+    <FrameLayout
+        android:id="@+id/friendAvatarFrame"
+        android:layout_width="58dp"
+        android:layout_height="58dp"
+        android:background="#6F4BB2"
+        android:padding="4dp">
+
+        <ImageView
+            android:id="@+id/friendAvatar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#FFFFFF"
+            android:padding="12dp"
+            android:scaleType="centerCrop"
+            android:src="@android:drawable/ic_menu_myplaces" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/friendUsername"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#1E1E2F"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            tools:text="milica_92" />
+
+        <TextView
+            android:id="@+id/friendRegion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:textColor="#6F4BB2"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            tools:text="Region Vojvodine" />
+
+        <TextView
+            android:id="@+id/friendMonthlyRank"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#777777"
+            android:textSize="12sp"
+            tools:text="Mesecni rang: #4" />
+
+        <TextView
+            android:id="@+id/friendTotalStars"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#777777"
+            android:textSize="12sp"
+            tools:text="Ukupno zvezda: 245" />
+
+        <TextView
+            android:id="@+id/friendLeague"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#777777"
+            android:textSize="12sp"
+            tools:text="Liga: Zlatna liga" />
+
+        <TextView
+            android:id="@+id/friendStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#2E7D32"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            tools:text="Status: ulogovan" />
+
+        <TextView
+            android:id="@+id/friendEmail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#999999"
+            android:textSize="11sp"
+            tools:text="milica@example.com" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/friendStartGameButton"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:layout_marginTop="8dp"
+            android:minWidth="0dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="Zapocni partiju"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            app:cornerRadius="8dp" />
+    </LinearLayout>
+</LinearLayout>
