@@ -247,8 +247,7 @@ public class SkockoMatchRepository {
                                         String message) {
         if (state.getRound() >= 2) {
             applyStepByStepStart(updates);
-            updates.put("statusMessage", message
-                    + " Skočko je završen. Pokrece se Korak po korak.");
+            updates.put("statusMessage", message);
         } else {
             applyRoundStart(updates, 2);
             updates.put("statusMessage", message + " Pocinje runda 2, igra igrac 2.");

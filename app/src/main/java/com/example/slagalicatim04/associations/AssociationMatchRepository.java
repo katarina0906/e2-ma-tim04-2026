@@ -249,11 +249,11 @@ public class AssociationMatchRepository {
                               String message) {
         if (state.getRound() < AssociationGameService.ROUND_COUNT) {
             updates.putAll(roundState(2));
-            updates.put("statusMessage", message + " Pocinje druga runda, igrac 2 otvara.");
+            updates.put("statusMessage", message);
             return;
         }
         updates.putAll(skockoState());
-        updates.put("statusMessage", message + " Asocijacije su zavrsene. Pokrece se Skocko.");
+        updates.put("statusMessage", message);
     }
 
     private Map<String, Object> roundState(int round) {

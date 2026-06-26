@@ -223,7 +223,7 @@ public class MultiplayerGameRepository {
         state.put("spMatchedPairs", new ArrayList<>());
         state.put("spAttemptedPairs", new ArrayList<>());
         state.put("spTurnPairCount", MATCHING_PAIR_COUNT);
-        state.put("statusMessage", "Ko zna zna je zavrsen. Pokrecu se Spojnice.");
+        state.put("statusMessage", "");
         return state;
     }
 
@@ -286,7 +286,7 @@ public class MultiplayerGameRepository {
         state.put("associationRoundPlayer1Score", 0L);
         state.put("associationRoundPlayer2Score", 0L);
         state.put("finished", false);
-        state.put("statusMessage", "Spojnice su zavrsene. Pokrecu se Asocijacije.");
+        state.put("statusMessage", "");
         return state;
     }
 

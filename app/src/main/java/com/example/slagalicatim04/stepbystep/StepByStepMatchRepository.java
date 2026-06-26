@@ -299,8 +299,8 @@ public class StepByStepMatchRepository {
             updates.put("stealPlayer", 0);
             updates.put("visibleStepCount", 7L);
             updates.put("secondsLeft", 0L);
-            updates.put("finalResult", "Korak po korak je zavrsen. Pokrece se Moj broj.");
-            updates.put("statusMessage", "Korak po korak je zavrsen. Pokrece se Moj broj.");
+            updates.put("finalResult", "");
+            updates.put("statusMessage", "");
             return;
         }
         updates.put("round", currentRound + 1);
