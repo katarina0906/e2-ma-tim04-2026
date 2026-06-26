@@ -56,11 +56,16 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         playerSession = resolveCurrentUser();
         if (!hasAvailableTokens()) {
             Toast.makeText(requireContext(), R.string.tokens_missing, Toast.LENGTH_LONG).show();
-            Navigation.findNavController(view).navigateUp();
+            Navigation.findNavController(view).navigate(
+                    R.id.homeFragment,
+                    null,
+                    new androidx.navigation.NavOptions.Builder()
+                            .setPopUpTo(R.id.nav_graph, true)
+                            .build());
             return view;
         }
         repository = new StepByStepWaitingRoomRepository(ROOM_ID);
-        codeText.setText("Test soba: " + ROOM_ID);
+        codeText.setText("");
         confirmButton.setEnabled(false);
         confirmButton.setOnClickListener(v -> repository.confirmReady(playerSession, this::showError));
         resetButton.setOnClickListener(v -> {

@@ -424,7 +424,12 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
                 .setNegativeButton("Ostani", null)
                 .setPositiveButton("Napusti", (dialog, which) -> {
                     forfeitRepository.forfeit(playerSession.getId());
-                    Navigation.findNavController(requireView()).navigateUp();
+                    Navigation.findNavController(requireView()).navigate(
+                            R.id.homeFragment,
+                            null,
+                            new androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build());
                 })
                 .show();
         return true;

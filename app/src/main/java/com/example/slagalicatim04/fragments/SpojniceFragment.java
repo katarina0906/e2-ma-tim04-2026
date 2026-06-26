@@ -305,7 +305,7 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
     private void showWaitingState(MatchingMultiplayerState state) {
         cancelTimer();
         timerChanceKey = "";
-        roundText.setText("Test soba: " + MultiplayerGameRepository.TEST_ROOM_ID);
+        roundText.setText("");
         boolean opponentLeft = state != null && state.hasForfeit();
         boolean hasState = state != null;
         turnText.setText(opponentLeft
@@ -378,7 +378,12 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
                 .setNegativeButton("Ostani", null)
                 .setPositiveButton("Napusti", (dialog, which) -> {
                     forfeitRepository.forfeit(multiplayerRepository.getPlayerId());
-                    Navigation.findNavController(requireView()).navigateUp();
+                    Navigation.findNavController(requireView()).navigate(
+                            R.id.homeFragment,
+                            null,
+                            new androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build());
                 })
                 .show();
         return true;

@@ -246,7 +246,7 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
     private void showWaitingState(QuizMultiplayerState state) {
         cancelTimer();
         timerText.setText("5s");
-        questionCounterText.setText("Test soba: " + MultiplayerGameRepository.TEST_ROOM_ID);
+        questionCounterText.setText("");
         boolean opponentLeft = state != null && state.hasForfeit();
         String persistedStatus = state == null ? "" : state.getStatusMessage();
         boolean hasPersistedStatus = !isEmpty(persistedStatus);
@@ -326,7 +326,12 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
                 .setNegativeButton("Ostani", null)
                 .setPositiveButton("Napusti", (dialog, which) -> {
                     forfeitRepository.forfeit(multiplayerRepository.getPlayerId());
-                    Navigation.findNavController(requireView()).navigateUp();
+                    Navigation.findNavController(requireView()).navigate(
+                            R.id.homeFragment,
+                            null,
+                            new androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build());
                 })
                 .show();
         return true;
