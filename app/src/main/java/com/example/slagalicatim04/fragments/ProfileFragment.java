@@ -24,7 +24,9 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.example.slagalicatim04.auth.TokenService;
 import com.example.slagalicatim04.friends.FriendQr;
+import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.example.slagalicatim04.regions.AvatarFrameStyler;
 import com.example.slagalicatim04.regions.OpenStreetRegionMapStyler;
 import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
@@ -42,6 +44,9 @@ public class ProfileFragment extends Fragment {
     private TextView emailText;
     private TextView regionText;
     private TextView regionMapTitle;
+    private TextView tokensSummary;
+    private TextView starsSummary;
+    private TextView leagueSummary;
     private ImageView avatarImage;
     private ImageView friendQrImage;
     private View avatarFrame;
@@ -65,6 +70,9 @@ public class ProfileFragment extends Fragment {
         emailText = view.findViewById(R.id.profileEmail);
         regionText = view.findViewById(R.id.profileRegion);
         regionMapTitle = view.findViewById(R.id.profileRegionMapTitle);
+        tokensSummary = view.findViewById(R.id.profileTokensSummary);
+        starsSummary = view.findViewById(R.id.profileStarsSummary);
+        leagueSummary = view.findViewById(R.id.profileLeagueSummary);
         avatarImage = view.findViewById(R.id.profileAvatar);
         friendQrImage = view.findViewById(R.id.profileFriendQr);
         avatarFrame = view.findViewById(R.id.profileAvatarFrame);
@@ -131,7 +139,20 @@ public class ProfileFragment extends Fragment {
         showRegionMap(user);
         AvatarFrameStyler.apply(avatarFrame, user.getAvatarFramePlace());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
+        showProgress(user);
         showFriendQr(user);
+    }
+
+    private void showProgress(AuthUser user) {
+        LeagueInfo league = LeagueInfo.forStars(user.getTotalStars());
+        tokensSummary.setText(user.getTokens() + "\nTokena\n+"
+                + (TokenService.INITIAL_TOKENS + league.level) + "/dan");
+        starsSummary.setText(user.getTotalStars() + "\nZvezda");
+        long untilNext = league.starsUntilNext(user.getTotalStars());
+        String detail = untilNext == 0L ? "Maks." : "jos " + untilNext;
+        leagueSummary.setText(league.name + "\n" + detail);
+        leagueSummary.setCompoundDrawablesWithIntrinsicBounds(0, league.iconRes, 0, 0);
+        leagueSummary.setCompoundDrawablePadding(4);
     }
 
     @Override

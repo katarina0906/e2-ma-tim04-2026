@@ -1,5 +1,7 @@
 package com.example.slagalicatim04.regions;
 
+import com.example.slagalicatim04.leagues.LeagueInfo;
+import com.example.slagalicatim04.notifications.LeagueNotificationData;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -61,9 +63,13 @@ public class RegionRepository {
                     }
                     cycleStars.put(region.key, cycleStars.get(region.key) + staleStars);
                 }
-                staleCycleReset.update(user.getReference(),
-                        "monthlyStars", 0L,
-                        "monthlyStarsCycle", cycle);
+                MonthlyCycleReset cycleReset = monthlyCycleReset(user, userCycle, cycle, staleStars);
+                staleCycleReset.update(user.getReference(), cycleReset.userUpdates);
+                if (cycleReset.leagueNotification != null) {
+                    staleCycleReset.set(user.getReference().collection("notifications")
+                                    .document("league_change_" + userCycle),
+                            cycleReset.leagueNotification);
+                }
                 staleCycleUpdates++;
             }
 
@@ -246,6 +252,46 @@ public class RegionRepository {
         return null;
     }
 
+    private MonthlyCycleReset monthlyCycleReset(DocumentSnapshot user, String userCycle,
+                                                String newCycle, long previousMonthlyStars) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("monthlyStars", 0L);
+        updates.put("monthlyStarsCycle", newCycle);
+
+        if (userCycle == null || userCycle.trim().isEmpty() || previousMonthlyStars > 0L
+                || userCycle.equals(user.getString("lastMonthlyNoPlacementPenaltyCycle"))) {
+            return new MonthlyCycleReset(updates, null);
+        }
+
+        long currentTotalStars = firstLongValue(user, "totalStars", "overallStars", "stars");
+        long nextTotalStars = (currentTotalStars * 70L) / 100L;
+        LeagueInfo previousLeague = LeagueInfo.forStars(currentTotalStars);
+        LeagueInfo league = LeagueInfo.forStars(nextTotalStars);
+        updates.put("totalStars", nextTotalStars);
+        updates.put("overallStars", nextTotalStars);
+        updates.put("league", league.name);
+        updates.put("leagueLevel", league.level);
+        updates.put("leagueIconRes", league.iconRes);
+        updates.put("lastMonthlyNoPlacementPenaltyCycle", userCycle);
+        updates.put("lastMonthlyNoPlacementPenaltyPercent", 30L);
+        updates.put("lastMonthlyNoPlacementPenaltyAt", FieldValue.serverTimestamp());
+        Map<String, Object> notification = previousLeague.level == league.level
+                ? null
+                : LeagueNotificationData.create(previousLeague.name, league, nextTotalStars, false);
+        return new MonthlyCycleReset(updates, notification);
+    }
+
+    private static class MonthlyCycleReset {
+        final Map<String, Object> userUpdates;
+        final Map<String, Object> leagueNotification;
+
+        MonthlyCycleReset(Map<String, Object> userUpdates,
+                          Map<String, Object> leagueNotification) {
+            this.userUpdates = userUpdates;
+            this.leagueNotification = leagueNotification;
+        }
+    }
+
     private static Map<String, Long> emptyLongMap() {
         Map<String, Long> map = new HashMap<>();
         for (RegionInfo region : RegionInfo.all()) {
@@ -266,6 +312,16 @@ public class RegionRepository {
     private static long longValue(DocumentSnapshot snapshot, String field) {
         Long value = snapshot.getLong(field);
         return value == null ? 0L : value;
+    }
+
+    private static long firstLongValue(DocumentSnapshot snapshot, String... fields) {
+        for (String field : fields) {
+            long value = longValue(snapshot, field);
+            if (value > 0L) {
+                return value;
+            }
+        }
+        return 0L;
     }
 
     private static Double doubleValue(DocumentSnapshot snapshot, String field) {

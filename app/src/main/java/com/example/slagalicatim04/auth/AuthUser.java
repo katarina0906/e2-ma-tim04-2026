@@ -13,6 +13,7 @@ public class AuthUser {
     private final String avatarData;
     private final int tokens;
     private final int stars;
+    private final int totalStars;
     private final Double regionMapLatitude;
     private final Double regionMapLongitude;
     private final int avatarFramePlace;
@@ -64,6 +65,15 @@ public class AuthUser {
                     String passwordSalt, boolean emailVerified, String verificationToken,
                     String avatarData, int tokens, int stars, Double regionMapLatitude,
                     Double regionMapLongitude, int avatarFramePlace) {
+        this(id, email, username, region, passwordHash, passwordSalt, emailVerified,
+                verificationToken, avatarData, tokens, stars, stars, regionMapLatitude,
+                regionMapLongitude, avatarFramePlace);
+    }
+
+    public AuthUser(String id, String email, String username, String region, String passwordHash,
+                    String passwordSalt, boolean emailVerified, String verificationToken,
+                    String avatarData, int tokens, int stars, int totalStars,
+                    Double regionMapLatitude, Double regionMapLongitude, int avatarFramePlace) {
         this.id = id;
         this.email = email;
         this.username = username;
@@ -75,6 +85,7 @@ public class AuthUser {
         this.avatarData = avatarData;
         this.tokens = tokens;
         this.stars = stars;
+        this.totalStars = totalStars;
         this.regionMapLatitude = regionMapLatitude;
         this.regionMapLongitude = regionMapLongitude;
         this.avatarFramePlace = avatarFramePlace;
@@ -124,6 +135,10 @@ public class AuthUser {
         return stars;
     }
 
+    public int getTotalStars() {
+        return totalStars;
+    }
+
     public Double getRegionMapLatitude() {
         return regionMapLatitude;
     }
@@ -138,19 +153,19 @@ public class AuthUser {
 
     public AuthUser verified() {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt, true, "",
-                avatarData, tokens, stars, regionMapLatitude, regionMapLongitude,
+                avatarData, tokens, stars, totalStars, regionMapLatitude, regionMapLongitude,
                 avatarFramePlace);
     }
 
     public AuthUser withPassword(String passwordHash, String passwordSalt) {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt,
-                emailVerified, verificationToken, avatarData, tokens, stars,
+                emailVerified, verificationToken, avatarData, tokens, stars, totalStars,
                 regionMapLatitude, regionMapLongitude, avatarFramePlace);
     }
 
     public AuthUser withVerificationToken(String verificationToken) {
         return new AuthUser(id, email, username, region, passwordHash, passwordSalt,
-                emailVerified, verificationToken, avatarData, tokens, stars,
+                emailVerified, verificationToken, avatarData, tokens, stars, totalStars,
                 regionMapLatitude, regionMapLongitude, avatarFramePlace);
     }
 }

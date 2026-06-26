@@ -18,6 +18,8 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.example.slagalicatim04.auth.TokenService;
+import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.example.slagalicatim04.regions.AvatarFrameStyler;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
@@ -25,6 +27,7 @@ public class HomeFragment extends Fragment {
 
     private TextView usernameText;
     private TextView regionText;
+    private TextView leagueText;
     private TextView tokensText;
     private TextView starsText;
     private ImageView avatarImage;
@@ -43,6 +46,7 @@ public class HomeFragment extends Fragment {
         authService = AuthService.getInstance(requireContext());
         usernameText = view.findViewById(R.id.homeProfileUsername);
         regionText = view.findViewById(R.id.homeProfileRegion);
+        leagueText = view.findViewById(R.id.homeProfileLeague);
         tokensText = view.findViewById(R.id.homeProfileTokens);
         starsText = view.findViewById(R.id.homeProfileStars);
         avatarImage = view.findViewById(R.id.homeProfileAvatar);
@@ -91,8 +95,13 @@ public class HomeFragment extends Fragment {
     private void showProfile(AuthUser user) {
         usernameText.setText(user.getUsername());
         regionText.setText("Region\n" + user.getRegion());
-        tokensText.setText(getString(R.string.home_tokens_fmt, user.getTokens()));
-        starsText.setText("⭐\n" + user.getStars() + "\nZvezda");
+        LeagueInfo league = LeagueInfo.forStars(user.getTotalStars());
+        leagueText.setText(league.name);
+        leagueText.setCompoundDrawablesWithIntrinsicBounds(league.iconRes, 0, 0, 0);
+        leagueText.setCompoundDrawablePadding(6);
+        tokensText.setText(user.getTokens() + "\nTokena\n+"
+                + (TokenService.INITIAL_TOKENS + league.level) + "/dan");
+        starsText.setText(user.getTotalStars() + "\nZvezda");
         AvatarFrameStyler.apply(avatarFrame, user.getAvatarFramePlace());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }

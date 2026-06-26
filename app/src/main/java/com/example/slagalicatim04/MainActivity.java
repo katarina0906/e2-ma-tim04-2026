@@ -50,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private NavController navController;
     private ListenerRegistration notificationRegistration;
     private final Set<String> surfacedGameInvites = new HashSet<>();
+    private final Set<String> surfacedLeagueChanges = new HashSet<>();
     private final Map<String, AlertDialog> activeGameInviteDialogs = new HashMap<>();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -256,6 +257,9 @@ public class MainActivity extends AppCompatActivity {
                         SystemNotificationPublisher.show(MainActivity.this, item);
                         showGameInviteDialog(item);
                         scheduleInviteExpiration(item);
+                    } else if (shouldSurfaceLeagueChange(item)) {
+                        surfacedLeagueChanges.add(item.id);
+                        showLeagueChangeDialog(item);
                     }
                 }
             }
@@ -300,6 +304,26 @@ public class MainActivity extends AppCompatActivity {
                 && !item.read
                 && (user == null || inviterId == null || !user.getUid().equals(inviterId))
                 && !surfacedGameInvites.contains(item.id);
+    }
+
+    private boolean shouldSurfaceLeagueChange(InAppNotification item) {
+        return NotificationRouter.ACTION_LEAGUE.equals(item.actionHint)
+                && !item.read
+                && !surfacedLeagueChanges.contains(item.id);
+    }
+
+    private void showLeagueChangeDialog(InAppNotification item) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(item.title)
+                .setMessage(item.message)
+                .setPositiveButton("U redu", (dialog, which) ->
+                        new NotificationRepository().markRead(item.id, () -> {
+                        }, ignored -> {
+                        }))
+                .show();
     }
 
     private void showGameInviteDialog(InAppNotification item) {

@@ -1,5 +1,6 @@
 package com.example.slagalicatim04.friends;
 
+import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
@@ -285,6 +286,7 @@ public class FriendsRepository {
 
     private FriendItem toFriendItem(String userId, DocumentSnapshot user,
                                     Map<String, Integer> monthlyRanks) {
+        long totalStars = firstLongValue(user, "totalStars", "overallStars", "stars");
         return new FriendItem(
                 userId,
                 stringValue(user, "username", "Nepoznat igrac"),
@@ -293,8 +295,8 @@ public class FriendsRepository {
                 stringValue(user, "avatarData", ""),
                 (int) longValue(user, "avatarFramePlace"),
                 monthlyRanks.containsKey(userId) ? monthlyRanks.get(userId) : 0,
-                firstLongValue(user, "totalStars", "stars", "overallStars"),
-                firstStringValue(user, "league", "liga", "Bez lige"),
+                totalStars,
+                LeagueInfo.forStars(totalStars).name,
                 isOnline(user),
                 isInGame(user)
         );

@@ -142,16 +142,18 @@
             android:weightSum="3">
 
             <TextView
+                android:id="@+id/profileTokensSummary"
                 android:layout_width="0dp"
                 android:layout_height="86dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="🪙\n8\nTokena"
+                android:text="0\nTokena"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/profileStarsSummary"
                 android:layout_width="0dp"
                 android:layout_height="86dp"
                 android:layout_marginStart="8dp"
@@ -159,17 +161,18 @@
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="⭐\n245\nZvezda"
+                android:text="0\nZvezda"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/profileLeagueSummary"
                 android:layout_width="0dp"
                 android:layout_height="86dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="🏆\nZlatna\nLiga"
+                android:text="Nulta liga\njos 100"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
         </LinearLayout>
