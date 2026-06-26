@@ -55,6 +55,7 @@ public class RegionsFragment extends Fragment {
         cycleText = view.findViewById(R.id.regionCycleText);
         rankingList = view.findViewById(R.id.regionRankingList);
         view.findViewById(R.id.openRegionChatButton).setOnClickListener(v -> openRegionChat());
+        view.findViewById(R.id.openRegionChallengesButton).setOnClickListener(v -> openRegionChallenges());
 
         OpenStreetRegionMapStyler.configure(requireContext(), mapView, 7.0);
         currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
@@ -200,5 +201,14 @@ public class RegionsFragment extends Fragment {
         Bundle args = new Bundle();
         args.putString(RegionChatFragment.ARG_REGION_KEY, region.key);
         Navigation.findNavController(requireView()).navigate(R.id.regionChatFragment, args);
+    }
+
+    private void openRegionChallenges() {
+        RegionInfo region = currentUser == null
+                ? selectedRegion
+                : RegionInfo.byName(currentUser.getRegion());
+        Bundle args = new Bundle();
+        args.putString(RegionChallengesFragment.ARG_REGION_KEY, region.key);
+        Navigation.findNavController(requireView()).navigate(R.id.regionChallengesFragment, args);
     }
 }
