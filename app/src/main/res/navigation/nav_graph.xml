@@ -110,6 +110,12 @@
         tools:layout="@layout/fragment_regions" />
 
     <fragment
+        android:id="@+id/regionChatFragment"
+        android:name="com.example.slagalicatim04.fragments.RegionChatFragment"
+        android:label="Čet regiona"
+        tools:layout="@layout/fragment_region_chat" />
+
+    <fragment
         android:id="@+id/koZnaZnaFragment"
         android:name="com.example.slagalicatim04.fragments.KoZnaZnaFragment"
         android:label="Ko zna zna"

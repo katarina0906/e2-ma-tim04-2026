@@ -11,6 +11,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
@@ -53,6 +54,7 @@ public class RegionsFragment extends Fragment {
         selectedRegionStats = view.findViewById(R.id.selectedRegionStats);
         cycleText = view.findViewById(R.id.regionCycleText);
         rankingList = view.findViewById(R.id.regionRankingList);
+        view.findViewById(R.id.openRegionChatButton).setOnClickListener(v -> openRegionChat());
 
         OpenStreetRegionMapStyler.configure(requireContext(), mapView, 7.0);
         currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
@@ -189,5 +191,14 @@ public class RegionsFragment extends Fragment {
             row.setBackgroundColor(item.currentPlayerRegion ? 0xFFEDE7F6 : 0xFFFFFFFF);
             rankingList.addView(row);
         }
+    }
+
+    private void openRegionChat() {
+        RegionInfo region = currentUser == null
+                ? selectedRegion
+                : RegionInfo.byName(currentUser.getRegion());
+        Bundle args = new Bundle();
+        args.putString(RegionChatFragment.ARG_REGION_KEY, region.key);
+        Navigation.findNavController(requireView()).navigate(R.id.regionChatFragment, args);
     }
 }

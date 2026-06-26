@@ -151,6 +151,14 @@ public class NotificationsFragment extends Fragment implements NotificationsAdap
         }
         notificationService.recordOpen(item, () -> {
         }, this::showOperationError);
+        if (NotificationRouter.ACTION_CHAT.equals(item.actionHint)) {
+            Bundle args = new Bundle();
+            args.putString(RegionChatFragment.ARG_REGION_KEY,
+                    item.data.get("regionKey") == null ? item.targetId : item.data.get("regionKey"));
+            Navigation.findNavController(binding.getRoot())
+                    .navigate(R.id.regionChatFragment, args);
+            return;
+        }
         Navigation.findNavController(binding.getRoot())
                 .navigate(R.id.notificationTargetFragment, NotificationRouter.targetArgs(item));
     }

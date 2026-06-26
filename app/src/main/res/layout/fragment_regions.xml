@@ -30,6 +30,13 @@
             android:textSize="14sp"
             tools:text="Mesecni ciklus: 2026-06" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openRegionChatButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Otvori čet regiona" />
+
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
