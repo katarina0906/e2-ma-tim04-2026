@@ -255,7 +255,8 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
             repository.resolveForfeitTurn(currentState);
         }
 
-        roundText.setText(getString(R.string.sk_round_fmt, currentState.getRound(), 2));
+        roundText.setText(getString(R.string.sk_round_fmt, currentState.getRound(),
+                currentState.isSoloChallenge() ? 1 : 2));
         score0.setText(playerLabel(currentState.getPlayer1Id(), currentState.getPlayer1Name(), "Igrac 1")
                 + ": " + (int) currentState.getPlayer1Score());
         score1.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2")
@@ -349,7 +350,7 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
     }
 
     private String statusForPlayer(int myPlayer, boolean myTurn) {
-        if (currentState.hasForfeit()) {
+        if (!currentState.isSoloChallenge() && currentState.hasForfeit()) {
             String status = currentState.getStatusMessage();
             return isEmpty(status) ? "Protivnik je napustio partiju." : status;
         }
@@ -363,6 +364,9 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
             return SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase())
                     ? "Tvoj ukradeni pokušaj. Imaš jednu šansu."
                     : "Tvoj red. Složi kombinaciju i pošalji.";
+        }
+        if (currentState.isSoloChallenge()) {
+            return "Samostalna partija je u toku.";
         }
         return "Igrač " + currentState.getActivePlayer()
                 + " je na potezu. Čekaj svoj red.";

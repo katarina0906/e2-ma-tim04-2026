@@ -180,7 +180,8 @@ public class MyNumberRepository {
         updates.put("player2Score", nextP2Score);
         updates.put("myNumberStatusMessage", score.message);
         updates.put(state.getRound() == 1 ? "myNumberRound1Result" : "myNumberRound2Result", score.message);
-        if (state.getRound() == 1) {
+        int roundCount = state.isSoloChallenge() ? 1 : 2;
+        if (state.getRound() < roundCount) {
             updates.putAll(newRoundState(2, nextP1Score, nextP2Score));
         } else {
             updates.put("currentGame", "matchResult");

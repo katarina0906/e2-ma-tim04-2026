@@ -155,7 +155,7 @@ public class StepByStepMatchRepository {
         } else if (gameService.shouldFinishSteal(state)) {
             updates.put("statusMessage", "Ukradeni pokusaj je istekao bez bodova.");
             putRoundResult(updates, state.getRound(), "Runda je zavrsena bez osvojenih bodova.");
-            applyNextRound(updates, state.getRound());
+            applyNextRound(updates, state);
             updates.put("updatedAt", FieldValue.serverTimestamp());
         }
         if (!updates.isEmpty()) {
@@ -207,7 +207,7 @@ public class StepByStepMatchRepository {
         } else if (gameService.isStealPhase(phase) && state.getStealPlayer() == forfeitedPlayer) {
             updates.put("statusMessage", "Igrac je napustio partiju. Runda se zavrsava bez bodova.");
             putRoundResult(updates, state.getRound(), "Protivnik je napustio partiju tokom runde.");
-            applyNextRound(updates, state.getRound());
+            applyNextRound(updates, state);
             updates.put("updatedAt", FieldValue.serverTimestamp());
         }
         if (!updates.isEmpty()) {
@@ -272,7 +272,7 @@ public class StepByStepMatchRepository {
             updates.put("statusMessage", "Igrac " + state.getActivePlayer() + " je pogodio u "
                     + openedSteps + ". koraku i osvojio " + points + " bodova.");
         }
-        applyNextRound(updates, state.getRound());
+        applyNextRound(updates, state);
     }
 
     private void startStealUpdates(Map<String, Object> updates, int activePlayer) {
@@ -289,8 +289,10 @@ public class StepByStepMatchRepository {
         updates.put("updatedAt", FieldValue.serverTimestamp());
     }
 
-    private void applyNextRound(Map<String, Object> updates, int currentRound) {
-        if (currentRound >= 2) {
+    private void applyNextRound(Map<String, Object> updates, StepByStepMatchState state) {
+        int currentRound = state.getRound();
+        int roundCount = state.isSoloChallenge() ? 1 : 2;
+        if (currentRound >= roundCount) {
             updates.put("finished", false);
             updates.put("stepByStepFinished", true);
             updates.put("currentGame", "myNumber");

@@ -244,13 +244,14 @@ public class MultiplayerGameRepository {
                                  Map<String, Object> updates) {
             boolean secondChance = Boolean.TRUE.equals(match.getBoolean("spSecondChance"));
             int currentRound = intValue(match.getLong("spCurrentRound"));
+            int roundCount = matchingRoundCount(match);
             String forfeitedPlayerId = match.getString("forfeitedPlayerId");
             if (!secondChance && matched.size() < MATCHING_PAIR_COUNT) {
                 String currentPlayer = match.getString("spCurrentPlayer");
                 String nextPlayer = currentPlayer.equals(match.getString("player1Id"))
                         ? match.getString("player2Id") : match.getString("player1Id");
                 if (!isEmpty(forfeitedPlayerId) && forfeitedPlayerId.equals(nextPlayer)) {
-                    if (currentRound + 1 < MATCHING_ROUND_COUNT) {
+                    if (currentRound + 1 < roundCount) {
                         updates.put("spCurrentRound", currentRound + 1);
                         updates.put("spCurrentPlayer", match.getString("player2Id"));
                         updates.put("spSecondChance", false);
@@ -268,7 +269,7 @@ public class MultiplayerGameRepository {
                 updates.put("spAttemptedPairs", new ArrayList<>());
             updates.put("spMatchedPairs", matched);
             updates.put("spTurnPairCount", MATCHING_PAIR_COUNT - matched.size());
-        } else if (currentRound + 1 < MATCHING_ROUND_COUNT) {
+        } else if (currentRound + 1 < roundCount) {
             updates.put("spCurrentRound", currentRound + 1);
             updates.put("spCurrentPlayer", match.getString("player2Id"));
             updates.put("spSecondChance", false);
@@ -334,6 +335,10 @@ public class MultiplayerGameRepository {
 
     private boolean isPhase(DocumentSnapshot match, String phase) {
         return match.exists() && phase.equals(match.getString("phase"));
+    }
+
+    private int matchingRoundCount(DocumentSnapshot match) {
+        return Boolean.TRUE.equals(match.getBoolean("soloChallenge")) ? 1 : MATCHING_ROUND_COUNT;
     }
 
     private static boolean isEmpty(String value) {

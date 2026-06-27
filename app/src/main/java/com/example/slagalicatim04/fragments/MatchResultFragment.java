@@ -14,9 +14,12 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
+import com.example.slagalicatim04.auth.AuthService;
+import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.matchresult.MatchResultRepository;
 import com.example.slagalicatim04.matchresult.MatchResultState;
+import com.example.slagalicatim04.regions.RegionChallengeRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 import com.google.firebase.firestore.ListenerRegistration;
 
@@ -31,6 +34,8 @@ public class MatchResultFragment extends Fragment {
     private ImageView player1Avatar;
     private ImageView player2Avatar;
     private boolean releasedPlayers;
+    private boolean submittedChallengeScore;
+    private View homeButton;
 
     @Nullable
     @Override
@@ -52,8 +57,7 @@ public class MatchResultFragment extends Fragment {
         player2Score = view.findViewById(R.id.matchResultPlayer2Score);
         player1Avatar = view.findViewById(R.id.matchResultPlayer1Avatar);
         player2Avatar = view.findViewById(R.id.matchResultPlayer2Avatar);
-        view.findViewById(R.id.matchResultHomeButton).setOnClickListener(
-                button -> Navigation.findNavController(button).navigate(R.id.homeFragment));
+        homeButton = view.findViewById(R.id.matchResultHomeButton);
 
         registration = new MatchResultRepository().listen(roomId,
                 new MatchResultRepository.Listener() {
@@ -79,24 +83,28 @@ public class MatchResultFragment extends Fragment {
         String firstName = playerName(state.getPlayer1Name(), "Igrac 1");
         String secondName = playerName(state.getPlayer2Name(), "Igrac 2");
         updateHeaderVisibility(state.isSoloChallenge());
+        bindExitAction(state);
         player1Name.setText(firstName);
         player1Score.setText(scoreSummary(state.getPlayer1Score(), state.getPlayer1StarDelta(),
-                state.getPlayer1EarnedTokens()));
+                state.getPlayer1EarnedTokens(), state.isSoloChallenge()));
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), player1Avatar);
         if (!state.isSoloChallenge()) {
             player2Name.setText(secondName);
             player2Score.setText(scoreSummary(state.getPlayer2Score(), state.getPlayer2StarDelta(),
-                    state.getPlayer2EarnedTokens()));
+                    state.getPlayer2EarnedTokens(), false));
             PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), player2Avatar);
         }
         releasePlayers(state);
-        if (state.winner() == 1) {
+        if (state.isSoloChallenge()) {
+            winnerText.setText(soloSummary(state));
+        } else if (state.winner() == 1) {
             winnerText.setText("Pobednik je " + firstName + "!");
         } else if (state.winner() == 2) {
             winnerText.setText("Pobednik je " + secondName + "!");
         } else {
             winnerText.setText("Partija je zavrsena nereseno.");
         }
+        submitChallengeScore(state);
     }
 
     private void updateHeaderVisibility(boolean soloChallenge) {
@@ -104,6 +112,21 @@ public class MatchResultFragment extends Fragment {
         player2Name.setVisibility(visibility);
         player2Score.setVisibility(visibility);
         player2Avatar.setVisibility(visibility);
+    }
+
+    private void bindExitAction(MatchResultState state) {
+        if (homeButton == null) {
+            return;
+        }
+        homeButton.setOnClickListener(button -> {
+            if (state.isSoloChallenge() && !isEmpty(state.getChallengeId())) {
+                Bundle args = new Bundle();
+                args.putString(RegionChallengeRoomFragment.ARG_CHALLENGE_ID, state.getChallengeId());
+                Navigation.findNavController(button).navigate(R.id.regionChallengeRoomFragment, args);
+                return;
+            }
+            Navigation.findNavController(button).navigate(R.id.homeFragment);
+        });
     }
 
     private void releasePlayers(MatchResultState state) {
@@ -123,13 +146,36 @@ public class MatchResultFragment extends Fragment {
         }).start();
     }
 
+    private void submitChallengeScore(MatchResultState state) {
+        if (submittedChallengeScore || !state.isSoloChallenge() || isEmpty(state.getChallengeId())) {
+            return;
+        }
+        AuthUser currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        if (currentUser == null) {
+            return;
+        }
+        submittedChallengeScore = true;
+        new RegionChallengeRepository().submitScore(
+                currentUser,
+                state.getChallengeId(),
+                state.getPlayer1Score(),
+                () -> { },
+                error -> submittedChallengeScore = error != null
+                        && error.getMessage() != null
+                        && error.getMessage().contains("vec poslat")
+                        ? true : false);
+    }
+
     private String playerName(String name, String fallback) {
         return isEmpty(name) ? fallback : name;
     }
 
-    private String scoreSummary(long score, long starDelta, long earnedTokens) {
+    private String scoreSummary(long score, long starDelta, long earnedTokens, boolean soloChallenge) {
         StringBuilder builder = new StringBuilder();
         builder.append(score).append(" bodova");
+        if (soloChallenge) {
+            return builder.toString();
+        }
         if (starDelta != 0) {
             builder.append(" • ");
             if (starDelta > 0) {
@@ -141,6 +187,10 @@ public class MatchResultFragment extends Fragment {
             builder.append(" • +").append(earnedTokens).append(" token");
         }
         return builder.toString();
+    }
+
+    private String soloSummary(MatchResultState state) {
+        return "Osvojili ste " + state.getPlayer1Score() + " bodova.";
     }
 
     private boolean isEmpty(String value) {

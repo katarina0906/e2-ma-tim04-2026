@@ -201,6 +201,42 @@ public class RegionChallengeRepository {
                 .addOnFailureListener(onError::accept);
     }
 
+    public void finishChallenge(AuthUser user, String challengeId,
+                                Runnable onSuccess,
+                                java.util.function.Consumer<Exception> onError) {
+        String validationError = validateUser(user);
+        if (validationError != null) {
+            onError.accept(new IllegalArgumentException(validationError));
+            return;
+        }
+        DocumentReference challengeRef = challengeRef(challengeId);
+        firestore.runTransaction(transaction -> {
+            DocumentSnapshot challenge = transaction.get(challengeRef);
+            RegionChallenge state = RegionChallenge.fromDocument(challenge);
+            if (!state.canFinish(user.getId())) {
+                throw new IllegalArgumentException("Izazov moze zavrsiti samo kreator dok je aktivan.");
+            }
+            Map<String, Object> participants = mutableMap(challenge.get("participants"));
+            Timestamp submittedAt = Timestamp.now();
+            for (Map.Entry<String, Object> entry : new ArrayList<>(participants.entrySet())) {
+                RegionChallengeParticipant participant =
+                        RegionChallengeParticipant.fromMap(entry.getKey(), entry.getValue());
+                if (!participant.submitted) {
+                    participants.put(entry.getKey(), participantPayload(
+                            participant.username,
+                            participant.score,
+                            true,
+                            submittedAt,
+                            participant.starsAwarded,
+                            participant.tokensAwarded));
+                }
+            }
+            finalizeChallenge(transaction, challengeRef, state, participants);
+            return null;
+        }).addOnSuccessListener(ignored -> onSuccess.run())
+                .addOnFailureListener(onError::accept);
+    }
+
     public void submitScore(AuthUser user, String challengeId, long score,
                             Runnable onSuccess,
                             java.util.function.Consumer<Exception> onError) {
@@ -291,6 +327,7 @@ public class RegionChallengeRepository {
                 state.put("forfeitedPlayerId", SOLO_CHALLENGE_OPPONENT_ID);
                 state.put("winnerByForfeitId", user.getId());
                 state.put("soloChallenge", true);
+                state.put("challengeId", challengeId);
                 state.put("statusMessage", "Samostalna partija izazova je pokrenuta.");
                 state.put("kzzCurrentQuestion", 0L);
                 state.put("kzzAnswers", new HashMap<>());

@@ -202,7 +202,7 @@ public class StepByStepMatchState {
     }
 
     public String effectivePhase() {
-        if (!finished && !hasSecondPlayer()) {
+        if (!soloChallenge && !finished && !hasSecondPlayer()) {
             return PHASE_WAITING;
         }
         return phase;

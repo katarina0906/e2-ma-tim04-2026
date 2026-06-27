@@ -243,8 +243,8 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
         }
 
         int myPlayer = currentState.playerNumber(playerSession.getId());
-        if (currentState.isForfeited(currentState.getPlayer1Id())
-                || currentState.isForfeited(currentState.getPlayer2Id())) {
+        if (!currentState.isSoloChallenge() && (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id()))) {
             matchRepository.resolveForfeitTurn(currentState);
         }
         publishSharedClock(myPlayer);
@@ -258,7 +258,8 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
             lastClockTickAt = System.currentTimeMillis();
         }
 
-        roundLabelText.setText("Runda " + currentState.getRound() + " / 2");
+        roundLabelText.setText("Runda " + currentState.getRound() + " / "
+                + (currentState.isSoloChallenge() ? 1 : 2));
         timerValue.setText(timerText(currentState, phase, waitingForServerTime, secondsLeft));
         currentStepValue.setText(openedSteps + " / 7");
         player1ScoreText.setText(playerLabel(currentState.getPlayer1Id(),
@@ -275,13 +276,14 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
         updatePlayerScoreStyle(myPlayer);
         statusText.setText(waitingForServerTime
                 ? "Sinhronizuje se pocetak runde..."
-                : gameService.statusText(currentState, myPlayer));
+                : soloStatusText(currentState, myPlayer));
         updateStepCards(roundData, openedSteps);
         updateControls(phase, currentState.isFinished(), !waitingForServerTime && isMyTurn);
         updateBanner();
 
         matchRepository.expireIfNeeded(playerSession, currentState);
-        if (!currentState.isFinished() && currentState.hasSecondPlayer()) {
+        if (!currentState.isFinished()
+                && (currentState.isSoloChallenge() || currentState.hasSecondPlayer())) {
             uiHandler.postDelayed(ticker, 1000);
         }
     }
@@ -365,9 +367,13 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
         if (finished) {
             answerHelpText.setText("Igra je zavrsena.");
         } else if (!isMyTurn) {
-            answerHelpText.setText("Cekajte svoj red. Polje za odgovor ce se otkljucati kada budete na potezu.");
+            answerHelpText.setText(currentState != null && currentState.isSoloChallenge()
+                    ? "Samostalna partija je u toku."
+                    : "Cekajte svoj red. Polje za odgovor ce se otkljucati kada budete na potezu.");
         } else if (gameService.isStealPhase(phase)) {
-            answerHelpText.setText("Protivnik nije pogodio. Unesite odgovor za 5 bodova.");
+            answerHelpText.setText(currentState != null && currentState.isSoloChallenge()
+                    ? "Imas jos jednu sansu za 5 bodova."
+                    : "Protivnik nije pogodio. Unesite odgovor za 5 bodova.");
         } else {
             answerHelpText.setText("Tvoj red. Unesite konacni pojam.");
         }
@@ -397,12 +403,36 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
             return finalScoreMessage();
         }
         if (!isEmpty(currentState.getStatusMessage())) {
-            return currentState.getStatusMessage();
+            return sanitizeSoloMessage(currentState.getStatusMessage());
         }
         if (currentState.getRound() == 2 && !isEmpty(currentState.getRound1Result())) {
-            return currentState.getRound1Result();
+            return sanitizeSoloMessage(currentState.getRound1Result());
         }
         return "";
+    }
+
+    private String soloStatusText(StepByStepMatchState state, int myPlayer) {
+        String base = gameService.statusText(state, myPlayer);
+        return sanitizeSoloMessage(base);
+    }
+
+    private String sanitizeSoloMessage(String message) {
+        if (currentState == null || !currentState.isSoloChallenge() || isEmpty(message)) {
+            return message;
+        }
+        String normalized = message.toLowerCase();
+        if (normalized.contains("napustio partiju")) {
+            return "Samostalna partija je u toku.";
+        }
+        if (normalized.contains("protivnik nije pogodio")) {
+            return "Imas jos jednu sansu za 5 bodova.";
+        }
+        if (normalized.contains("cekas da se drugi igrac pridruzi")
+                || normalized.contains("ceka se drugi igrac")
+                || normalized.contains("drugi igrac trenutno odgovara")) {
+            return "Samostalna partija je u toku.";
+        }
+        return message;
     }
 
     private String finalScoreMessage() {

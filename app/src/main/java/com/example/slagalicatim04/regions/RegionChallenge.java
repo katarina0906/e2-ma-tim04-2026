@@ -119,6 +119,10 @@ public class RegionChallenge {
         return isActive() && participant != null && !participant.submitted;
     }
 
+    public boolean canFinish(String userId) {
+        return isActive() && creatorId.equals(safe(userId));
+    }
+
     public long totalStakeStars() {
         return participantCount() * stakeStars;
     }

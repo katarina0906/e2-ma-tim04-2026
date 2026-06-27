@@ -11,6 +11,7 @@ public class MatchResultState {
     private final String player1Name;
     private final String player2Id;
     private final String player2Name;
+    private final String challengeId;
     private final boolean soloChallenge;
     private final long player1Score;
     private final long player2Score;
@@ -27,6 +28,7 @@ public class MatchResultState {
         player1Name = stringValue(snapshot, "player1Name");
         player2Id = stringValue(snapshot, "player2Id");
         player2Name = stringValue(snapshot, "player2Name");
+        challengeId = stringValue(snapshot, "challengeId");
         soloChallenge = Boolean.TRUE.equals(snapshot.getBoolean("soloChallenge"));
         player1Score = longValue(snapshot, "player1Score");
         player2Score = longValue(snapshot, "player2Score");
@@ -43,6 +45,7 @@ public class MatchResultState {
     public String getPlayer1Name() { return player1Name; }
     public String getPlayer2Id() { return player2Id; }
     public String getPlayer2Name() { return player2Name; }
+    public String getChallengeId() { return challengeId; }
     public boolean isSoloChallenge() { return soloChallenge; }
     public long getPlayer1Score() { return player1Score; }
     public long getPlayer2Score() { return player2Score; }

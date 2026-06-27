@@ -58,6 +58,7 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
     private long lastClockTickAt;
     private int lastRenderedRound = -1;
     private boolean navigatedToMatchResult;
+    private boolean awaitingSoloResult;
 
     private ScrollView scrollView;
     private TextView roundText;
@@ -230,7 +231,8 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
         boolean submitted = currentState.isSubmitted(myPlayer);
         boolean canUseExpression = !finished && currentState.isNumbersShown() && !submitted && myPlayer != 0;
 
-        roundText.setText(finished ? "Moj broj - kraj" : "Runda " + currentState.getRound() + " / 2");
+        roundText.setText(finished ? "Moj broj - kraj" : "Runda " + currentState.getRound() + " / "
+                + (currentState.isSoloChallenge() ? 1 : 2));
         timerValue.setText(timerText(finished));
         player1ScoreText.setText(playerLabel(currentState.getPlayer1Id(), currentState.getPlayer1Name(), "Igrac 1") + ": "
                 + currentState.getPlayer1Score());
@@ -320,23 +322,29 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
     }
 
     private void updateStatus(boolean finished, boolean isActivePlayer, boolean submitted) {
-        if (currentState.isForfeited(currentState.getPlayer1Id())
-                || currentState.isForfeited(currentState.getPlayer2Id())) {
+        if (!currentState.isSoloChallenge() && (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id()))) {
             statusValue.setText(isEmpty(currentState.getStatusMessage())
                     ? "Protivnik je napustio partiju. Nastavljas bez cekanja."
                     : currentState.getStatusMessage());
         } else if (finished) {
             statusValue.setText(currentState.getStatusMessage());
         } else if (submitted) {
-            statusValue.setText("Tvoje resenje je poslato. Ceka se protivnik ili kraj vremena.");
+            statusValue.setText(currentState.isSoloChallenge()
+                    ? "Obrada rezultata..."
+                    : "Tvoje resenje je poslato. Ceka se protivnik ili kraj vremena.");
         } else if (!currentState.isTargetShown()) {
             statusValue.setText(isActivePlayer
                     ? "Tvoja runda. Klikni Stop broj ili sacekaj automatsko prikazivanje."
-                    : "Cekajte da igrac " + currentState.getActivePlayer() + " zaustavi trazeni broj.");
+                    : (currentState.isSoloChallenge()
+                    ? "Samostalna partija je u toku."
+                    : "Cekajte da igrac " + currentState.getActivePlayer() + " zaustavi trazeni broj."));
         } else if (!currentState.isNumbersShown()) {
             statusValue.setText(isActivePlayer
                     ? "Klikni Stop brojevi ili sacekaj automatsko prikazivanje."
-                    : "Cekajte da igrac " + currentState.getActivePlayer() + " zaustavi brojeve.");
+                    : (currentState.isSoloChallenge()
+                    ? "Samostalna partija je u toku."
+                    : "Cekajte da igrac " + currentState.getActivePlayer() + " zaustavi brojeve."));
         } else {
             statusValue.setText("Sastavite izraz i posaljite resenje pre isteka vremena.");
         }
@@ -347,7 +355,11 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
                 ? currentState.getP1Result()
                 : (myPlayer == 2 ? currentState.getP2Result() : null);
         resultValue.setText(myResult == null ? "-" : String.valueOf(myResult));
-        scoreValue.setText(finished ? "Ukupni bodovi su upisani gore." : "Ceka se ishod runde.");
+        scoreValue.setText(finished
+                ? "Ukupni bodovi su upisani gore."
+                : (currentState.isSoloChallenge() && submitted
+                ? "Prelaz na kraj partije..."
+                : "Ceka se ishod runde."));
 
         if (!finished && !submitted) {
             resultBanner.setVisibility(View.GONE);
@@ -358,7 +370,9 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
         resultBannerTitle.setText(finished ? "Moj broj zavrsen" : "Resenje poslato");
         resultBannerMessage.setText(finished
                 ? currentState.getStatusMessage()
-                : "Tvoj rezultat je sacuvan u bazi. Ishod se racuna kada oba igraca posalju resenje ili istekne vreme.");
+                : (currentState.isSoloChallenge()
+                ? "Rezultat se obraduje. Sledi ekran kraja partije."
+                : "Tvoj rezultat je sacuvan u bazi. Ishod se racuna kada oba igraca posalju resenje ili istekne vreme."));
     }
 
     private void appendNumber(int index) {
@@ -443,8 +457,23 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
             return;
         }
         repository.submit(playerSession, normalizeExpression(buildExpressionText()));
+        if (currentState.isSoloChallenge()) {
+            awaitingSoloResult = true;
+            uiHandler.postDelayed(this::navigateToMatchResultIfReady, 300);
+        }
         setExpressionControlsEnabled(false);
         checkExpressionButton.setEnabled(false);
+    }
+
+    private void navigateToMatchResultIfReady() {
+        if (!isAdded() || getView() == null || !awaitingSoloResult || currentState == null) {
+            return;
+        }
+        if (currentState.isMatchResult()) {
+            navigateToMatchResult();
+            return;
+        }
+        uiHandler.postDelayed(this::navigateToMatchResultIfReady, 250);
     }
 
     private void setExpressionControlsEnabled(boolean enabled) {

@@ -195,17 +195,22 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
             rightButtons[index].setText(currentRound[pairIndex].getRight());
         }
 
-        roundText.setText("Runda " + (state.getCurrentRound() + 1) + " / 2");
+        roundText.setText("Runda " + (state.getCurrentRound() + 1) + " / "
+                + (state.isSoloChallenge() ? 1 : 2));
         String playerLabel = state.getCurrentPlayer().equals(state.getPlayer1Id())
                 ? playerLabel(state.getPlayer1Id(), state.getPlayer1Name(), "Igrac 1")
                 : playerLabel(state.getPlayer2Id(), state.getPlayer2Name(), "Igrac 2");
-        if (state.hasForfeit()) {
+        if (state.isSoloChallenge()) {
+            turnText.setText("Samostalna partija");
+        } else if (state.hasForfeit()) {
             turnText.setText("Protivnik je napustio partiju");
         } else {
             turnText.setText("Na potezu: " + playerLabel
                     + (state.isSecondChance() ? " (preostali parovi)" : " (pocinje rundu)"));
         }
-        if (state.hasForfeit()) {
+        if (state.isSoloChallenge()) {
+            resultText.setText("Tvoj potez.");
+        } else if (state.hasForfeit()) {
             resultText.setText(nonEmpty(state.getStatusMessage(),
                     "Protivnik je napustio partiju. Nastavljas bez cekanja."));
         } else if (state.getCurrentPlayer().equals(multiplayerRepository.getPlayerId())) {
@@ -215,7 +220,7 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         }
 
         setButtonsForState(state);
-        if (state.hasForfeit() && state.isForfeited(state.getCurrentPlayer())) {
+        if (!state.isSoloChallenge() && state.hasForfeit() && state.isForfeited(state.getCurrentPlayer())) {
             resultText.setText(nonEmpty(state.getStatusMessage(),
                     "Protivnik je napustio partiju. Preskace se cekanje."));
             multiplayerRepository.expireMatchingChance(
@@ -324,12 +329,16 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         boolean hasState = state != null;
         turnText.setText(opponentLeft
                 ? "Protivnik je napustio partiju"
-                : (hasState ? "Stanje partije je sacuvano" : "Ceka se drugi igrac"));
+                : (hasState && state.isSoloChallenge()
+                ? "Samostalna partija je sacuvana"
+                : (hasState ? "Stanje partije je sacuvano" : "Ceka se drugi igrac")));
         timerText.setText("30s");
         resultText.setText(opponentLeft
                 ? nonEmpty(state.getStatusMessage(), "Stanje partije je sacuvano u bazi.")
                 : (hasState
-                ? nonEmpty(state.getStatusMessage(), "Partija je aktivna. Sacekaj sledece stanje iz baze.")
+                ? nonEmpty(state.getStatusMessage(), state.isSoloChallenge()
+                ? "Partija je aktivna."
+                : "Partija je aktivna. Sacekaj sledece stanje iz baze.")
                 : "Oba uredjaja treba da otvore igru Spojnice."));
         disableAllButtons();
     }

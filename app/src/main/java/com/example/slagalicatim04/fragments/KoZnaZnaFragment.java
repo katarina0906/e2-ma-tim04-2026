@@ -149,12 +149,14 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         }
 
         boolean answered = state.hasAnswered(multiplayerRepository.getPlayerId());
-        if (state.hasForfeit()) {
+        if (state.isSoloChallenge()) {
+            resultText.setText(answered ? "Odgovor je sacuvan." : "");
+        } else if (state.hasForfeit()) {
             resultText.setText(nonEmpty(state.getStatusMessage(),
                     "Protivnik je napustio partiju. Nastavljas bez cekanja."));
         }
         setButtonsEnabled(!answered);
-        if (answered && !state.hasForfeit()) {
+        if (answered && !state.hasForfeit() && !state.isSoloChallenge()) {
             resultText.setText("Odgovor je poslat. Ceka se drugi igrac.");
         }
         int requiredAnswers = (state.isForfeited(state.getPlayer1Id())
@@ -267,13 +269,17 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         boolean hasState = state != null;
         questionText.setText(opponentLeft
                 ? "Protivnik je napustio partiju."
+                : (hasState && state.isSoloChallenge()
+                ? "Samostalna partija je sacuvana."
                 : ((hasPersistedStatus || hasState)
                 ? "Stanje partije je sacuvano."
-                : "Ceka se drugi igrac..."));
+                : "Ceka se drugi igrac...")));
         resultText.setText(hasPersistedStatus
                 ? persistedStatus
                 : (hasState
-                ? "Partija je aktivna. Sacekaj sledece stanje iz baze."
+                ? (state.isSoloChallenge()
+                ? "Partija je aktivna."
+                : "Partija je aktivna. Sacekaj sledece stanje iz baze.")
                 : "Oba uredjaja treba da otvore igru Ko zna zna."));
         setButtonsEnabled(false);
     }
