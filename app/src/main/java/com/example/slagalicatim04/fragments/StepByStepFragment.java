@@ -267,8 +267,11 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
         player2ScoreText.setText(playerLabel(currentState.getPlayer2Id(),
                         currentState.getPlayer2Name(), "Igrac 2") + ": "
                 + currentState.getPlayer2Score());
+        updateHeaderVisibility(currentState.isSoloChallenge());
         PlayerHeaderLoader.loadAvatar(currentState.getPlayer1Id(), player1Avatar);
-        PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
+        if (!currentState.isSoloChallenge()) {
+            PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
+        }
         updatePlayerScoreStyle(myPlayer);
         statusText.setText(waitingForServerTime
                 ? "Sinhronizuje se pocetak runde..."
@@ -324,6 +327,12 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
                 ? 0xFFD32F2F : Color.BLACK);
         player2ScoreText.setTextColor(currentState != null && currentState.isForfeited(currentState.getPlayer2Id())
                 ? 0xFFD32F2F : Color.BLACK);
+    }
+
+    private void updateHeaderVisibility(boolean soloChallenge) {
+        int visibility = soloChallenge ? View.GONE : View.VISIBLE;
+        player2ScoreText.setVisibility(visibility);
+        player2Avatar.setVisibility(visibility);
     }
 
     private void updateStepCards(StepByStepRound roundData, int openedSteps) {
@@ -399,6 +408,17 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
     private String finalScoreMessage() {
         long p1 = currentState.getPlayer1Score();
         long p2 = currentState.getPlayer2Score();
+        if (currentState.isSoloChallenge()) {
+            StringBuilder builder = new StringBuilder();
+            if (!isEmpty(currentState.getRound1Result())) {
+                builder.append(currentState.getRound1Result()).append("\n");
+            }
+            if (!isEmpty(currentState.getRound2Result())) {
+                builder.append(currentState.getRound2Result()).append("\n");
+            }
+            builder.append("Konacno: ").append(p1);
+            return builder.toString();
+        }
         String winner;
         if (p1 > p2) {
             winner = "Pobednik: Igrac 1";

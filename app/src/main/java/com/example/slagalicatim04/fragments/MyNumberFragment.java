@@ -236,8 +236,11 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
                 + currentState.getPlayer1Score());
         player2ScoreText.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2") + ": "
                 + currentState.getPlayer2Score());
+        updateHeaderVisibility(currentState.isSoloChallenge());
         PlayerHeaderLoader.loadAvatar(currentState.getPlayer1Id(), player1Avatar);
-        PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
+        if (!currentState.isSoloChallenge()) {
+            PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
+        }
         updatePlayerScoreStyle(myPlayer);
         targetValue.setText(currentState.isTargetShown() ? String.valueOf(currentState.getTarget()) : "?");
         updateNumberViews(canUseExpression);
@@ -513,6 +516,12 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
                 ? 0xFFD32F2F : Color.BLACK);
         player2ScoreText.setTextColor(currentState != null && currentState.isForfeited(currentState.getPlayer2Id())
                 ? 0xFFD32F2F : Color.BLACK);
+    }
+
+    private void updateHeaderVisibility(boolean soloChallenge) {
+        int visibility = soloChallenge ? View.GONE : View.VISIBLE;
+        player2ScoreText.setVisibility(visibility);
+        player2Avatar.setVisibility(visibility);
     }
 
     private StepByStepPlayerSession resolveCurrentUser() {

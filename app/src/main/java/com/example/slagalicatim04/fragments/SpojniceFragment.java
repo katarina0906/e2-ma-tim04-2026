@@ -173,6 +173,7 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         submitting = false;
         selectedLeftIndex = -1;
         updateScores(state);
+        updateHeaderVisibility(state.isSoloChallenge());
 
         if ("next".equals(state.getStatus())) {
             navigateToAssociations();
@@ -293,7 +294,15 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         playerOneScoreText.setTextColor(state.isForfeited(state.getPlayer1Id()) ? COLOR_FORFEITED : Color.BLACK);
         playerTwoScoreText.setTextColor(state.isForfeited(state.getPlayer2Id()) ? COLOR_FORFEITED : Color.BLACK);
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
-        PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+        if (!state.isSoloChallenge()) {
+            PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+        }
+    }
+
+    private void updateHeaderVisibility(boolean soloChallenge) {
+        int visibility = soloChallenge ? View.GONE : View.VISIBLE;
+        playerTwoScoreText.setVisibility(visibility);
+        playerTwoAvatar.setVisibility(visibility);
     }
 
     private String playerLabel(String playerId, String name, String fallback) {
@@ -330,7 +339,9 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         roundText.setText("Spojnice zavrsene");
         turnText.setText("Kraj igre");
         timerText.setText("0s");
-        resultText.setText("Igrac 1: " + state.getScore(state.getPlayer1Id())
+        resultText.setText(state.isSoloChallenge()
+                ? "Rezultat: " + state.getScore(state.getPlayer1Id())
+                : "Igrac 1: " + state.getScore(state.getPlayer1Id())
                 + " | Igrac 2: " + state.getScore(state.getPlayer2Id()));
         disableAllButtons();
     }

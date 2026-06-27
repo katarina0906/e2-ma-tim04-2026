@@ -36,6 +36,7 @@ public class RegionChallengeRepository {
     private static final int MAX_PLAYERS = 4;
     private static final long MAX_STAKE_STARS = 10L;
     private static final long MAX_STAKE_TOKENS = 2L;
+    private static final String SOLO_CHALLENGE_OPPONENT_ID = "__solo_challenge__";
 
     private final FirebaseFirestore firestore;
 
@@ -245,6 +246,71 @@ public class RegionChallengeRepository {
                 .addOnFailureListener(onError::accept);
     }
 
+    public void ensureSoloChallengeMatch(AuthUser user, String challengeId,
+                                         java.util.function.Consumer<String> onSuccess,
+                                         java.util.function.Consumer<Exception> onError) {
+        String validationError = validateUser(user);
+        if (validationError != null) {
+            onError.accept(new IllegalArgumentException(validationError));
+            return;
+        }
+        String roomId = soloChallengeRoomId(challengeId, user.getId());
+        DocumentReference matchRef = firestore.collection("stepByStepMatches").document(roomId);
+        DocumentReference userRef = firestore.collection("users").document(user.getId());
+        firestore.runTransaction(transaction -> {
+            DocumentSnapshot challengeSnapshot = transaction.get(challengeRef(challengeId));
+            RegionChallenge challenge = RegionChallenge.fromDocument(challengeSnapshot);
+            if (!challenge.hasParticipant(user.getId())) {
+                throw new IllegalArgumentException("Nisi prijavljen u ovaj izazov.");
+            }
+
+            DocumentSnapshot matchSnapshot = transaction.get(matchRef);
+            if (!matchSnapshot.exists()) {
+                Map<String, Object> state = new HashMap<>();
+                state.put("player1Id", user.getId());
+                state.put("player1Name", displayName(user));
+                state.put("player2Id", SOLO_CHALLENGE_OPPONENT_ID);
+                state.put("player2Name", "");
+                state.put("player1Score", 0L);
+                state.put("player2Score", 0L);
+                state.put("player1Ready", true);
+                state.put("player2Ready", false);
+                state.put("round", 1L);
+                state.put("phase", "koZnaZnaPlaying");
+                state.put("currentGame", "koZnaZna");
+                state.put("activePlayer", 1L);
+                state.put("stealPlayer", 0L);
+                state.put("roundStartedAt", 0L);
+                state.put("stealStartedAt", 0L);
+                state.put("visibleStepCount", 0L);
+                state.put("secondsLeft", 0L);
+                state.put("round1Result", "");
+                state.put("round2Result", "");
+                state.put("finalResult", "");
+                state.put("finished", false);
+                state.put("forfeitedPlayerId", SOLO_CHALLENGE_OPPONENT_ID);
+                state.put("winnerByForfeitId", user.getId());
+                state.put("soloChallenge", true);
+                state.put("statusMessage", "Samostalna partija izazova je pokrenuta.");
+                state.put("kzzCurrentQuestion", 0L);
+                state.put("kzzAnswers", new HashMap<>());
+                state.put("updatedAt", FieldValue.serverTimestamp());
+                transaction.set(matchRef, state);
+            }
+
+            Map<String, Object> userState = new HashMap<>();
+            userState.put("active", true);
+            userState.put("inGame", true);
+            userState.put("lastActiveAt", System.currentTimeMillis());
+            userState.put("currentRoomId", roomId);
+            userState.put("currentMatchId", roomId);
+            userState.put("currentOpponentId", challengeId);
+            transaction.set(userRef, userState, SetOptions.merge());
+            return roomId;
+        }).addOnSuccessListener(onSuccess::accept)
+                .addOnFailureListener(onError::accept);
+    }
+
     private void finalizeChallenge(com.google.firebase.firestore.Transaction transaction,
                                    DocumentReference challengeRef,
                                    RegionChallenge existingState,
@@ -387,6 +453,14 @@ public class RegionChallengeRepository {
 
     private DocumentReference challengeRef(String challengeId) {
         return firestore.collection("regionChallenges").document(challengeId);
+    }
+
+    private static String soloChallengeRoomId(String challengeId, String userId) {
+        return "challenge_" + safeKey(challengeId) + "_" + safeKey(userId);
+    }
+
+    private static String safeKey(String value) {
+        return isEmpty(value) ? "unknown" : value.trim().replace('/', '_');
     }
 
     private static boolean isEmpty(String value) {

@@ -228,6 +228,7 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
                 + ": " + (int) currentState.getPlayer1Score());
         scoreP2.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2")
                 + ": " + (int) currentState.getPlayer2Score());
+        scoreP2.setVisibility(currentState.isSoloChallenge() ? View.GONE : View.VISIBLE);
         scoreP1.setTextColor(currentState.isForfeited(currentState.getPlayer1Id()) ? 0xFFD32F2F : Color.BLACK);
         scoreP2.setTextColor(currentState.isForfeited(currentState.getPlayer2Id()) ? 0xFFD32F2F : Color.BLACK);
         roundPointsText.setText(getString(R.string.aso_round_points_fmt,

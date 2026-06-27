@@ -217,6 +217,7 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
     }
 
     private void updateScores(QuizMultiplayerState state) {
+        updateHeaderVisibility(state.isSoloChallenge());
         lastKnownPlayer1Label = resolvePlayerLabel(state.getPlayer1Id(), state.getPlayer1Name(),
                 lastKnownPlayer1Label, "Igrac 1");
         lastKnownPlayer2Label = resolvePlayerLabel(state.getPlayer2Id(), state.getPlayer2Name(),
@@ -230,7 +231,15 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         opponentScoreText.setTextColor(state.isForfeited(state.getPlayer2Id())
                 ? COLOR_FORFEITED : COLOR_SCORE_DEFAULT);
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
-        PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+        if (!state.isSoloChallenge()) {
+            PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+        }
+    }
+
+    private void updateHeaderVisibility(boolean soloChallenge) {
+        int visibility = soloChallenge ? View.GONE : View.VISIBLE;
+        opponentScoreText.setVisibility(visibility);
+        playerTwoAvatar.setVisibility(visibility);
     }
 
     private String resolvePlayerLabel(String playerId, String name, String previousLabel,
@@ -274,7 +283,9 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         timerText.setText("0s");
         questionCounterText.setText("Kraj igre");
         questionText.setText("Ko zna zna je zavrsena!");
-        resultText.setText("Igrac 1: " + state.getScore(state.getPlayer1Id())
+        resultText.setText(state.isSoloChallenge()
+                ? "Rezultat: " + state.getScore(state.getPlayer1Id())
+                : "Igrac 1: " + state.getScore(state.getPlayer1Id())
                 + " | Igrac 2: " + state.getScore(state.getPlayer2Id()));
         setButtonsEnabled(false);
     }

@@ -14,6 +14,7 @@ public class QuizMultiplayerState {
     private final String player2Id;
     private final String player2Name;
     private final String forfeitedPlayerId;
+    private final boolean soloChallenge;
     private final String statusMessage;
     private final Map<String, Long> scores;
     private final Map<String, Object> answers;
@@ -30,6 +31,7 @@ public class QuizMultiplayerState {
         player2Id = stringValue(snapshot.getString("player2Id"), "");
         player2Name = stringValue(snapshot.getString("player2Name"), "");
         forfeitedPlayerId = stringValue(snapshot.getString("forfeitedPlayerId"), "");
+        soloChallenge = Boolean.TRUE.equals(snapshot.getBoolean("soloChallenge"));
         statusMessage = stringValue(snapshot.getString("statusMessage"), "");
         scores = scoreMap(snapshot);
         answers = objectMapValue(snapshot.get("kzzAnswers"));
@@ -69,6 +71,10 @@ public class QuizMultiplayerState {
 
     public String getStatusMessage() {
         return statusMessage;
+    }
+
+    public boolean isSoloChallenge() {
+        return soloChallenge;
     }
 
     public int getScore(String playerId) {

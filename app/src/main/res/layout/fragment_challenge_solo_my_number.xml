@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F4F1FA"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Samostalna partija"
+            android:textColor="#1E1E2F"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/challengeSoloStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="#5F5A73"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/challengeSoloTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="#6B52AE"
+            android:paddingLeft="14dp"
+            android:paddingTop="8dp"
+            android:paddingRight="14dp"
+            android:paddingBottom="8dp"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Trazeni broj"
+            android:textColor="#1E1E2F"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/challengeSoloTarget"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:padding="16dp"
+            android:textColor="#6B52AE"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+
+        <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:columnCount="3">
+
+            <TextView android:id="@+id/challengeSoloNumber1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="6dp" android:background="#FFFFFF" android:gravity="center" android:padding="18dp" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:id="@+id/challengeSoloNumber2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="6dp" android:background="#FFFFFF" android:gravity="center" android:padding="18dp" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:id="@+id/challengeSoloNumber3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="6dp" android:background="#FFFFFF" android:gravity="center" android:padding="18dp" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:id="@+id/challengeSoloNumber4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="6dp" android:background="#FFFFFF" android:gravity="center" android:padding="18dp" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:id="@+id/challengeSoloNumber5" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="6dp" android:background="#FFFFFF" android:gravity="center" android:padding="18dp" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:id="@+id/challengeSoloNumber6" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="6dp" android:background="#FFFFFF" android:gravity="center" android:padding="18dp" android:textSize="20sp" android:textStyle="bold" />
+        </GridLayout>
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/challengeSoloExpressionInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:enabled="false"
+            android:hint="Izraz" />
+
+        <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:columnCount="4">
+
+            <com.google.android.material.button.MaterialButton android:id="@+id/challengeSoloOpenParenthesisButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="4dp" android:text="(" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/challengeSoloCloseParenthesisButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="4dp" android:text=")" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/challengeSoloPlusButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="4dp" android:text="+" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/challengeSoloMinusButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="4dp" android:text="-" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/challengeSoloMultiplyButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="4dp" android:text="*" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/challengeSoloDivideButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="4dp" android:text="/" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/challengeSoloBackspaceButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="4dp" android:text="Obrisi" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/challengeSoloClearButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:layout_margin="4dp" android:text="Clear" />
+        </GridLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/challengeSoloSubmitButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Zavrsi partiju" />
+
+        <TextView
+            android:id="@+id/challengeSoloResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:textColor="#1E1E2F"
+            android:textSize="15sp" />
+    </LinearLayout>
+</ScrollView>

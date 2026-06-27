@@ -260,6 +260,7 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
                 + ": " + (int) currentState.getPlayer1Score());
         score1.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2")
                 + ": " + (int) currentState.getPlayer2Score());
+        score1.setVisibility(currentState.isSoloChallenge() ? View.GONE : View.VISIBLE);
         score0.setTextColor(currentState.isForfeited(currentState.getPlayer1Id()) ? 0xFFD32F2F : Color.BLACK);
         score1.setTextColor(currentState.isForfeited(currentState.getPlayer2Id()) ? 0xFFD32F2F : Color.BLACK);
         renderHistory();
@@ -283,7 +284,9 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
         statusText.setText(statusForPlayer(myPlayer, myTurn));
 
         if (currentState.isFinished()) {
-            resultText.setText(getString(
+            resultText.setText(currentState.isSoloChallenge()
+                    ? "Rezultat: " + (int) currentState.getPlayer1Score()
+                    : getString(
                     R.string.sk_game_over_fmt,
                     (int) currentState.getPlayer1Score(),
                     (int) currentState.getPlayer2Score()

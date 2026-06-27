@@ -78,14 +78,17 @@ public class MatchResultFragment extends Fragment {
         }
         String firstName = playerName(state.getPlayer1Name(), "Igrac 1");
         String secondName = playerName(state.getPlayer2Name(), "Igrac 2");
+        updateHeaderVisibility(state.isSoloChallenge());
         player1Name.setText(firstName);
-        player2Name.setText(secondName);
         player1Score.setText(scoreSummary(state.getPlayer1Score(), state.getPlayer1StarDelta(),
                 state.getPlayer1EarnedTokens()));
-        player2Score.setText(scoreSummary(state.getPlayer2Score(), state.getPlayer2StarDelta(),
-                state.getPlayer2EarnedTokens()));
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), player1Avatar);
-        PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), player2Avatar);
+        if (!state.isSoloChallenge()) {
+            player2Name.setText(secondName);
+            player2Score.setText(scoreSummary(state.getPlayer2Score(), state.getPlayer2StarDelta(),
+                    state.getPlayer2EarnedTokens()));
+            PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), player2Avatar);
+        }
         releasePlayers(state);
         if (state.winner() == 1) {
             winnerText.setText("Pobednik je " + firstName + "!");
@@ -94,6 +97,13 @@ public class MatchResultFragment extends Fragment {
         } else {
             winnerText.setText("Partija je zavrsena nereseno.");
         }
+    }
+
+    private void updateHeaderVisibility(boolean soloChallenge) {
+        int visibility = soloChallenge ? View.GONE : View.VISIBLE;
+        player2Name.setVisibility(visibility);
+        player2Score.setVisibility(visibility);
+        player2Avatar.setVisibility(visibility);
     }
 
     private void releasePlayers(MatchResultState state) {

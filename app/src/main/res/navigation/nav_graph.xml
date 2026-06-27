@@ -128,6 +128,12 @@
         tools:layout="@layout/fragment_region_challenge_room" />
 
     <fragment
+        android:id="@+id/challengeSoloMyNumberFragment"
+        android:name="com.example.slagalicatim04.fragments.ChallengeSoloMyNumberFragment"
+        android:label="Samostalna partija"
+        tools:layout="@layout/fragment_challenge_solo_my_number" />
+
+    <fragment
         android:id="@+id/koZnaZnaFragment"
         android:name="com.example.slagalicatim04.fragments.KoZnaZnaFragment"
         android:label="Ko zna zna"

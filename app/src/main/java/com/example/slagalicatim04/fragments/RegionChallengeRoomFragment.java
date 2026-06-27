@@ -12,6 +12,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
@@ -34,6 +35,7 @@ public class RegionChallengeRoomFragment extends Fragment {
     private TextView metaText;
     private TextView participantsText;
     private EditText scoreInput;
+    private MaterialButton playButton;
     private MaterialButton startButton;
     private MaterialButton submitButton;
 
@@ -54,6 +56,7 @@ public class RegionChallengeRoomFragment extends Fragment {
         metaText = view.findViewById(R.id.regionChallengeRoomMeta);
         participantsText = view.findViewById(R.id.regionChallengeRoomParticipants);
         scoreInput = view.findViewById(R.id.regionChallengeRoomScoreInput);
+        playButton = view.findViewById(R.id.regionChallengeRoomPlayButton);
         startButton = view.findViewById(R.id.regionChallengeRoomStartButton);
         submitButton = view.findViewById(R.id.regionChallengeRoomSubmitButton);
         scoreInput.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -96,10 +99,12 @@ public class RegionChallengeRoomFragment extends Fragment {
         boolean canStart = challenge.canStart(currentUserId());
         boolean canSubmit = challenge.canSubmit(currentUserId());
 
+        playButton.setVisibility(joined ? View.VISIBLE : View.GONE);
         startButton.setVisibility(canStart ? View.VISIBLE : View.GONE);
         submitButton.setVisibility(canSubmit ? View.VISIBLE : View.GONE);
         scoreInput.setVisibility(canSubmit ? View.VISIBLE : View.GONE);
 
+        playButton.setOnClickListener(v -> openChallengeGame(challenge.id));
         startButton.setOnClickListener(v -> repository.startChallenge(currentUser, challenge.id,
                 () -> showToast("Izazov je pokrenut."),
                 this::showError));
@@ -110,6 +115,7 @@ public class RegionChallengeRoomFragment extends Fragment {
 
         if (!joined) {
             metaText.setText("Nisi u ovom izazovu.");
+            playButton.setVisibility(View.GONE);
             startButton.setVisibility(View.GONE);
             submitButton.setVisibility(View.GONE);
             scoreInput.setVisibility(View.GONE);
@@ -121,11 +127,11 @@ public class RegionChallengeRoomFragment extends Fragment {
                 + " tokena • Igraci: " + challenge.participantCount() + "/" + challenge.maxPlayers;
         if (challenge.isOpen()) {
             return challenge.participantCount() >= 2
-                    ? base + "\nKreator odavde pokrece izazov."
-                    : base + "\nCeka se jos bar jedan igrac.";
+                    ? base + "\nUdji u partiju, a kreator odavde pokrece izazov."
+                    : base + "\nUdji u partiju. Ceka se jos bar jedan igrac.";
         }
         if (challenge.isActive()) {
-            return base + "\nIzazov je poceo. Posalji svoj rezultat kad zavrsis partiju.";
+            return base + "\nIzazov je poceo. Udji u partiju i posalji rezultat kad zavrsis.";
         }
         return base + "\nIzazov je zavrsen.";
     }
@@ -166,6 +172,20 @@ public class RegionChallengeRoomFragment extends Fragment {
 
     private String currentUserId() {
         return currentUser == null ? "" : currentUser.getId();
+    }
+
+    private void openChallengeGame(String challengeId) {
+        if (getView() == null) {
+            return;
+        }
+        repository.ensureSoloChallengeMatch(currentUser, challengeId, roomId -> {
+            if (!isAdded() || getView() == null) {
+                return;
+            }
+            Bundle args = new Bundle();
+            args.putString("roomId", roomId);
+            Navigation.findNavController(requireView()).navigate(R.id.koZnaZnaFragment, args);
+        }, this::showError);
     }
 
     private void showError(Exception error) {
