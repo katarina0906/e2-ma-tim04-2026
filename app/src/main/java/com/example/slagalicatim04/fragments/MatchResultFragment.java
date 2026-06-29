@@ -10,8 +10,10 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
+import androidx.navigation.NavOptions;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
@@ -23,7 +25,10 @@ import com.example.slagalicatim04.regions.RegionChallengeRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 import com.google.firebase.firestore.ListenerRegistration;
 
-public class MatchResultFragment extends Fragment {
+public class MatchResultFragment extends Fragment implements ExitConfirmationHandler {
+    private static final String ARG_SOLO_PREVIEW_SCORE = "soloPreviewScore";
+    private static final String ARG_SOLO_PREVIEW = "soloPreview";
+
     private String roomId = MultiplayerGameRepository.TEST_ROOM_ID;
     private ListenerRegistration registration;
     private TextView winnerText;
@@ -31,11 +36,15 @@ public class MatchResultFragment extends Fragment {
     private TextView player1Score;
     private TextView player2Name;
     private TextView player2Score;
+    private TextView soloDescription;
+    private View playersRow;
     private ImageView player1Avatar;
     private ImageView player2Avatar;
     private boolean releasedPlayers;
     private boolean submittedChallengeScore;
     private View homeButton;
+    private boolean hasSoloPreview;
+    private long soloPreviewScore;
 
     @Nullable
     @Override
@@ -50,14 +59,34 @@ public class MatchResultFragment extends Fragment {
         if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
             roomId = getArguments().getString("roomId");
         }
+        if (getArguments() != null) {
+            hasSoloPreview = getArguments().getBoolean(ARG_SOLO_PREVIEW, false);
+            soloPreviewScore = getArguments().getLong(ARG_SOLO_PREVIEW_SCORE, 0L);
+        }
         winnerText = view.findViewById(R.id.matchResultWinner);
         player1Name = view.findViewById(R.id.matchResultPlayer1Name);
         player1Score = view.findViewById(R.id.matchResultPlayer1Score);
         player2Name = view.findViewById(R.id.matchResultPlayer2Name);
         player2Score = view.findViewById(R.id.matchResultPlayer2Score);
+        soloDescription = view.findViewById(R.id.matchResultSoloDescription);
+        playersRow = view.findViewById(R.id.matchResultPlayersRow);
         player1Avatar = view.findViewById(R.id.matchResultPlayer1Avatar);
         player2Avatar = view.findViewById(R.id.matchResultPlayer2Avatar);
         homeButton = view.findViewById(R.id.matchResultHomeButton);
+        if (playersRow != null) {
+            playersRow.setVisibility(View.GONE);
+        }
+        if (soloDescription != null) {
+            soloDescription.setVisibility(View.GONE);
+        }
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        navigateHome(view);
+                    }
+                });
+        renderSoloPreview();
 
         registration = new MatchResultRepository().listen(roomId,
                 new MatchResultRepository.Listener() {
@@ -76,6 +105,16 @@ public class MatchResultFragment extends Fragment {
                 });
     }
 
+    private void renderSoloPreview() {
+        if (!hasSoloPreview) {
+            return;
+        }
+        updateHeaderVisibility(true);
+        updateSoloDescription(true);
+        winnerText.setText("Samostalna partija je zavrsena. Osvojili ste "
+                + soloPreviewScore + " bodova.");
+    }
+
     private void render(MatchResultState state) {
         if (!state.isMatchResult() || !isAdded()) {
             return;
@@ -83,6 +122,7 @@ public class MatchResultFragment extends Fragment {
         String firstName = playerName(state.getPlayer1Name(), "Igrac 1");
         String secondName = playerName(state.getPlayer2Name(), "Igrac 2");
         updateHeaderVisibility(state.isSoloChallenge());
+        updateSoloDescription(state.isSoloChallenge());
         bindExitAction(state);
         player1Name.setText(firstName);
         player1Score.setText(scoreSummary(state.getPlayer1Score(), state.getPlayer1StarDelta(),
@@ -108,25 +148,34 @@ public class MatchResultFragment extends Fragment {
     }
 
     private void updateHeaderVisibility(boolean soloChallenge) {
+        if (playersRow != null) {
+            playersRow.setVisibility(soloChallenge ? View.GONE : View.VISIBLE);
+        }
         int visibility = soloChallenge ? View.GONE : View.VISIBLE;
         player2Name.setVisibility(visibility);
         player2Score.setVisibility(visibility);
         player2Avatar.setVisibility(visibility);
     }
 
+    private void updateSoloDescription(boolean soloChallenge) {
+        if (soloDescription == null) {
+            return;
+        }
+        if (!soloChallenge) {
+            soloDescription.setVisibility(View.GONE);
+            return;
+        }
+        soloDescription.setVisibility(View.VISIBLE);
+        soloDescription.setText("Igraci igraju samostalno partiju, a svaka igra se pojavljuje jednom.\n"
+                + "Igrac sa najvise osvojenih poena osvaja 75% ukupnog uloga.\n"
+                + "Naredni igrac po broju poena dobija nazad svoj ulog.");
+    }
+
     private void bindExitAction(MatchResultState state) {
         if (homeButton == null) {
             return;
         }
-        homeButton.setOnClickListener(button -> {
-            if (state.isSoloChallenge() && !isEmpty(state.getChallengeId())) {
-                Bundle args = new Bundle();
-                args.putString(RegionChallengeRoomFragment.ARG_CHALLENGE_ID, state.getChallengeId());
-                Navigation.findNavController(button).navigate(R.id.regionChallengeRoomFragment, args);
-                return;
-            }
-            Navigation.findNavController(button).navigate(R.id.homeFragment);
-        });
+        homeButton.setOnClickListener(this::navigateHome);
     }
 
     private void releasePlayers(MatchResultState state) {
@@ -190,11 +239,30 @@ public class MatchResultFragment extends Fragment {
     }
 
     private String soloSummary(MatchResultState state) {
-        return "Osvojili ste " + state.getPlayer1Score() + " bodova.";
+        return "Samostalna partija je zavrsena. Osvojili ste " + state.getPlayer1Score()
+                + " bodova.";
     }
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private void navigateHome(View source) {
+        Navigation.findNavController(source).navigate(
+                R.id.homeFragment,
+                null,
+                new NavOptions.Builder()
+                        .setPopUpTo(R.id.nav_graph, true)
+                        .build());
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (getView() == null) {
+            return false;
+        }
+        navigateHome(requireView());
+        return true;
     }
 
     @Override

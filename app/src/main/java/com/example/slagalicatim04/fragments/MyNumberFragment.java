@@ -42,6 +42,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MyNumberFragment extends Fragment implements ExitConfirmationHandler {
+    private static final String ARG_SOLO_PREVIEW_SCORE = "soloPreviewScore";
+    private static final String ARG_SOLO_PREVIEW = "soloPreview";
+
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable ticker = this::renderCurrentState;
     private final List<ExpressionToken> expressionTokens = new ArrayList<>();
@@ -58,7 +61,6 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
     private long lastClockTickAt;
     private int lastRenderedRound = -1;
     private boolean navigatedToMatchResult;
-    private boolean awaitingSoloResult;
 
     private ScrollView scrollView;
     private TextView roundText;
@@ -203,6 +205,10 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
     private void renderCurrentState() {
         uiHandler.removeCallbacks(ticker);
         if (currentState == null || !isAdded()) {
+            return;
+        }
+        if (shouldNavigateSoloToMatchResult()) {
+            navigateToMatchResult();
             return;
         }
         if (currentState.isMatchResult()) {
@@ -458,22 +464,46 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
         }
         repository.submit(playerSession, normalizeExpression(buildExpressionText()));
         if (currentState.isSoloChallenge()) {
-            awaitingSoloResult = true;
-            uiHandler.postDelayed(this::navigateToMatchResultIfReady, 300);
+            navigateToMatchResult(buildSoloPreviewScore(buildExpressionText()));
+            return;
         }
         setExpressionControlsEnabled(false);
         checkExpressionButton.setEnabled(false);
     }
 
-    private void navigateToMatchResultIfReady() {
-        if (!isAdded() || getView() == null || !awaitingSoloResult || currentState == null) {
-            return;
+    private boolean shouldNavigateSoloToMatchResult() {
+        if (currentState == null || !currentState.isSoloChallenge()) {
+            return false;
         }
-        if (currentState.isMatchResult()) {
-            navigateToMatchResult();
-            return;
+        int myPlayer = myPlayer();
+        if (myPlayer == 0) {
+            return false;
         }
-        uiHandler.postDelayed(this::navigateToMatchResultIfReady, 250);
+        return currentState.isMatchResult()
+                || MyNumberGameService.PHASE_FINISHED.equals(currentState.getPhase())
+                || currentState.isSubmitted(myPlayer);
+    }
+
+    private long buildSoloPreviewScore(String expression) {
+        if (currentState == null) {
+            return 0L;
+        }
+        Integer result = null;
+        try {
+            result = new MyNumberGameService().evaluate(
+                    normalizeExpression(expression),
+                    currentState.getNumbers());
+        } catch (RuntimeException ignored) {
+            result = null;
+        }
+        MyNumberGameService.RoundScore roundScore = new MyNumberGameService().scoreRound(
+                currentState.getTarget(),
+                currentState.getActivePlayer(),
+                myPlayer() == 1 ? result : null,
+                myPlayer() == 2 ? result : null);
+        long currentScore = myPlayer() == 2 ? currentState.getPlayer2Score() : currentState.getPlayer1Score();
+        long earned = myPlayer() == 2 ? roundScore.p2Points : roundScore.p1Points;
+        return currentScore + earned;
     }
 
     private void setExpressionControlsEnabled(boolean enabled) {
@@ -572,12 +602,20 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
     }
 
     private void navigateToMatchResult() {
+        navigateToMatchResult(null);
+    }
+
+    private void navigateToMatchResult(@Nullable Long soloPreviewScore) {
         if (navigatedToMatchResult || getView() == null) {
             return;
         }
         navigatedToMatchResult = true;
         Bundle args = new Bundle();
         args.putString("roomId", roomId);
+        if (soloPreviewScore != null && currentState != null && currentState.isSoloChallenge()) {
+            args.putBoolean(ARG_SOLO_PREVIEW, true);
+            args.putLong(ARG_SOLO_PREVIEW_SCORE, soloPreviewScore);
+        }
         Navigation.findNavController(requireView()).navigate(R.id.matchResultFragment, args);
     }
 
