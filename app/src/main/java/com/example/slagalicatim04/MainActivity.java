@@ -95,6 +95,17 @@ public class MainActivity extends AppCompatActivity {
 
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(binding.bottomNavigation, navController);
+        binding.bottomNavigation.setOnItemReselectedListener(item -> {
+            if (item.getItemId() == R.id.regionsFragment) {
+                navController.navigate(
+                        R.id.regionsFragment,
+                        null,
+                        new androidx.navigation.NavOptions.Builder()
+                                .setLaunchSingleTop(true)
+                                .setPopUpTo(R.id.regionsFragment, false)
+                                .build());
+            }
+        });
 
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
             int destinationId = destination.getId();

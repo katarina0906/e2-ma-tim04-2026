@@ -18,6 +18,7 @@ public class MatchingMultiplayerState {
     private final String player2Id;
     private final String player2Name;
     private final String forfeitedPlayerId;
+    private final boolean soloChallenge;
     private final String statusMessage;
     private final List<Long> matchedPairs;
     private final List<Long> attemptedPairs;
@@ -37,6 +38,7 @@ public class MatchingMultiplayerState {
         player2Id = stringValue(snapshot.getString("player2Id"), "");
         player2Name = stringValue(snapshot.getString("player2Name"), "");
         forfeitedPlayerId = stringValue(snapshot.getString("forfeitedPlayerId"), "");
+        soloChallenge = Boolean.TRUE.equals(snapshot.getBoolean("soloChallenge"));
         statusMessage = stringValue(snapshot.getString("statusMessage"), "");
         matchedPairs = listValue(snapshot.get("spMatchedPairs"));
         attemptedPairs = listValue(snapshot.get("spAttemptedPairs"));
@@ -85,6 +87,10 @@ public class MatchingMultiplayerState {
 
     public String getStatusMessage() {
         return statusMessage;
+    }
+
+    public boolean isSoloChallenge() {
+        return soloChallenge;
     }
 
     public boolean isMatched(int pairIndex) {

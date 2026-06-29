@@ -212,9 +212,10 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
             matchRepository.resolveForfeitTurn(currentState);
         }
         boolean myTurn = myPlayer != 0 && myPlayer == currentState.getActivePlayer();
-        roundText.setText(getString(R.string.aso_round_label, currentState.getRound(), 2));
-        if (currentState.isForfeited(currentState.getPlayer1Id())
-                || currentState.isForfeited(currentState.getPlayer2Id())) {
+        roundText.setText(getString(R.string.aso_round_label, currentState.getRound(),
+                currentState.isSoloChallenge() ? 1 : 2));
+        if (!currentState.isSoloChallenge() && (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id()))) {
             turnText.setText("Protivnik je napustio partiju");
         } else {
             String activeLabel = currentState.getActivePlayer() == 1
@@ -228,13 +229,14 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
                 + ": " + (int) currentState.getPlayer1Score());
         scoreP2.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2")
                 + ": " + (int) currentState.getPlayer2Score());
+        scoreP2.setVisibility(currentState.isSoloChallenge() ? View.GONE : View.VISIBLE);
         scoreP1.setTextColor(currentState.isForfeited(currentState.getPlayer1Id()) ? 0xFFD32F2F : Color.BLACK);
         scoreP2.setTextColor(currentState.isForfeited(currentState.getPlayer2Id()) ? 0xFFD32F2F : Color.BLACK);
         roundPointsText.setText(getString(R.string.aso_round_points_fmt,
                 currentState.getRoundPlayer1Score(), currentState.getRoundPlayer2Score()));
         resultText.setText(currentState.getStatusMessage());
-        if (currentState.isForfeited(currentState.getPlayer1Id())
-                || currentState.isForfeited(currentState.getPlayer2Id())) {
+        if (!currentState.isSoloChallenge() && (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id()))) {
             phaseHint.setText(isEmpty(currentState.getStatusMessage())
                     ? "Protivnik je napustio partiju. Nastavljas bez cekanja."
                     : currentState.getStatusMessage());
@@ -245,7 +247,9 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
                 : (currentState.canContinueAfterCorrect()
                 ? "Tacan odgovor: pogadjaj dalje ili otvori novo polje."
                 : "Pogodi kolonu ili konacno resenje, ili predaj potez."))
-                : "Igrac " + currentState.getActivePlayer() + " je na potezu. Cekaj svoj red.");
+                : (currentState.isSoloChallenge()
+                ? "Samostalna partija je u toku."
+                : "Igrac " + currentState.getActivePlayer() + " je na potezu. Cekaj svoj red."));
         }
 
         renderBoard(myTurn);

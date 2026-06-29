@@ -245,13 +245,17 @@ public class SkockoMatchRepository {
 
     private void finishOrStartNextRound(Map<String, Object> updates, SkockoMatchState state,
                                         String message) {
-        if (state.getRound() >= 2) {
+        if (state.getRound() >= roundCount(state)) {
             applyStepByStepStart(updates);
             updates.put("statusMessage", message);
         } else {
             applyRoundStart(updates, 2);
             updates.put("statusMessage", message + " Pocinje runda 2, igra igrac 2.");
         }
+    }
+
+    private int roundCount(SkockoMatchState state) {
+        return state.isSoloChallenge() ? 1 : 2;
     }
 
     private void applyStealStart(Map<String, Object> updates, int roundStarter) {

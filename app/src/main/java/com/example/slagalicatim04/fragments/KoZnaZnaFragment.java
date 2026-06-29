@@ -149,12 +149,14 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         }
 
         boolean answered = state.hasAnswered(multiplayerRepository.getPlayerId());
-        if (state.hasForfeit()) {
+        if (state.isSoloChallenge()) {
+            resultText.setText(answered ? "Odgovor je sacuvan." : "");
+        } else if (state.hasForfeit()) {
             resultText.setText(nonEmpty(state.getStatusMessage(),
                     "Protivnik je napustio partiju. Nastavljas bez cekanja."));
         }
         setButtonsEnabled(!answered);
-        if (answered && !state.hasForfeit()) {
+        if (answered && !state.hasForfeit() && !state.isSoloChallenge()) {
             resultText.setText("Odgovor je poslat. Ceka se drugi igrac.");
         }
         int requiredAnswers = (state.isForfeited(state.getPlayer1Id())
@@ -217,6 +219,7 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
     }
 
     private void updateScores(QuizMultiplayerState state) {
+        updateHeaderVisibility(state.isSoloChallenge());
         lastKnownPlayer1Label = resolvePlayerLabel(state.getPlayer1Id(), state.getPlayer1Name(),
                 lastKnownPlayer1Label, "Igrac 1");
         lastKnownPlayer2Label = resolvePlayerLabel(state.getPlayer2Id(), state.getPlayer2Name(),
@@ -230,7 +233,15 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         opponentScoreText.setTextColor(state.isForfeited(state.getPlayer2Id())
                 ? COLOR_FORFEITED : COLOR_SCORE_DEFAULT);
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
-        PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+        if (!state.isSoloChallenge()) {
+            PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+        }
+    }
+
+    private void updateHeaderVisibility(boolean soloChallenge) {
+        int visibility = soloChallenge ? View.GONE : View.VISIBLE;
+        opponentScoreText.setVisibility(visibility);
+        playerTwoAvatar.setVisibility(visibility);
     }
 
     private String resolvePlayerLabel(String playerId, String name, String previousLabel,
@@ -258,13 +269,17 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         boolean hasState = state != null;
         questionText.setText(opponentLeft
                 ? "Protivnik je napustio partiju."
+                : (hasState && state.isSoloChallenge()
+                ? "Samostalna partija je sacuvana."
                 : ((hasPersistedStatus || hasState)
                 ? "Stanje partije je sacuvano."
-                : "Ceka se drugi igrac..."));
+                : "Ceka se drugi igrac...")));
         resultText.setText(hasPersistedStatus
                 ? persistedStatus
                 : (hasState
-                ? "Partija je aktivna. Sacekaj sledece stanje iz baze."
+                ? (state.isSoloChallenge()
+                ? "Partija je aktivna."
+                : "Partija je aktivna. Sacekaj sledece stanje iz baze.")
                 : "Oba uredjaja treba da otvore igru Ko zna zna."));
         setButtonsEnabled(false);
     }
@@ -274,7 +289,9 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         timerText.setText("0s");
         questionCounterText.setText("Kraj igre");
         questionText.setText("Ko zna zna je zavrsena!");
-        resultText.setText("Igrac 1: " + state.getScore(state.getPlayer1Id())
+        resultText.setText(state.isSoloChallenge()
+                ? "Rezultat: " + state.getScore(state.getPlayer1Id())
+                : "Igrac 1: " + state.getScore(state.getPlayer1Id())
                 + " | Igrac 2: " + state.getScore(state.getPlayer2Id()));
         setButtonsEnabled(false);
     }

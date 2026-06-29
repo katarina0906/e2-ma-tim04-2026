@@ -17,6 +17,7 @@ public class AssociationMatchState {
     private final String player2Id;
     private final String player2Name;
     private final String forfeitedPlayerId;
+    private final boolean soloChallenge;
     private final long player1Score;
     private final long player2Score;
     private final int round;
@@ -40,6 +41,7 @@ public class AssociationMatchState {
         player2Id = stringValue(snapshot, "player2Id");
         player2Name = stringValue(snapshot, "player2Name");
         forfeitedPlayerId = stringValue(snapshot, "forfeitedPlayerId");
+        soloChallenge = Boolean.TRUE.equals(snapshot.getBoolean("soloChallenge"));
         player1Score = longValue(snapshot, "player1Score", 0);
         player2Score = longValue(snapshot, "player2Score", 0);
         round = (int) longValue(snapshot, "associationRound", 1);
@@ -68,6 +70,7 @@ public class AssociationMatchState {
     public String getPlayer2Id() { return player2Id; }
     public String getPlayer2Name() { return player2Name; }
     public String getForfeitedPlayerId() { return forfeitedPlayerId; }
+    public boolean isSoloChallenge() { return soloChallenge; }
     public long getPlayer1Score() { return player1Score; }
     public long getPlayer2Score() { return player2Score; }
     public int getRound() { return round; }

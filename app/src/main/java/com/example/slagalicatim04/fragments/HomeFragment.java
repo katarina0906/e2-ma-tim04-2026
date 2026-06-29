@@ -21,7 +21,6 @@ import com.example.slagalicatim04.auth.AvatarImageLoader;
 import com.example.slagalicatim04.auth.TokenService;
 import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.example.slagalicatim04.regions.AvatarFrameStyler;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class HomeFragment extends Fragment {
 
@@ -52,10 +51,8 @@ public class HomeFragment extends Fragment {
         avatarImage = view.findViewById(R.id.homeProfileAvatar);
         avatarFrame = view.findViewById(R.id.homeProfileAvatarFrame);
 
-        view.findViewById(R.id.homeProfileCard).setOnClickListener(v -> {
-            BottomNavigationView bnv = requireActivity().findViewById(R.id.bottom_navigation);
-            bnv.setSelectedItemId(R.id.profileFragment);
-        });
+        view.findViewById(R.id.homeProfileCard).setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.profileFragment));
         view.findViewById(R.id.homeQuickNotifications).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
                         .navigate(R.id.action_homeFragment_to_notificationsFragment));

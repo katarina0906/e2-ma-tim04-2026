@@ -247,13 +247,17 @@ public class AssociationMatchRepository {
 
     private void advanceRound(Map<String, Object> updates, AssociationMatchState state,
                               String message) {
-        if (state.getRound() < AssociationGameService.ROUND_COUNT) {
+        if (state.getRound() < roundCount(state)) {
             updates.putAll(roundState(2));
             updates.put("statusMessage", message);
             return;
         }
         updates.putAll(skockoState());
         updates.put("statusMessage", message);
+    }
+
+    private int roundCount(AssociationMatchState state) {
+        return state.isSoloChallenge() ? 1 : AssociationGameService.ROUND_COUNT;
     }
 
     private Map<String, Object> roundState(int round) {
