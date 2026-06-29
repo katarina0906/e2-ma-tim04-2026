@@ -131,7 +131,6 @@ public class RegionChallengesFragment extends Fragment {
         EditText scoreInput = card.findViewById(R.id.regionChallengeScoreInput);
         MaterialButton enterButton = card.findViewById(R.id.regionChallengeEnterButton);
         MaterialButton joinButton = card.findViewById(R.id.regionChallengeJoinButton);
-        MaterialButton startButton = card.findViewById(R.id.regionChallengeStartButton);
         MaterialButton submitButton = card.findViewById(R.id.regionChallengeSubmitButton);
 
         title.setText(challenge.creatorName + " postavlja izazov");
@@ -143,7 +142,6 @@ public class RegionChallengesFragment extends Fragment {
 
         joinButton.setVisibility(challenge.canJoin(currentUserId()) ? View.VISIBLE : View.GONE);
         enterButton.setVisibility(challenge.hasParticipant(currentUserId()) ? View.VISIBLE : View.GONE);
-        startButton.setVisibility(View.GONE);
         submitButton.setVisibility(View.GONE);
         scoreInput.setVisibility(View.GONE);
 
@@ -171,7 +169,7 @@ public class RegionChallengesFragment extends Fragment {
                 + " tokena • Igraci: " + challenge.participantCount() + "/" + challenge.maxPlayers;
         if (challenge.isOpen()) {
             if (challenge.participantCount() >= 2) {
-                return base + "\nKreator klikne 'Pokreni izazov'.";
+                return base + "\nIgraci mogu uci u partiju, a vlasnik kasnije zatvara izazov.";
             }
             return base + "\nPotrebna su najmanje 2 igraca da bi izazov poceo.";
         }

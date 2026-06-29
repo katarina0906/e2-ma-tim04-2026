@@ -120,7 +120,7 @@ public class RegionChallenge {
     }
 
     public boolean canFinish(String userId) {
-        return isActive() && creatorId.equals(safe(userId));
+        return !isFinished() && creatorId.equals(safe(userId));
     }
 
     public long totalStakeStars() {

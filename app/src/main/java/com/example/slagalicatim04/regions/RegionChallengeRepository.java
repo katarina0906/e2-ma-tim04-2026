@@ -417,6 +417,16 @@ public class RegionChallengeRepository {
         long secondTokens = existingState.stakeTokens;
         Timestamp finishedAt = Timestamp.now();
         Map<String, Object> participants = new LinkedHashMap<>();
+        Map<String, DocumentSnapshot> rewardSnapshots = new HashMap<>();
+        for (int i = 0; i < ranking.size(); i++) {
+            String userId = ranking.get(i).getKey();
+            long starsAwarded = i == 0 ? winnerStars : (i == 1 ? secondStars : 0L);
+            long tokensAwarded = i == 0 ? winnerTokens : (i == 1 ? secondTokens : 0L);
+            if (starsAwarded > 0L || tokensAwarded > 0L) {
+                DocumentReference userRef = firestore.collection("users").document(userId);
+                rewardSnapshots.put(userId, transaction.get(userRef));
+            }
+        }
         for (int i = 0; i < ranking.size(); i++) {
             String userId = ranking.get(i).getKey();
             RegionChallengeParticipant participant = ranking.get(i).getValue();
@@ -426,7 +436,7 @@ public class RegionChallengeRepository {
                     true, participant.submittedAt, starsAwarded, tokensAwarded));
             if (starsAwarded > 0L || tokensAwarded > 0L) {
                 DocumentReference userRef = firestore.collection("users").document(userId);
-                DocumentSnapshot userSnapshot = transaction.get(userRef);
+                DocumentSnapshot userSnapshot = rewardSnapshots.get(userId);
                 long currentStars = longValue(userSnapshot.getLong("stars"));
                 long currentTokens = longValue(userSnapshot.getLong("tokens"));
                 Map<String, Object> reward = new HashMap<>();

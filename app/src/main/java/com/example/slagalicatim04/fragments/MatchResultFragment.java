@@ -21,6 +21,8 @@ import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.matchresult.MatchResultRepository;
 import com.example.slagalicatim04.matchresult.MatchResultState;
+import com.example.slagalicatim04.regions.RegionChallenge;
+import com.example.slagalicatim04.regions.RegionChallengeParticipant;
 import com.example.slagalicatim04.regions.RegionChallengeRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -30,6 +32,7 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     private static final String ARG_SOLO_PREVIEW = "soloPreview";
     private static final String ARG_CHALLENGE_ID = "challengeId";
     private static final String ARG_PREVIEW_USER_ID = "previewUserId";
+    private static final String ARG_CHALLENGE_SUMMARY = "challengeSummary";
 
     private String roomId = MultiplayerGameRepository.TEST_ROOM_ID;
     private ListenerRegistration registration;
@@ -50,6 +53,7 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     private String previewChallengeId = "";
     private String previewUserId = "";
     private boolean activeSoloPreview;
+    private boolean challengeSummaryMode;
 
     @Nullable
     @Override
@@ -69,6 +73,7 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
             soloPreviewScore = getArguments().getLong(ARG_SOLO_PREVIEW_SCORE, 0L);
             previewChallengeId = getArguments().getString(ARG_CHALLENGE_ID, "");
             previewUserId = getArguments().getString(ARG_PREVIEW_USER_ID, "");
+            challengeSummaryMode = getArguments().getBoolean(ARG_CHALLENGE_SUMMARY, false);
         }
         AuthUser currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
         activeSoloPreview = hasSoloPreview
@@ -89,7 +94,7 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
             playersRow.setVisibility(View.GONE);
         }
         if (homeButton instanceof TextView) {
-            ((TextView) homeButton).setText(activeSoloPreview ? "Nazad na izazov" : "Nazad na pocetnu");
+            ((TextView) homeButton).setText(navigationLabel());
         }
         homeButton.setOnClickListener(v -> persistPreviewAndNavigate(v, activeSoloPreview, previewChallengeId));
         requireActivity().getOnBackPressedDispatcher().addCallback(
@@ -99,6 +104,10 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
                         persistPreviewAndNavigate(view, activeSoloPreview, previewChallengeId);
                     }
                 });
+        if (challengeSummaryMode) {
+            listenChallengeSummary();
+            return;
+        }
         renderSoloPreview();
 
         registration = new MatchResultRepository().listen(roomId,
@@ -127,6 +136,33 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
         winnerText.setText("Samostalna partija je zavrsena. Osvojili ste "
                 + soloPreviewScore + " bodova.");
         submitPreviewChallengeScore(null);
+    }
+
+    private void listenChallengeSummary() {
+        if (isEmpty(previewChallengeId)) {
+            winnerText.setText("Rezultat izazova nije dostupan.");
+            return;
+        }
+        updateHeaderVisibility(true);
+        if (soloDescription != null) {
+            soloDescription.setVisibility(View.VISIBLE);
+        }
+        winnerText.setText("Obracun rezultata izazova...");
+        registration = new RegionChallengeRepository().listenChallenge(previewChallengeId,
+                new RegionChallengeRepository.ChallengeListener() {
+                    @Override
+                    public void onChallenge(RegionChallenge challenge) {
+                        renderChallengeSummary(challenge);
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        if (isAdded()) {
+                            Toast.makeText(requireContext(), error.getMessage(),
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
     }
 
     private void render(MatchResultState state) {
@@ -175,12 +211,14 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     }
 
     private void bindExitAction(MatchResultState state) {
+        if (challengeSummaryMode) {
+            return;
+        }
         if (homeButton == null) {
             return;
         }
         if (homeButton instanceof TextView) {
-            ((TextView) homeButton).setText(
-                    state.isSoloChallenge() ? "Nazad na izazov" : "Nazad na pocetnu");
+            ((TextView) homeButton).setText(navigationLabel());
         }
         homeButton.setOnClickListener(v -> persistPreviewAndNavigate(v, state.isSoloChallenge(), state.getChallengeId()));
     }
@@ -304,15 +342,77 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
                 + " bodova.";
     }
 
+    private void renderChallengeSummary(RegionChallenge challenge) {
+        if (!isAdded()) {
+            return;
+        }
+        updateHeaderVisibility(true);
+        winnerText.setText("Izazov je zavrsen");
+        if (soloDescription != null) {
+            soloDescription.setVisibility(View.VISIBLE);
+            soloDescription.setText(challengeSummaryText(challenge));
+        }
+        if (homeButton instanceof TextView) {
+            ((TextView) homeButton).setText("Nazad na izazov");
+        }
+    }
+
+    private String challengeSummaryText(RegionChallenge challenge) {
+        if (!challenge.isFinished() || challenge.participants.isEmpty()) {
+            return "Rezultat izazova jos nije spreman.";
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append("1. mesto uzima 75% ukupnog uloga, 2. mesto dobija nazad svoj ulog.\n\n");
+        for (int i = 0; i < challenge.participants.size(); i++) {
+            RegionChallengeParticipant participant = challenge.participants.get(i);
+            builder.append("#")
+                    .append(i + 1)
+                    .append(" ")
+                    .append(participant.username)
+                    .append(" - ")
+                    .append(participant.score)
+                    .append(" bodova");
+            String reward = challengeRewardText(participant);
+            if (!isEmpty(reward)) {
+                builder.append(" • ").append(reward);
+            }
+            if (i < challenge.participants.size() - 1) {
+                builder.append('\n');
+            }
+        }
+        return builder.toString();
+    }
+
+    private String challengeRewardText(RegionChallengeParticipant participant) {
+        StringBuilder builder = new StringBuilder();
+        if (participant.starsAwarded > 0) {
+            builder.append("+").append(participant.starsAwarded).append(" zvezda");
+        }
+        if (participant.tokensAwarded > 0) {
+            if (builder.length() > 0) {
+                builder.append(", ");
+            }
+            builder.append("+").append(participant.tokensAwarded).append(" tokena");
+        }
+        if (builder.length() == 0) {
+            builder.append("bez nagrade");
+        }
+        return builder.toString();
+    }
+
+    private String navigationLabel() {
+        return (activeSoloPreview || challengeSummaryMode) ? "Nazad na izazov" : "Nazad na pocetnu";
+    }
+
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
     }
 
     private void navigateAway(View source, boolean soloChallenge, String challengeId) {
-        if (soloChallenge && !isEmpty(challengeId)) {
+        if ((soloChallenge || challengeSummaryMode) && !isEmpty(challengeId)) {
             Bundle args = new Bundle();
             args.putString(RegionChallengeRoomFragment.ARG_CHALLENGE_ID, challengeId);
-            if (activeSoloPreview) {
+            if (activeSoloPreview && !challengeSummaryMode) {
                 args.putLong(RegionChallengeRoomFragment.ARG_PREVIEW_SCORE, soloPreviewScore);
                 args.putString(RegionChallengeRoomFragment.ARG_PREVIEW_USER_ID, previewUserId);
             }
@@ -334,6 +434,10 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     }
 
     private void persistPreviewAndNavigate(View source, boolean soloChallenge, String challengeId) {
+        if (challengeSummaryMode) {
+            navigateAway(source, true, previewChallengeId);
+            return;
+        }
         if (soloChallenge && activeSoloPreview && !isEmpty(previewChallengeId)) {
             submitPreviewChallengeScore(() -> navigateAway(source, true, previewChallengeId));
             return;

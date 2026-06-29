@@ -27,7 +27,6 @@ public class RegionChallengeRoomFragment extends Fragment {
     public static final String ARG_CHALLENGE_ID = "challengeId";
     public static final String ARG_PREVIEW_SCORE = "previewScore";
     public static final String ARG_PREVIEW_USER_ID = "previewUserId";
-
     private final RegionChallengeRepository repository = new RegionChallengeRepository();
 
     private AuthUser currentUser;
@@ -38,11 +37,8 @@ public class RegionChallengeRoomFragment extends Fragment {
     private TextView participantsText;
     private EditText scoreInput;
     private MaterialButton playButton;
-    private MaterialButton startButton;
     private MaterialButton finishButton;
     private MaterialButton submitButton;
-    private long previewScore = -1L;
-    private String previewUserId = "";
 
     @Nullable
     @Override
@@ -56,16 +52,11 @@ public class RegionChallengeRoomFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
         challengeId = getArguments() == null ? "" : getArguments().getString(ARG_CHALLENGE_ID, "");
-        if (getArguments() != null) {
-            previewScore = getArguments().getLong(ARG_PREVIEW_SCORE, -1L);
-            previewUserId = getArguments().getString(ARG_PREVIEW_USER_ID, "");
-        }
         titleText = view.findViewById(R.id.regionChallengeRoomTitle);
         metaText = view.findViewById(R.id.regionChallengeRoomMeta);
         participantsText = view.findViewById(R.id.regionChallengeRoomParticipants);
         scoreInput = view.findViewById(R.id.regionChallengeRoomScoreInput);
         playButton = view.findViewById(R.id.regionChallengeRoomPlayButton);
-        startButton = view.findViewById(R.id.regionChallengeRoomStartButton);
         finishButton = view.findViewById(R.id.regionChallengeRoomFinishButton);
         submitButton = view.findViewById(R.id.regionChallengeRoomSubmitButton);
         scoreInput.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -105,27 +96,21 @@ public class RegionChallengeRoomFragment extends Fragment {
         participantsText.setText(participantsLine(challenge));
 
         boolean joined = challenge.hasParticipant(currentUserId());
-        boolean canStart = challenge.canStart(currentUserId());
         boolean canFinish = challenge.canFinish(currentUserId());
 
-        playButton.setVisibility(joined ? View.VISIBLE : View.GONE);
-        startButton.setVisibility(canStart ? View.VISIBLE : View.GONE);
+        playButton.setVisibility(joined && !challenge.isFinished() ? View.VISIBLE : View.GONE);
         finishButton.setVisibility(canFinish ? View.VISIBLE : View.GONE);
         submitButton.setVisibility(View.GONE);
         scoreInput.setVisibility(View.GONE);
 
         playButton.setOnClickListener(v -> openChallengeGame(challenge.id));
-        startButton.setOnClickListener(v -> repository.startChallenge(currentUser, challenge.id,
-                () -> showToast("Izazov je pokrenut."),
-                this::showError));
         finishButton.setOnClickListener(v -> repository.finishChallenge(currentUser, challenge.id,
-                () -> showToast("Izazov je zavrsen."),
+                () -> openFinishedChallenge(challenge.id),
                 this::showError));
 
         if (!joined) {
             metaText.setText("Nisi u ovom izazovu.");
             playButton.setVisibility(View.GONE);
-            startButton.setVisibility(View.GONE);
             finishButton.setVisibility(View.GONE);
             submitButton.setVisibility(View.GONE);
             scoreInput.setVisibility(View.GONE);
@@ -137,8 +122,8 @@ public class RegionChallengeRoomFragment extends Fragment {
                 + " tokena • Igraci: " + challenge.participantCount() + "/" + challenge.maxPlayers;
         if (challenge.isOpen()) {
             return challenge.participantCount() >= 2
-                    ? base + "\nUdji u partiju, a kreator odavde pokrece izazov."
-                    : base + "\nUdji u partiju. Ceka se jos bar jedan igrac.";
+                    ? base + "\nUdji u partiju ili klikni Zavrsi izazov kad god hoces da zatvoris izazov."
+                    : base + "\nUdji u partiju. Vlasnik moze zatvoriti izazov dugmetom Zavrsi izazov.";
         }
         if (challenge.isActive()) {
             return base + "\nIzazov je poceo. Udji u partiju, rezultat se cuva automatski."
@@ -191,16 +176,21 @@ public class RegionChallengeRoomFragment extends Fragment {
         if (!challenge.isFinished() || challenge.participants.isEmpty()) {
             return "Rezultat nije dostupan.";
         }
-        StringBuilder builder = new StringBuilder("Rezultat:\n");
-        RegionChallengeParticipant winner = challenge.participants.get(0);
-        builder.append("1. ").append(winner.username)
-                .append(" - ").append(winner.score).append(" bodova")
-                .append(rewardSummary(winner));
-        if (challenge.participants.size() > 1) {
-            RegionChallengeParticipant runnerUp = challenge.participants.get(1);
-            builder.append("\n2. ").append(runnerUp.username)
-                    .append(" - ").append(runnerUp.score).append(" bodova")
-                    .append(rewardSummary(runnerUp));
+        StringBuilder builder = new StringBuilder();
+        builder.append("Raspodela nagrada:\n");
+        builder.append("1. mesto uzima 75% ukupnog uloga, 2. mesto dobija nazad svoj ulog.\n");
+        for (int i = 0; i < challenge.participants.size(); i++) {
+            RegionChallengeParticipant participant = challenge.participants.get(i);
+            builder.append(i + 1)
+                    .append(". ")
+                    .append(participant.username)
+                    .append(" - ")
+                    .append(participant.score)
+                    .append(" bodova")
+                    .append(rewardSummary(participant));
+            if (i < challenge.participants.size() - 1) {
+                builder.append('\n');
+            }
         }
         return builder.toString();
     }
@@ -223,6 +213,16 @@ public class RegionChallengeRoomFragment extends Fragment {
         }, this::showError);
     }
 
+    private void openFinishedChallenge(String challengeId) {
+        if (!isAdded() || getView() == null) {
+            return;
+        }
+        Bundle args = new Bundle();
+        args.putString("challengeId", challengeId);
+        args.putBoolean("challengeSummary", true);
+        Navigation.findNavController(requireView()).navigate(R.id.matchResultFragment, args);
+    }
+
     private void showError(Exception error) {
         if (isAdded()) {
             String message = error == null || error.getMessage() == null || error.getMessage().trim().isEmpty()
@@ -236,9 +236,5 @@ public class RegionChallengeRoomFragment extends Fragment {
         if (isAdded()) {
             Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
         }
-    }
-
-    private static boolean isEmpty(String value) {
-        return value == null || value.trim().isEmpty();
     }
 }
