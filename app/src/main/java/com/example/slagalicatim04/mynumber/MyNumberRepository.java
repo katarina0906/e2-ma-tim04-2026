@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MyNumberRepository {
+    private static final String FRIEND_ROOM_PREFIX = "friend_";
+
     public interface Listener {
         void onState(MyNumberMatchState state);
         void onError(Exception error);
@@ -201,6 +203,14 @@ public class MyNumberRepository {
         if (Boolean.TRUE.equals(snapshot.getBoolean("matchRewardsApplied"))) {
             return;
         }
+        if (isFriendlyMatch()) {
+            updates.put("matchRewardsApplied", true);
+            updates.put("player1StarDelta", 0L);
+            updates.put("player2StarDelta", 0L);
+            updates.put("player1EarnedTokens", 0L);
+            updates.put("player2EarnedTokens", 0L);
+            return;
+        }
         int winner = winner(nextP1Score, nextP2Score);
         DocumentSnapshot player1Snapshot = transaction.get(
                 matchRef.getFirestore().collection("users").document(state.getPlayer1Id()));
@@ -261,6 +271,10 @@ public class MyNumberRepository {
         if (playerId.equals(snapshot.getString("player1Id"))) return 1;
         if (playerId.equals(snapshot.getString("player2Id"))) return 2;
         return 0;
+    }
+
+    private boolean isFriendlyMatch() {
+        return matchRef.getId().startsWith(FRIEND_ROOM_PREFIX);
     }
 
     private boolean isEmpty(String value) {
