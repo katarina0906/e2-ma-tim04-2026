@@ -187,7 +187,10 @@ public class FriendsFragment extends Fragment {
                     adapter.setPendingInviteFriendId(friend.id);
                     listenForInviteAnswer(invite, friend);
                     Toast.makeText(requireContext(),
-                            "Poziv za partiju je poslat igracu " + friend.username + ".",
+                            friend.online
+                                    ? "Poziv za partiju je poslat igracu " + friend.username + "."
+                                    : "Poziv za partiju je poslat igracu " + friend.username
+                                    + ". Poslata je i sistemska notifikacija.",
                             Toast.LENGTH_LONG).show();
                 });
             } catch (Exception error) {

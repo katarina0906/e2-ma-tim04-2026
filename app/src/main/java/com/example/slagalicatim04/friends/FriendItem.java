@@ -30,6 +30,6 @@ public class FriendItem {
     }
 
     public boolean canStartGame() {
-        return online && !inGame;
+        return !inGame;
     }
 }

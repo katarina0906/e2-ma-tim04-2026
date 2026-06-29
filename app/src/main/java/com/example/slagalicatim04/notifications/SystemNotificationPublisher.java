@@ -52,7 +52,7 @@ public final class SystemNotificationPublisher {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context,
-                NotificationChannels.channelFor(category))
+                NotificationChannels.channelFor(category, action))
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
                 .setContentText(message)

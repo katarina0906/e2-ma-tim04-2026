@@ -80,7 +80,9 @@ public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.Holder> 
         } else if (anotherInvitePending) {
             holder.startButton.setText("Zahtev je aktivan");
         } else {
-            holder.startButton.setText(friend.canStartGame() ? "Zapocni partiju" : "Nije dostupan");
+            holder.startButton.setText(friend.canStartGame()
+                    ? (friend.online ? "Zapocni partiju" : "Posalji poziv")
+                    : "Nije dostupan");
         }
         holder.startButton.setOnClickListener(v -> {
             if (invitePendingForThisFriend && cancelInviteListener != null) {

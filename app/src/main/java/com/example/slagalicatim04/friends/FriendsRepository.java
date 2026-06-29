@@ -168,8 +168,8 @@ public class FriendsRepository {
             if (currentSnapshot.exists() && isInGame(transaction, currentRef, currentSnapshot)) {
                 throw new IllegalStateException("Vec ucestvujes u partiji.");
             }
-            if (!isOnline(friendSnapshot) || isInGame(transaction, friendRef, friendSnapshot)) {
-                throw new IllegalStateException("Prijatelj trenutno nije dostupan za partiju.");
+            if (isInGame(transaction, friendRef, friendSnapshot)) {
+                throw new IllegalStateException("Prijatelj trenutno ucestvuje u drugoj partiji.");
             }
 
             transaction.set(roomRef, newFriendInviteState(
