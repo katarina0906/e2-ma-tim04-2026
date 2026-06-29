@@ -44,6 +44,8 @@ import java.util.List;
 public class MyNumberFragment extends Fragment implements ExitConfirmationHandler {
     private static final String ARG_SOLO_PREVIEW_SCORE = "soloPreviewScore";
     private static final String ARG_SOLO_PREVIEW = "soloPreview";
+    private static final String ARG_CHALLENGE_ID = "challengeId";
+    private static final String ARG_PREVIEW_USER_ID = "previewUserId";
 
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable ticker = this::renderCurrentState;
@@ -208,7 +210,7 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
             return;
         }
         if (shouldNavigateSoloToMatchResult()) {
-            navigateToMatchResult();
+            navigateToMatchResult(resolveSoloChallengeScore());
             return;
         }
         if (currentState.isMatchResult()) {
@@ -462,9 +464,10 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
                     "Izraz mora da se zavrsi brojem ili zagradom, sa operacijom izmedju brojeva.");
             return;
         }
-        repository.submit(playerSession, normalizeExpression(buildExpressionText()));
+        String expression = buildExpressionText();
+        repository.submit(playerSession, normalizeExpression(expression));
         if (currentState.isSoloChallenge()) {
-            navigateToMatchResult(buildSoloPreviewScore(buildExpressionText()));
+            navigateToMatchResult(buildImmediateSoloTotalScore(expression));
             return;
         }
         setExpressionControlsEnabled(false);
@@ -480,11 +483,17 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
             return false;
         }
         return currentState.isMatchResult()
-                || MyNumberGameService.PHASE_FINISHED.equals(currentState.getPhase())
-                || currentState.isSubmitted(myPlayer);
+                || MyNumberGameService.PHASE_FINISHED.equals(currentState.getPhase());
     }
 
-    private long buildSoloPreviewScore(String expression) {
+    private long resolveSoloChallengeScore() {
+        if (currentState == null) {
+            return 0L;
+        }
+        return myPlayer() == 2 ? currentState.getPlayer2Score() : currentState.getPlayer1Score();
+    }
+
+    private long buildImmediateSoloTotalScore(String expression) {
         if (currentState == null) {
             return 0L;
         }
@@ -501,7 +510,7 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
                 currentState.getActivePlayer(),
                 myPlayer() == 1 ? result : null,
                 myPlayer() == 2 ? result : null);
-        long currentScore = myPlayer() == 2 ? currentState.getPlayer2Score() : currentState.getPlayer1Score();
+        long currentScore = resolveSoloChallengeScore();
         long earned = myPlayer() == 2 ? roundScore.p2Points : roundScore.p1Points;
         return currentScore + earned;
     }
@@ -615,6 +624,8 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
         if (soloPreviewScore != null && currentState != null && currentState.isSoloChallenge()) {
             args.putBoolean(ARG_SOLO_PREVIEW, true);
             args.putLong(ARG_SOLO_PREVIEW_SCORE, soloPreviewScore);
+            args.putString(ARG_CHALLENGE_ID, currentState.getChallengeId());
+            args.putString(ARG_PREVIEW_USER_ID, playerSession.getId());
         }
         Navigation.findNavController(requireView()).navigate(R.id.matchResultFragment, args);
     }

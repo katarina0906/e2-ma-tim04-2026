@@ -28,6 +28,8 @@ import com.google.firebase.firestore.ListenerRegistration;
 public class MatchResultFragment extends Fragment implements ExitConfirmationHandler {
     private static final String ARG_SOLO_PREVIEW_SCORE = "soloPreviewScore";
     private static final String ARG_SOLO_PREVIEW = "soloPreview";
+    private static final String ARG_CHALLENGE_ID = "challengeId";
+    private static final String ARG_PREVIEW_USER_ID = "previewUserId";
 
     private String roomId = MultiplayerGameRepository.TEST_ROOM_ID;
     private ListenerRegistration registration;
@@ -45,6 +47,9 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     private View homeButton;
     private boolean hasSoloPreview;
     private long soloPreviewScore;
+    private String previewChallengeId = "";
+    private String previewUserId = "";
+    private boolean activeSoloPreview;
 
     @Nullable
     @Override
@@ -62,7 +67,14 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
         if (getArguments() != null) {
             hasSoloPreview = getArguments().getBoolean(ARG_SOLO_PREVIEW, false);
             soloPreviewScore = getArguments().getLong(ARG_SOLO_PREVIEW_SCORE, 0L);
+            previewChallengeId = getArguments().getString(ARG_CHALLENGE_ID, "");
+            previewUserId = getArguments().getString(ARG_PREVIEW_USER_ID, "");
         }
+        AuthUser currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        activeSoloPreview = hasSoloPreview
+                && currentUser != null
+                && !isEmpty(previewUserId)
+                && previewUserId.equals(currentUser.getId());
         winnerText = view.findViewById(R.id.matchResultWinner);
         player1Name = view.findViewById(R.id.matchResultPlayer1Name);
         player1Score = view.findViewById(R.id.matchResultPlayer1Score);
@@ -76,14 +88,15 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
         if (playersRow != null) {
             playersRow.setVisibility(View.GONE);
         }
-        if (soloDescription != null) {
-            soloDescription.setVisibility(View.GONE);
+        if (homeButton instanceof TextView) {
+            ((TextView) homeButton).setText(activeSoloPreview ? "Nazad na izazov" : "Nazad na pocetnu");
         }
+        homeButton.setOnClickListener(v -> persistPreviewAndNavigate(v, activeSoloPreview, previewChallengeId));
         requireActivity().getOnBackPressedDispatcher().addCallback(
                 getViewLifecycleOwner(), new OnBackPressedCallback(true) {
                     @Override
                     public void handleOnBackPressed() {
-                        navigateHome(view);
+                        persistPreviewAndNavigate(view, activeSoloPreview, previewChallengeId);
                     }
                 });
         renderSoloPreview();
@@ -106,13 +119,14 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     }
 
     private void renderSoloPreview() {
-        if (!hasSoloPreview) {
+        if (!activeSoloPreview) {
             return;
         }
+        savePreviewScoreToChallenge();
         updateHeaderVisibility(true);
-        updateSoloDescription(true);
         winnerText.setText("Samostalna partija je zavrsena. Osvojili ste "
                 + soloPreviewScore + " bodova.");
+        submitPreviewChallengeScore(null);
     }
 
     private void render(MatchResultState state) {
@@ -122,7 +136,6 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
         String firstName = playerName(state.getPlayer1Name(), "Igrac 1");
         String secondName = playerName(state.getPlayer2Name(), "Igrac 2");
         updateHeaderVisibility(state.isSoloChallenge());
-        updateSoloDescription(state.isSoloChallenge());
         bindExitAction(state);
         player1Name.setText(firstName);
         player1Score.setText(scoreSummary(state.getPlayer1Score(), state.getPlayer1StarDelta(),
@@ -151,31 +164,25 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
         if (playersRow != null) {
             playersRow.setVisibility(soloChallenge ? View.GONE : View.VISIBLE);
         }
+        if (soloDescription == null) {
+            return;
+        }
+        soloDescription.setVisibility(View.GONE);
         int visibility = soloChallenge ? View.GONE : View.VISIBLE;
         player2Name.setVisibility(visibility);
         player2Score.setVisibility(visibility);
         player2Avatar.setVisibility(visibility);
     }
 
-    private void updateSoloDescription(boolean soloChallenge) {
-        if (soloDescription == null) {
-            return;
-        }
-        if (!soloChallenge) {
-            soloDescription.setVisibility(View.GONE);
-            return;
-        }
-        soloDescription.setVisibility(View.VISIBLE);
-        soloDescription.setText("Igraci igraju samostalno partiju, a svaka igra se pojavljuje jednom.\n"
-                + "Igrac sa najvise osvojenih poena osvaja 75% ukupnog uloga.\n"
-                + "Naredni igrac po broju poena dobija nazad svoj ulog.");
-    }
-
     private void bindExitAction(MatchResultState state) {
         if (homeButton == null) {
             return;
         }
-        homeButton.setOnClickListener(this::navigateHome);
+        if (homeButton instanceof TextView) {
+            ((TextView) homeButton).setText(
+                    state.isSoloChallenge() ? "Nazad na izazov" : "Nazad na pocetnu");
+        }
+        homeButton.setOnClickListener(v -> persistPreviewAndNavigate(v, state.isSoloChallenge(), state.getChallengeId()));
     }
 
     private void releasePlayers(MatchResultState state) {
@@ -215,6 +222,60 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
                         ? true : false);
     }
 
+    private void submitPreviewChallengeScore(@Nullable Runnable afterSubmit) {
+        if (!activeSoloPreview || isEmpty(previewChallengeId) || submittedChallengeScore) {
+            if (afterSubmit != null) {
+                afterSubmit.run();
+            }
+            return;
+        }
+        AuthUser currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        if (currentUser == null) {
+            if (afterSubmit != null) {
+                afterSubmit.run();
+            }
+            return;
+        }
+        submittedChallengeScore = true;
+        new RegionChallengeRepository().submitScore(
+                currentUser,
+                previewChallengeId,
+                soloPreviewScore,
+                () -> {
+                    if (afterSubmit != null && isAdded()) {
+                        requireActivity().runOnUiThread(afterSubmit);
+                    }
+                },
+                error -> {
+                    boolean alreadySubmitted = error != null
+                            && error.getMessage() != null
+                            && error.getMessage().contains("vec poslat");
+                    submittedChallengeScore = alreadySubmitted;
+                    if (!alreadySubmitted) {
+                        submittedChallengeScore = false;
+                    }
+                    if (afterSubmit != null && isAdded()) {
+                        requireActivity().runOnUiThread(afterSubmit);
+                    }
+                });
+    }
+
+    private void savePreviewScoreToChallenge() {
+        if (!activeSoloPreview || isEmpty(previewChallengeId)) {
+            return;
+        }
+        AuthUser currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        if (currentUser == null) {
+            return;
+        }
+        new RegionChallengeRepository().savePreviewScore(
+                currentUser,
+                previewChallengeId,
+                soloPreviewScore,
+                () -> { },
+                error -> { });
+    }
+
     private String playerName(String name, String fallback) {
         return isEmpty(name) ? fallback : name;
     }
@@ -247,13 +308,37 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
         return value == null || value.trim().isEmpty();
     }
 
-    private void navigateHome(View source) {
+    private void navigateAway(View source, boolean soloChallenge, String challengeId) {
+        if (soloChallenge && !isEmpty(challengeId)) {
+            Bundle args = new Bundle();
+            args.putString(RegionChallengeRoomFragment.ARG_CHALLENGE_ID, challengeId);
+            if (activeSoloPreview) {
+                args.putLong(RegionChallengeRoomFragment.ARG_PREVIEW_SCORE, soloPreviewScore);
+                args.putString(RegionChallengeRoomFragment.ARG_PREVIEW_USER_ID, previewUserId);
+            }
+            Navigation.findNavController(source).navigate(
+                    R.id.regionChallengeRoomFragment,
+                    args,
+                    new NavOptions.Builder()
+                            .setLaunchSingleTop(true)
+                            .build());
+            return;
+        }
         Navigation.findNavController(source).navigate(
                 R.id.homeFragment,
                 null,
                 new NavOptions.Builder()
-                        .setPopUpTo(R.id.nav_graph, true)
+                        .setLaunchSingleTop(true)
+                        .setPopUpTo(R.id.homeFragment, false)
                         .build());
+    }
+
+    private void persistPreviewAndNavigate(View source, boolean soloChallenge, String challengeId) {
+        if (soloChallenge && activeSoloPreview && !isEmpty(previewChallengeId)) {
+            submitPreviewChallengeScore(() -> navigateAway(source, true, previewChallengeId));
+            return;
+        }
+        navigateAway(source, soloChallenge, challengeId);
     }
 
     @Override
@@ -261,7 +346,7 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
         if (getView() == null) {
             return false;
         }
-        navigateHome(requireView());
+        persistPreviewAndNavigate(requireView(), activeSoloPreview, previewChallengeId);
         return true;
     }
 

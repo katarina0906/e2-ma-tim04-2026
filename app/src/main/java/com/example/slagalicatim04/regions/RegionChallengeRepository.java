@@ -282,6 +282,42 @@ public class RegionChallengeRepository {
                 .addOnFailureListener(onError::accept);
     }
 
+    public void savePreviewScore(AuthUser user, String challengeId, long score,
+                                 Runnable onSuccess,
+                                 java.util.function.Consumer<Exception> onError) {
+        String validationError = validateUser(user);
+        if (validationError != null) {
+            onError.accept(new IllegalArgumentException(validationError));
+            return;
+        }
+        if (score < 0L) {
+            onError.accept(new IllegalArgumentException("Rezultat ne moze biti negativan."));
+            return;
+        }
+        DocumentReference challengeRef = challengeRef(challengeId);
+        firestore.runTransaction(transaction -> {
+            DocumentSnapshot challenge = transaction.get(challengeRef);
+            RegionChallenge state = RegionChallenge.fromDocument(challenge);
+            RegionChallengeParticipant participant = state.participantsById.get(user.getId());
+            if (participant == null) {
+                throw new IllegalArgumentException("Nisi prijavljen u ovaj izazov.");
+            }
+            Map<String, Object> participants = mutableMap(challenge.get("participants"));
+            long nextScore = Math.max(participant.score, score);
+            participants.put(user.getId(), participantPayload(
+                    participant.username,
+                    nextScore,
+                    participant.submitted,
+                    participant.submittedAt,
+                    participant.starsAwarded,
+                    participant.tokensAwarded));
+            transaction.set(challengeRef, Collections.singletonMap("participants", participants),
+                    SetOptions.merge());
+            return null;
+        }).addOnSuccessListener(ignored -> onSuccess.run())
+                .addOnFailureListener(onError::accept);
+    }
+
     public void ensureSoloChallengeMatch(AuthUser user, String challengeId,
                                          java.util.function.Consumer<String> onSuccess,
                                          java.util.function.Consumer<Exception> onError) {

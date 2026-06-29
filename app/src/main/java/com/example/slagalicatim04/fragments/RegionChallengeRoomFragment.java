@@ -25,6 +25,8 @@ import com.google.firebase.firestore.ListenerRegistration;
 
 public class RegionChallengeRoomFragment extends Fragment {
     public static final String ARG_CHALLENGE_ID = "challengeId";
+    public static final String ARG_PREVIEW_SCORE = "previewScore";
+    public static final String ARG_PREVIEW_USER_ID = "previewUserId";
 
     private final RegionChallengeRepository repository = new RegionChallengeRepository();
 
@@ -39,6 +41,8 @@ public class RegionChallengeRoomFragment extends Fragment {
     private MaterialButton startButton;
     private MaterialButton finishButton;
     private MaterialButton submitButton;
+    private long previewScore = -1L;
+    private String previewUserId = "";
 
     @Nullable
     @Override
@@ -52,7 +56,10 @@ public class RegionChallengeRoomFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
         challengeId = getArguments() == null ? "" : getArguments().getString(ARG_CHALLENGE_ID, "");
-
+        if (getArguments() != null) {
+            previewScore = getArguments().getLong(ARG_PREVIEW_SCORE, -1L);
+            previewUserId = getArguments().getString(ARG_PREVIEW_USER_ID, "");
+        }
         titleText = view.findViewById(R.id.regionChallengeRoomTitle);
         metaText = view.findViewById(R.id.regionChallengeRoomMeta);
         participantsText = view.findViewById(R.id.regionChallengeRoomParticipants);
@@ -134,7 +141,8 @@ public class RegionChallengeRoomFragment extends Fragment {
                     : base + "\nUdji u partiju. Ceka se jos bar jedan igrac.";
         }
         if (challenge.isActive()) {
-            return base + "\nIzazov je poceo. Udji u partiju, rezultat se cuva automatski.";
+            return base + "\nIzazov je poceo. Udji u partiju, rezultat se cuva automatski."
+                    + "\nKreator zatvara izazov dugmetom Zavrsi izazov.";
         }
         return base + "\nIzazov je zavrsen.\n" + finishedSummary(challenge);
     }
@@ -146,19 +154,23 @@ public class RegionChallengeRoomFragment extends Fragment {
             if (i > 0) {
                 builder.append('\n');
             }
-            builder.append(i + 1).append(". ").append(participant.username);
+            builder.append(rankLabel(i + 1)).append(' ').append(participant.username);
             if (participant.submitted) {
-                builder.append(" - ").append(participant.score).append(" bodova");
+                builder.append(" • zavrsio • ").append(participant.score).append(" bodova");
                 if (challenge.isFinished()) {
                     builder.append(rewardSummary(participant));
                 }
             } else if (challenge.isActive()) {
-                builder.append(" • igra partiju");
+                builder.append(" • ").append(participant.score).append(" bodova • jos igra");
             } else {
-                builder.append(" • u izazovu");
+                builder.append(" • ").append(participant.score).append(" bodova");
             }
         }
         return builder.toString();
+    }
+
+    private String rankLabel(int rank) {
+        return "#" + rank;
     }
 
     private String rewardSummary(RegionChallengeParticipant participant) {
@@ -224,5 +236,9 @@ public class RegionChallengeRoomFragment extends Fragment {
         if (isAdded()) {
             Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private static boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }
