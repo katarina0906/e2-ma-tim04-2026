@@ -179,11 +179,7 @@ public class ChallengeSoloMyNumberFragment extends Fragment {
         if (result == null) {
             return 0L;
         }
-        int diff = Math.abs(target - result);
-        if (diff == 0) {
-            return 100L;
-        }
-        return Math.max(0L, 100L - diff);
+        return result == target ? 10L : 0L;
     }
 
     private void appendNumber(int index) {
