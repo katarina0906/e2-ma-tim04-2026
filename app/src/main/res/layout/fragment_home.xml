@@ -63,6 +63,7 @@
                         android:textStyle="bold" />
 
                     <TextView
+                        android:id="@+id/homeProfileLeague"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="🏆 Zlatna liga"
@@ -92,17 +93,18 @@
             android:layout_marginBottom="16dp">
 
             <TextView
-                android:id="@+id/homeProfileRegion"
+                android:id="@+id/homeProfileTokens"
                 android:layout_width="0dp"
                 android:layout_height="78dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="🪙\n8\nTokena"
+                android:text="🪙\n0\nTokena"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/homeProfileStars"
                 android:layout_width="0dp"
                 android:layout_height="78dp"
                 android:layout_weight="1"
@@ -110,11 +112,12 @@
                 android:layout_marginEnd="8dp"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="⭐\n245\nZvezda"
+                android:text="★\n0\nZvezda"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/homeProfileRegion"
                 android:layout_width="0dp"
                 android:layout_height="78dp"
                 android:layout_weight="1"
@@ -212,10 +215,14 @@
             android:weightSum="2">
 
             <TextView
+                android:id="@+id/homeQuickRanking"
                 android:layout_width="0dp"
                 android:layout_height="82dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 android:gravity="center"
                 android:text="🏅\nRang lista"
                 android:textColor="#1E1E2F"

@@ -24,17 +24,26 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.example.slagalicatim04.ranking.RankingRewardSynchronizer;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+import java.util.Locale;
 
 public class ProfileFragment extends Fragment {
 
     private TextView usernameText;
     private TextView emailText;
     private TextView regionText;
+    private TextView tokensText;
+    private TextView starsText;
+    private TextView leagueText;
     private ImageView avatarImage;
     private AuthService authService;
     private AuthUser currentUser;
+    private final RankingRewardSynchronizer rewardSynchronizer = new RankingRewardSynchronizer();
     private final ActivityResultLauncher<String> avatarPicker =
             registerForActivityResult(new ActivityResultContracts.GetContent(), this::uploadAvatar);
 
@@ -51,6 +60,9 @@ public class ProfileFragment extends Fragment {
         usernameText = view.findViewById(R.id.profileUsername);
         emailText = view.findViewById(R.id.profileEmail);
         regionText = view.findViewById(R.id.profileRegion);
+        tokensText = view.findViewById(R.id.profileTokens);
+        starsText = view.findViewById(R.id.profileStars);
+        leagueText = view.findViewById(R.id.profileLeague);
         avatarImage = view.findViewById(R.id.profileAvatar);
         View changePasswordForm = view.findViewById(R.id.changePasswordForm);
         MaterialButton toggleChangePasswordButton = view.findViewById(R.id.toggleChangePasswordButton);
@@ -82,6 +94,7 @@ public class ProfileFragment extends Fragment {
             return;
         }
         showProfile(currentUser);
+        loadProfileCounters(currentUser.getId());
         loadProfileFromFirestore();
     }
 
@@ -98,6 +111,7 @@ public class ProfileFragment extends Fragment {
                 if (result.isSuccess() && result.getData() != null) {
                     currentUser = result.getData();
                     showProfile(result.getData());
+                    loadProfileCounters(result.getData().getId());
                 } else {
                     Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
                     navigateToLogin(requireView());
@@ -111,6 +125,44 @@ public class ProfileFragment extends Fragment {
         emailText.setText(user.getEmail());
         regionText.setText(user.getRegion());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
+    }
+
+    private void loadProfileCounters(String userId) {
+        if (userId == null || userId.isEmpty() || FirebaseAuth.getInstance().getCurrentUser() == null) {
+            return;
+        }
+        rewardSynchronizer.syncCurrentRewards(userId, () -> readProfileCounters(userId));
+    }
+
+    private void readProfileCounters(String userId) {
+        FirebaseFirestore.getInstance().collection("users").document(userId).get()
+                .addOnSuccessListener(snapshot -> {
+                    if (!isAdded()) {
+                        return;
+                    }
+                    long tokens = value(snapshot.getLong("tokens"));
+                    long stars = value(snapshot.getLong("totalStars"));
+                    String leagueIcon = text(snapshot.getString("leagueIcon"), "🏆");
+                    String leagueName = text(snapshot.getString("leagueName"), "Zlatna liga");
+                    tokensText.setText(String.format(Locale.ROOT, "🪙\n%d\nTokena", tokens));
+                    starsText.setText(String.format(Locale.ROOT, "%s\n%d\nZvezda", "\u2605", stars));
+                    leagueText.setText(leagueText(leagueIcon, leagueName));
+                });
+    }
+
+    private static String leagueText(String leagueIcon, String leagueName) {
+        String[] words = leagueName.split("\\s+", 2);
+        String first = words.length > 0 ? words[0] : leagueName;
+        String second = words.length > 1 ? words[1] : "";
+        return leagueIcon + "\n" + first + "\n" + second;
+    }
+
+    private static long value(Long value) {
+        return value == null ? 0 : value;
+    }
+
+    private static String text(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value;
     }
 
     private void uploadAvatar(Uri imageUri) {

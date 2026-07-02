@@ -17,6 +17,7 @@ import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.matchresult.MatchResultRepository;
 import com.example.slagalicatim04.matchresult.MatchResultState;
+import com.example.slagalicatim04.mynumber.MyNumberRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 import com.google.firebase.firestore.ListenerRegistration;
 
@@ -85,8 +86,10 @@ public class MatchResultFragment extends Fragment {
         PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), player2Avatar);
         if (state.winner() == 1) {
             winnerText.setText("Pobednik je " + firstName + "!");
+            new MyNumberRepository(roomId).awardTokensIfFinished();
         } else if (state.winner() == 2) {
             winnerText.setText("Pobednik je " + secondName + "!");
+            new MyNumberRepository(roomId).awardTokensIfFinished();
         } else {
             winnerText.setText("Partija je zavrsena nereseno.");
         }

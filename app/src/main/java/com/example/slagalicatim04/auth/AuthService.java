@@ -289,6 +289,10 @@ public class AuthService {
         userData.put("username", authUser.getUsername());
         userData.put("region", authUser.getRegion());
         userData.put("avatarData", authUser.getAvatarData());
+        userData.put("tokens", 0L);
+        userData.put("totalStars", 0L);
+        userData.put("leagueIcon", "🏆");
+        userData.put("leagueName", "Zlatna liga");
 
         Map<String, Object> usernameData = new HashMap<>();
         usernameData.put("email", authUser.getEmail());

@@ -26,12 +26,14 @@ import com.example.slagalicatim04.notifications.NotificationRepository;
 import com.example.slagalicatim04.notifications.NotificationRouter;
 import com.example.slagalicatim04.notifications.SlagalicaMessagingService;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
     private NavController navController;
+    private boolean rewardAutoOpenInFlight;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.homeFragment,
                 R.id.gamesFragment,
+                R.id.rankingFragment,
                 R.id.profileFragment,
                 R.id.loginFragment
         ).build();
@@ -100,6 +103,12 @@ public class MainActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleNotificationIntent(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        openPendingRewardNotification();
     }
 
     @Override
@@ -156,5 +165,46 @@ public class MainActivity extends AppCompatActivity {
         intent.removeExtra(SlagalicaMessagingService.EXTRA_NOTIFICATION_ID);
         navController.navigate(R.id.notificationTargetFragment,
                 NotificationRouter.targetArgs(action, title, message, targetId));
+    }
+
+    private void openPendingRewardNotification() {
+        if (rewardAutoOpenInFlight || navController == null
+                || FirebaseAuth.getInstance().getCurrentUser() == null) {
+            return;
+        }
+        int destinationId = navController.getCurrentDestination() == null
+                ? 0 : navController.getCurrentDestination().getId();
+        if (destinationId == R.id.loginFragment
+                || destinationId == R.id.registerFragment
+                || destinationId == R.id.emailVerificationFragment
+                || destinationId == R.id.resetPasswordFragment
+                || destinationId == R.id.notificationTargetFragment) {
+            return;
+        }
+        rewardAutoOpenInFlight = true;
+        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        FirebaseFirestore.getInstance()
+                .collection("users").document(userId)
+                .collection("notifications")
+                .whereEqualTo("action", NotificationRouter.ACTION_REWARD)
+                .whereEqualTo("read", false)
+                .limit(1)
+                .get()
+                .addOnCompleteListener(task -> {
+                    rewardAutoOpenInFlight = false;
+                    if (!task.isSuccessful() || task.getResult().isEmpty()) {
+                        return;
+                    }
+                    var document = task.getResult().getDocuments().get(0);
+                    new NotificationRepository().markRead(document.getId(), () -> {
+                    }, ignored -> {
+                    });
+                    navController.navigate(R.id.notificationTargetFragment,
+                            NotificationRouter.targetArgs(
+                                    document.getString("action"),
+                                    document.getString("title"),
+                                    document.getString("message"),
+                                    document.getString("targetId")));
+                });
     }
 }

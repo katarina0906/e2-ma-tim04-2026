@@ -33,7 +33,7 @@
                     android:textColor="#1E1E2F"
                     android:textSize="22sp"
                     android:textStyle="bold"
-                    tools:text="Čet" />
+                    tools:text="Cet" />
 
                 <TextView
                     android:id="@+id/target_subtitle"
@@ -53,7 +53,37 @@
                     android:padding="14dp"
                     android:textColor="#1E1E2F"
                     android:textSize="15sp"
-                    tools:text="Ovde se otvara sadržaj vezan za notifikaciju." />
+                    tools:text="Ovde se otvara sadrzaj vezan za notifikaciju." />
+
+                <LinearLayout
+                    android:id="@+id/reward_celebration"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="#FFF7D6"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="18dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/reward_icon"
+                        android:layout_width="76dp"
+                        android:layout_height="76dp"
+                        android:gravity="center"
+                        android:text="🎁"
+                        android:textSize="44sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:text="Tokeni su dodati na profil."
+                        android:textColor="#1E1E2F"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </LinearLayout>

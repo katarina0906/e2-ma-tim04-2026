@@ -1,15 +1,19 @@
 package com.example.slagalicatim04.fragments;
 
 import android.os.Bundle;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AccelerateDecelerateInterpolator;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.slagalicatim04.databinding.FragmentNotificationTargetBinding;
+import com.example.slagalicatim04.notifications.NotificationRouter;
 
 public class NotificationTargetFragment extends Fragment {
 
@@ -40,11 +44,37 @@ public class NotificationTargetFragment extends Fragment {
         binding.targetTitle.setText(args.getString(ARG_TITLE, ""));
         binding.targetSubtitle.setText(args.getString(ARG_SUBTITLE, ""));
         binding.targetMessage.setText(args.getString(ARG_MESSAGE, ""));
+        if (NotificationRouter.ACTION_REWARD.equals(args.getString(ARG_ACTION, ""))) {
+            showRewardCelebration();
+        }
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+    }
+
+    private void showRewardCelebration() {
+        binding.rewardCelebration.setVisibility(View.VISIBLE);
+        binding.rewardIcon.setScaleX(0.4f);
+        binding.rewardIcon.setScaleY(0.4f);
+        binding.rewardIcon.setRotation(-18f);
+        binding.rewardIcon.animate()
+                .scaleX(1.18f)
+                .scaleY(1.18f)
+                .rotation(12f)
+                .setDuration(360)
+                .setInterpolator(new AccelerateDecelerateInterpolator())
+                .withEndAction(() -> binding.rewardIcon.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .rotation(0f)
+                        .setDuration(220)
+                        .start())
+                .start();
+        ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70);
+        tone.startTone(ToneGenerator.TONE_PROP_ACK, 180);
+        binding.rewardIcon.postDelayed(tone::release, 400);
     }
 }
