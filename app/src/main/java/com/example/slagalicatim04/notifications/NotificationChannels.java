@@ -50,7 +50,7 @@ public final class NotificationChannels {
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         nm.createNotificationChannel(build(context, CHAT,
                 R.string.notif_channel_chat_name, R.string.notif_channel_chat_desc,
-                NotificationManager.IMPORTANCE_DEFAULT));
+                NotificationManager.IMPORTANCE_HIGH));
         nm.createNotificationChannel(build(context, RANKING,
                 R.string.notif_channel_ranking_name, R.string.notif_channel_ranking_desc,
                 NotificationManager.IMPORTANCE_DEFAULT));
