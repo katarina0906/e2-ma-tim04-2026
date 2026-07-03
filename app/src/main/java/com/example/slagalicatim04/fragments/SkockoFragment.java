@@ -26,6 +26,7 @@ import androidx.navigation.Navigation;
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.repositories.MatchForfeitRepository;
@@ -65,6 +66,8 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
     private TextView timerText;
     private TextView score0;
     private TextView score1;
+    private TextView player1MetaText;
+    private TextView player2MetaText;
     private TextView resultText;
     private LinearLayout historyBlock;
     private View stealCard;
@@ -158,6 +161,8 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
         timerText = view.findViewById(R.id.skTimerText);
         score0 = view.findViewById(R.id.skScore0);
         score1 = view.findViewById(R.id.skScore1);
+        player1MetaText = view.findViewById(R.id.skPlayer1Meta);
+        player2MetaText = view.findViewById(R.id.skPlayer2Meta);
         resultText = view.findViewById(R.id.skResultText);
         historyBlock = view.findViewById(R.id.skHistoryBlock);
         stealCard = view.findViewById(R.id.skStealCard);
@@ -264,6 +269,11 @@ public class SkockoFragment extends Fragment implements ExitConfirmationHandler 
         score1.setVisibility(currentState.isSoloChallenge() ? View.GONE : View.VISIBLE);
         score0.setTextColor(currentState.isForfeited(currentState.getPlayer1Id()) ? 0xFFD32F2F : Color.BLACK);
         score1.setTextColor(currentState.isForfeited(currentState.getPlayer2Id()) ? 0xFFD32F2F : Color.BLACK);
+        player2MetaText.setVisibility(currentState.isSoloChallenge() ? View.GONE : View.VISIBLE);
+        PlayerHeaderLoader.loadProfileSummary(currentState.getPlayer1Id(), player1MetaText);
+        if (!currentState.isSoloChallenge()) {
+            PlayerHeaderLoader.loadProfileSummary(currentState.getPlayer2Id(), player2MetaText);
+        }
         renderHistory();
 
         boolean steal = SkockoMatchState.PHASE_STEAL.equals(currentState.getPhase());

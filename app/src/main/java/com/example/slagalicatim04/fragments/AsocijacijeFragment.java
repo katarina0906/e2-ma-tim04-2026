@@ -32,6 +32,7 @@ import com.example.slagalicatim04.associations.AssociationPuzzle;
 import com.example.slagalicatim04.associations.AssociationPuzzleRepository;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
 import com.example.slagalicatim04.repositories.MatchForfeitRepository;
@@ -70,6 +71,8 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
     private TextView timerText;
     private TextView scoreP1;
     private TextView scoreP2;
+    private TextView player1MetaText;
+    private TextView player2MetaText;
     private TextView roundPointsText;
     private TextView phaseHint;
     private TextView finalTitle;
@@ -142,6 +145,8 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
         timerText = view.findViewById(R.id.asoTimerText);
         scoreP1 = view.findViewById(R.id.asoScoreP1);
         scoreP2 = view.findViewById(R.id.asoScoreP2);
+        player1MetaText = view.findViewById(R.id.asoPlayer1Meta);
+        player2MetaText = view.findViewById(R.id.asoPlayer2Meta);
         roundPointsText = view.findViewById(R.id.asoRoundPointsText);
         phaseHint = view.findViewById(R.id.asoPhaseHint);
         finalTitle = view.findViewById(R.id.asoFinalTitle);
@@ -232,6 +237,11 @@ public class AsocijacijeFragment extends Fragment implements ExitConfirmationHan
         scoreP2.setVisibility(currentState.isSoloChallenge() ? View.GONE : View.VISIBLE);
         scoreP1.setTextColor(currentState.isForfeited(currentState.getPlayer1Id()) ? 0xFFD32F2F : Color.BLACK);
         scoreP2.setTextColor(currentState.isForfeited(currentState.getPlayer2Id()) ? 0xFFD32F2F : Color.BLACK);
+        player2MetaText.setVisibility(currentState.isSoloChallenge() ? View.GONE : View.VISIBLE);
+        PlayerHeaderLoader.loadProfileSummary(currentState.getPlayer1Id(), player1MetaText);
+        if (!currentState.isSoloChallenge()) {
+            PlayerHeaderLoader.loadProfileSummary(currentState.getPlayer2Id(), player2MetaText);
+        }
         roundPointsText.setText(getString(R.string.aso_round_points_fmt,
                 currentState.getRoundPlayer1Score(), currentState.getRoundPlayer2Score()));
         resultText.setText(currentState.getStatusMessage());

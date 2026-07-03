@@ -67,6 +67,8 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
     private TextView resultText;
     private TextView playerOneScoreText;
     private TextView playerTwoScoreText;
+    private TextView playerOneMetaText;
+    private TextView playerTwoMetaText;
     private ImageView playerOneAvatar;
     private ImageView playerTwoAvatar;
     private CountDownTimer timer;
@@ -90,6 +92,8 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         resultText = view.findViewById(R.id.resultText);
         playerOneScoreText = view.findViewById(R.id.spScore0);
         playerTwoScoreText = view.findViewById(R.id.spScore1);
+        playerOneMetaText = view.findViewById(R.id.spPlayer1Meta);
+        playerTwoMetaText = view.findViewById(R.id.spPlayer2Meta);
         playerOneAvatar = view.findViewById(R.id.spAvatar0);
         playerTwoAvatar = view.findViewById(R.id.spAvatar1);
         view.findViewById(R.id.newSpojniceGameButton).setVisibility(View.GONE);
@@ -299,14 +303,17 @@ public class SpojniceFragment extends Fragment implements ExitConfirmationHandle
         playerOneScoreText.setTextColor(state.isForfeited(state.getPlayer1Id()) ? COLOR_FORFEITED : Color.BLACK);
         playerTwoScoreText.setTextColor(state.isForfeited(state.getPlayer2Id()) ? COLOR_FORFEITED : Color.BLACK);
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
+        PlayerHeaderLoader.loadProfileSummary(state.getPlayer1Id(), playerOneMetaText);
         if (!state.isSoloChallenge()) {
             PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+            PlayerHeaderLoader.loadProfileSummary(state.getPlayer2Id(), playerTwoMetaText);
         }
     }
 
     private void updateHeaderVisibility(boolean soloChallenge) {
         int visibility = soloChallenge ? View.GONE : View.VISIBLE;
         playerTwoScoreText.setVisibility(visibility);
+        playerTwoMetaText.setVisibility(visibility);
         playerTwoAvatar.setVisibility(visibility);
     }
 

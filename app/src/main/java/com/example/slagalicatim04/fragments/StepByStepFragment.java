@@ -69,6 +69,8 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
     private TextView currentPointsValue;
     private TextView player1ScoreText;
     private TextView player2ScoreText;
+    private TextView player1MetaText;
+    private TextView player2MetaText;
     private ImageView player1Avatar;
     private ImageView player2Avatar;
     private View resultBanner;
@@ -143,6 +145,8 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
         currentPointsValue.setVisibility(View.GONE);
         player1ScoreText = view.findViewById(R.id.player1ScoreText);
         player2ScoreText = view.findViewById(R.id.player2ScoreText);
+        player1MetaText = view.findViewById(R.id.stepPlayer1Meta);
+        player2MetaText = view.findViewById(R.id.stepPlayer2Meta);
         player1Avatar = view.findViewById(R.id.stepPlayer1Avatar);
         player2Avatar = view.findViewById(R.id.stepPlayer2Avatar);
         resultBanner = view.findViewById(R.id.stepByStepResultBanner);
@@ -270,8 +274,10 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
                 + currentState.getPlayer2Score());
         updateHeaderVisibility(currentState.isSoloChallenge());
         PlayerHeaderLoader.loadAvatar(currentState.getPlayer1Id(), player1Avatar);
+        PlayerHeaderLoader.loadProfileSummary(currentState.getPlayer1Id(), player1MetaText);
         if (!currentState.isSoloChallenge()) {
             PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
+            PlayerHeaderLoader.loadProfileSummary(currentState.getPlayer2Id(), player2MetaText);
         }
         updatePlayerScoreStyle(myPlayer);
         statusText.setText(waitingForServerTime
@@ -334,6 +340,7 @@ public class StepByStepFragment extends Fragment implements ExitConfirmationHand
     private void updateHeaderVisibility(boolean soloChallenge) {
         int visibility = soloChallenge ? View.GONE : View.VISIBLE;
         player2ScoreText.setVisibility(visibility);
+        player2MetaText.setVisibility(visibility);
         player2Avatar.setVisibility(visibility);
     }
 
