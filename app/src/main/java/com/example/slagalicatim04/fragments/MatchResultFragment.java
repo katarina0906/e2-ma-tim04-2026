@@ -25,6 +25,7 @@ import com.example.slagalicatim04.regions.RegionChallenge;
 import com.example.slagalicatim04.regions.RegionChallengeParticipant;
 import com.example.slagalicatim04.regions.RegionChallengeRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
+import com.example.slagalicatim04.tournament.TournamentRepository;
 import com.google.firebase.firestore.ListenerRegistration;
 
 public class MatchResultFragment extends Fragment implements ExitConfirmationHandler {
@@ -54,6 +55,8 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     private String previewUserId = "";
     private boolean activeSoloPreview;
     private boolean challengeSummaryMode;
+    private boolean submittedTournamentResult;
+    private String currentTournamentId = "";
 
     @Nullable
     @Override
@@ -171,16 +174,20 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
         }
         String firstName = playerName(state.getPlayer1Name(), "Igrac 1");
         String secondName = playerName(state.getPlayer2Name(), "Igrac 2");
+        boolean tournamentMatch = isTournamentMatch(state);
+        if (tournamentMatch) {
+            currentTournamentId = state.getTournamentId();
+        }
         updateHeaderVisibility(state.isSoloChallenge());
         bindExitAction(state);
         player1Name.setText(firstName);
         player1Score.setText(scoreSummary(state.getPlayer1Score(), state.getPlayer1StarDelta(),
-                state.getPlayer1EarnedTokens(), state.isSoloChallenge()));
+                state.getPlayer1EarnedTokens(), state.isSoloChallenge() || tournamentMatch));
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), player1Avatar);
         if (!state.isSoloChallenge()) {
             player2Name.setText(secondName);
             player2Score.setText(scoreSummary(state.getPlayer2Score(), state.getPlayer2StarDelta(),
-                    state.getPlayer2EarnedTokens(), false));
+                    state.getPlayer2EarnedTokens(), tournamentMatch));
             PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), player2Avatar);
         }
         releasePlayers(state);
@@ -194,6 +201,15 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
             winnerText.setText("Partija je zavrsena nereseno.");
         }
         submitChallengeScore(state);
+        submitTournamentResult(state);
+    }
+
+    private void submitTournamentResult(MatchResultState state) {
+        if (submittedTournamentResult || state.winner() == 0 || !roomId.startsWith("tournament_")) {
+            return;
+        }
+        submittedTournamentResult = true;
+        new TournamentRepository().onMatchFinished(roomId, state);
     }
 
     private void updateHeaderVisibility(boolean soloChallenge) {
@@ -218,9 +234,81 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
             return;
         }
         if (homeButton instanceof TextView) {
-            ((TextView) homeButton).setText(navigationLabel());
+            ((TextView) homeButton).setText(resultNavigationLabel(state));
+        }
+        if (isTournamentMatch(state)) {
+            homeButton.setOnClickListener(v -> handleTournamentExit(v, state));
+            return;
         }
         homeButton.setOnClickListener(v -> persistPreviewAndNavigate(v, state.isSoloChallenge(), state.getChallengeId()));
+    }
+
+    private String resultNavigationLabel(MatchResultState state) {
+        if (isTournamentMatch(state)
+                && "semifinal".equals(state.getTournamentRound())
+                && isCurrentUserWinner(state)) {
+            return "Igraj finale";
+        }
+        if (isTournamentMatch(state)) {
+            return "Vrati se na turnir";
+        }
+        return navigationLabel();
+    }
+
+    private void handleTournamentExit(View source, MatchResultState state) {
+        if ("semifinal".equals(state.getTournamentRound()) && isCurrentUserWinner(state)) {
+            openFinalWhenReady(source, state.getTournamentId());
+            return;
+        }
+        navigateToTournament(source, state.getTournamentId());
+    }
+
+    private boolean isCurrentUserWinner(MatchResultState state) {
+        AuthUser currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        if (currentUser == null || state.winner() == 0) {
+            return false;
+        }
+        String winnerId = state.winner() == 1 ? state.getPlayer1Id() : state.getPlayer2Id();
+        return currentUser.getId().equals(winnerId);
+    }
+
+    private void openFinalWhenReady(View source, String tournamentId) {
+        AuthUser currentUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        if (currentUser == null) {
+            navigateToTournament(source, tournamentId);
+            return;
+        }
+        new TournamentRepository().findFinalRoom(tournamentId, currentUser.getId(),
+                new TournamentRepository.FinalRoomCallback() {
+                    @Override
+                    public void onReady(String roomId) {
+                        if (!isAdded()) {
+                            return;
+                        }
+                        Bundle args = new Bundle();
+                        args.putString("roomId", roomId);
+                        Navigation.findNavController(source)
+                                .navigate(R.id.stepByStepWaitingRoomFragment, args);
+                    }
+
+                    @Override
+                    public void onPending() {
+                        if (!isAdded()) {
+                            return;
+                        }
+                        Toast.makeText(requireContext(), "Ceka se drugi finalista.", Toast.LENGTH_LONG).show();
+                        navigateToTournament(source, tournamentId);
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        if (!isAdded()) {
+                            return;
+                        }
+                        Toast.makeText(requireContext(), error.getMessage(), Toast.LENGTH_LONG).show();
+                        navigateToTournament(source, tournamentId);
+                    }
+                });
     }
 
     private void releasePlayers(MatchResultState state) {
@@ -401,6 +489,9 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     }
 
     private String navigationLabel() {
+        if (!isEmpty(currentTournamentId)) {
+            return "Nazad na turnir";
+        }
         return (activeSoloPreview || challengeSummaryMode) ? "Nazad na izazov" : "Nazad na pocetnu";
     }
 
@@ -409,6 +500,10 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     }
 
     private void navigateAway(View source, boolean soloChallenge, String challengeId) {
+        if (!isEmpty(currentTournamentId)) {
+            navigateToTournament(source, currentTournamentId);
+            return;
+        }
         if ((soloChallenge || challengeSummaryMode) && !isEmpty(challengeId)) {
             Bundle args = new Bundle();
             args.putString(RegionChallengeRoomFragment.ARG_CHALLENGE_ID, challengeId);
@@ -434,6 +529,10 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
     }
 
     private void persistPreviewAndNavigate(View source, boolean soloChallenge, String challengeId) {
+        if (!isEmpty(currentTournamentId)) {
+            navigateToTournament(source, currentTournamentId);
+            return;
+        }
         if (challengeSummaryMode) {
             navigateAway(source, true, previewChallengeId);
             return;
@@ -443,6 +542,21 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
             return;
         }
         navigateAway(source, soloChallenge, challengeId);
+    }
+
+    private boolean isTournamentMatch(MatchResultState state) {
+        return roomId.startsWith("tournament_") || !isEmpty(state.getTournamentId());
+    }
+
+    private void navigateToTournament(View source, String tournamentId) {
+        Bundle args = new Bundle();
+        args.putString(TournamentFragment.ARG_TOURNAMENT_ID, tournamentId);
+        Navigation.findNavController(source).navigate(
+                R.id.tournamentFragment,
+                args,
+                new NavOptions.Builder()
+                        .setLaunchSingleTop(true)
+                        .build());
     }
 
     @Override

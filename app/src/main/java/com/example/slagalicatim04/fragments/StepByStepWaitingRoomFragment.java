@@ -58,7 +58,7 @@ public class StepByStepWaitingRoomFragment extends Fragment {
             roomId = getArguments().getString("roomId");
         }
         playerSession = resolveCurrentUser();
-        if (!hasAvailableTokens()) {
+        if (!isTournamentRoom() && !hasAvailableTokens()) {
             Toast.makeText(requireContext(), R.string.tokens_missing, Toast.LENGTH_LONG).show();
             Navigation.findNavController(view).navigate(
                     R.id.homeFragment,
@@ -182,6 +182,10 @@ public class StepByStepWaitingRoomFragment extends Fragment {
     private boolean hasAvailableTokens() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
         return authUser == null || authUser.getTokens() > 0;
+    }
+
+    private boolean isTournamentRoom() {
+        return roomId != null && roomId.startsWith("tournament_");
     }
 
     private String deviceId() {

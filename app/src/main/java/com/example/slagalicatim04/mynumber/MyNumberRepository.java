@@ -211,6 +211,10 @@ public class MyNumberRepository {
             updates.put("player2EarnedTokens", 0L);
             return;
         }
+        if (isTournamentMatch(snapshot)) {
+            applyTournamentRewards(transaction, snapshot, state, updates, nextP1Score, nextP2Score);
+            return;
+        }
         int winner = winner(nextP1Score, nextP2Score);
         DocumentSnapshot player1Snapshot = transaction.get(
                 matchRef.getFirestore().collection("users").document(state.getPlayer1Id()));
@@ -233,6 +237,76 @@ public class MyNumberRepository {
         updates.put("player2Stars", p2Reward.remainingStars);
         updates.put("player1EarnedTokens", p1Reward.earnedTokens);
         updates.put("player2EarnedTokens", p2Reward.earnedTokens);
+    }
+
+    private void applyTournamentRewards(Transaction transaction, DocumentSnapshot snapshot,
+                                        MyNumberMatchState state, Map<String, Object> updates,
+                                        long nextP1Score, long nextP2Score)
+            throws FirebaseFirestoreException {
+        int winner = winner(nextP1Score, nextP2Score);
+        String round = stringValue(snapshot.getString("tournamentRound"));
+        DocumentSnapshot player1Snapshot = transaction.get(
+                matchRef.getFirestore().collection("users").document(state.getPlayer1Id()));
+        DocumentSnapshot player2Snapshot = transaction.get(
+                matchRef.getFirestore().collection("users").document(state.getPlayer2Id()));
+        PlayerProgressService.RewardResult p1Reward = new PlayerProgressService.RewardResult(0, 0, 0, 0);
+        PlayerProgressService.RewardResult p2Reward = new PlayerProgressService.RewardResult(0, 0, 0, 0);
+        long p1TokenBonus = 0L;
+        long p2TokenBonus = 0L;
+        long p1StarBonus = 0L;
+        long p2StarBonus = 0L;
+
+        if ("semifinal".equals(round)) {
+            if (winner == 1) {
+                p1Reward = progressService.applyMatchRewards(
+                        transaction, state.getPlayer1Id(), player1Snapshot, nextP1Score, true);
+                p1TokenBonus = 2L;
+            } else if (winner == 2) {
+                p2Reward = progressService.applyMatchRewards(
+                        transaction, state.getPlayer2Id(), player2Snapshot, nextP2Score, true);
+                p2TokenBonus = 2L;
+            }
+        } else if ("final".equals(round)) {
+            p1Reward = progressService.applyMatchRewards(
+                    transaction, state.getPlayer1Id(), player1Snapshot, nextP1Score, winner == 1);
+            p2Reward = progressService.applyMatchRewards(
+                    transaction, state.getPlayer2Id(), player2Snapshot, nextP2Score, winner == 2);
+            if (winner == 1) {
+                p1TokenBonus = 3L;
+                p1StarBonus = 10L;
+            } else if (winner == 2) {
+                p2TokenBonus = 3L;
+                p2StarBonus = 10L;
+            }
+        }
+
+        applyBonus(transaction, state.getPlayer1Id(), p1StarBonus, p1TokenBonus);
+        applyBonus(transaction, state.getPlayer2Id(), p2StarBonus, p2TokenBonus);
+        updates.put("matchRewardsApplied", true);
+        updates.put("player1StarDelta", p1Reward.starDelta + p1StarBonus);
+        updates.put("player2StarDelta", p2Reward.starDelta + p2StarBonus);
+        updates.put("player1Stars", p1Reward.remainingStars + p1StarBonus);
+        updates.put("player2Stars", p2Reward.remainingStars + p2StarBonus);
+        updates.put("player1EarnedTokens", p1Reward.earnedTokens + p1TokenBonus);
+        updates.put("player2EarnedTokens", p2Reward.earnedTokens + p2TokenBonus);
+    }
+
+    private void applyBonus(Transaction transaction, String userId, long stars, long tokens) {
+        if (isEmpty(userId) || (stars <= 0 && tokens <= 0)) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        if (stars > 0) {
+            updates.put("stars", FieldValue.increment(stars));
+            updates.put("totalStars", FieldValue.increment(stars));
+            updates.put("overallStars", FieldValue.increment(stars));
+            updates.put("monthlyStars", FieldValue.increment(stars));
+        }
+        if (tokens > 0) {
+            updates.put("tokens", FieldValue.increment(tokens));
+        }
+        transaction.set(matchRef.getFirestore().collection("users").document(userId),
+                updates, SetOptions.merge());
     }
 
     private int winner(long p1Score, long p2Score) {
@@ -275,6 +349,15 @@ public class MyNumberRepository {
 
     private boolean isFriendlyMatch() {
         return matchRef.getId().startsWith(FRIEND_ROOM_PREFIX);
+    }
+
+    private boolean isTournamentMatch(DocumentSnapshot snapshot) {
+        return matchRef.getId().startsWith("tournament_")
+                || !isEmpty(snapshot.getString("tournamentId"));
+    }
+
+    private String stringValue(String value) {
+        return value == null ? "" : value;
     }
 
     private boolean isEmpty(String value) {

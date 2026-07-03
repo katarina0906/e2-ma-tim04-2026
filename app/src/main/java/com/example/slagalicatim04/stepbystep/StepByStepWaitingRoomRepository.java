@@ -103,7 +103,7 @@ public class StepByStepWaitingRoomRepository {
                         roomRef.getFirestore().collection("users").document(state.getPlayer1Id()));
                 DocumentSnapshot player2Snapshot = transaction.get(
                         roomRef.getFirestore().collection("users").document(state.getPlayer2Id()));
-                if (!isFriendlyMatch()) {
+                if (!isFriendlyMatch() && !isTournamentMatch()) {
                     tokenService.consumeSingleToken(transaction, state.getPlayer1Id(), player1Snapshot);
                     tokenService.consumeSingleToken(transaction, state.getPlayer2Id(), player2Snapshot);
                 }
@@ -195,5 +195,9 @@ public class StepByStepWaitingRoomRepository {
 
     private boolean isFriendlyMatch() {
         return roomRef.getId().startsWith(FRIEND_ROOM_PREFIX);
+    }
+
+    private boolean isTournamentMatch() {
+        return roomRef.getId().startsWith("tournament_");
     }
 }
