@@ -23,6 +23,10 @@ public class StepByStepWaitingRoomRepository {
         void onError(Exception error);
     }
 
+    public interface SuccessCallback {
+        void onSuccess();
+    }
+
     private static final String COLLECTION = "stepByStepMatches";
     private static final String FRIEND_ROOM_PREFIX = "friend_";
 
@@ -34,7 +38,7 @@ public class StepByStepWaitingRoomRepository {
         tokenService = new TokenService(roomRef.getFirestore());
     }
 
-    public void joinRoom(StepByStepPlayerSession player, ErrorCallback onError) {
+    public void joinRoom(StepByStepPlayerSession player, SuccessCallback onSuccess, ErrorCallback onError) {
         roomRef.getFirestore().runTransaction((Transaction.Function<Void>) transaction -> {
             DocumentSnapshot snapshot = transaction.get(roomRef);
             if (!snapshot.exists()) {
@@ -43,6 +47,16 @@ public class StepByStepWaitingRoomRepository {
             }
 
             StepByStepMatchState state = new StepByStepMatchState(snapshot);
+            if (isPublicRoom() && shouldResetPublicWaitingRoom(state, player.getId())) {
+                transaction.set(roomRef, newWaitingState(player));
+                return null;
+            }
+            if (isAbandonedState(state)) {
+                throw new IllegalStateException("Ova partija je napustena i vise nije dostupna.");
+            }
+            if (state.isForfeited(player.getId())) {
+                throw new IllegalStateException("Napustio si ovu partiju i ne mozes da se vratis.");
+            }
             if (needsFreshRoom(state, player.getId())) {
                 transaction.set(roomRef, newWaitingState(player));
                 return null;
@@ -65,7 +79,8 @@ public class StepByStepWaitingRoomRepository {
                 transaction.set(roomRef, updates, SetOptions.merge());
             }
             return null;
-        }).addOnFailureListener(onError::onError);
+        }).addOnSuccessListener(ignored -> onSuccess.onSuccess())
+                .addOnFailureListener(onError::onError);
     }
 
     public ListenerRegistration listen(RoomListener listener) {
@@ -154,6 +169,20 @@ public class StepByStepWaitingRoomRepository {
         return gameAlreadyStarted || fullForeignRoom || state.getRound() < 1 || state.getRound() > 2;
     }
 
+    private boolean isAbandonedState(StepByStepMatchState state) {
+        return "abandoned".equals(state.getPhase())
+                || "abandoned".equals(state.getCurrentGame());
+    }
+
+    private boolean shouldResetPublicWaitingRoom(StepByStepMatchState state, String playerId) {
+        if (isAbandonedState(state) || state.isForfeited(playerId)) {
+            return true;
+        }
+        return state.isFinished()
+                || !"waiting".equals(state.getPhase())
+                || !"waiting".equals(state.getCurrentGame());
+    }
+
     private Map<String, Object> newWaitingState(StepByStepPlayerSession player) {
         Map<String, Object> state = new HashMap<>();
         state.put("player1Id", player.getId());
@@ -199,5 +228,9 @@ public class StepByStepWaitingRoomRepository {
 
     private boolean isTournamentMatch() {
         return roomRef.getId().startsWith("tournament_");
+    }
+
+    private boolean isPublicRoom() {
+        return !isFriendlyMatch() && !isTournamentMatch();
     }
 }

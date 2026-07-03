@@ -208,10 +208,13 @@ public class GameInviteRepository {
             return false;
         }
         return !"finished".equals(phase)
+                && !"abandoned".equals(phase)
                 && !"inviteDeclined".equals(phase)
                 && !"inviteExpired".equals(phase)
                 && !"inviteCancelled".equals(phase)
-                && !"matchFinished".equals(phase);
+                && !"matchFinished".equals(phase)
+                && !"abandoned".equals(currentGame)
+                && !"abandoned".equals(inviteStatus);
     }
 
     private boolean isRunningGamePhase(String phase) {
