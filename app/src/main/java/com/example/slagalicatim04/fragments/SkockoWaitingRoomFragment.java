@@ -51,9 +51,19 @@ public class SkockoWaitingRoomFragment extends Fragment {
         MaterialButton resetButton = view.findViewById(R.id.waitingRoomResetButton);
 
         playerSession = resolveCurrentUser();
+        if (!hasAvailableTokens()) {
+            Toast.makeText(requireContext(), R.string.tokens_missing, Toast.LENGTH_LONG).show();
+            Navigation.findNavController(view).navigate(
+                    R.id.homeFragment,
+                    null,
+                    new androidx.navigation.NavOptions.Builder()
+                            .setPopUpTo(R.id.nav_graph, true)
+                            .build());
+            return view;
+        }
         repository = new SkockoMatchRepository(ROOM_ID);
         titleText.setText("Skočko");
-        codeText.setText("Skočko test soba: " + ROOM_ID);
+        codeText.setText("");
         confirmButton.setEnabled(false);
         confirmButton.setOnClickListener(v ->
                 repository.confirmReady(playerSession, this::showError));
@@ -88,17 +98,23 @@ public class SkockoWaitingRoomFragment extends Fragment {
 
     private void renderState(SkockoMatchState state) {
         int myPlayer = state.playerNumber(playerSession.getId());
+        boolean opponentLeft = state.hasForfeit();
         player1Text.setText("Igrac 1: " + playerLabel(
-                state.getPlayer1Name(), state.isPlayer1Ready()));
+                state.getPlayer1Id(), state.getPlayer1Name(), state.isPlayer1Ready(), state));
         player2Text.setText("Igrac 2: " + playerLabel(
-                state.getPlayer2Name(), state.isPlayer2Ready()));
+                state.getPlayer2Id(), state.getPlayer2Name(), state.isPlayer2Ready(), state));
+        player1Text.setTextColor(state.isForfeited(state.getPlayer1Id()) ? 0xFFD32F2F : 0xFF000000);
+        player2Text.setTextColor(state.isForfeited(state.getPlayer2Id()) ? 0xFFD32F2F : 0xFF000000);
 
         if (SkockoMatchState.PHASE_ROUND.equals(state.getPhase())
                 || SkockoMatchState.PHASE_STEAL.equals(state.getPhase())) {
             navigateToGame();
             return;
         }
-        if (!state.hasSecondPlayer()) {
+        if (opponentLeft) {
+            statusText.setText(nonEmpty(state.getStatusMessage(),
+                    "Protivnik je napustio partiju."));
+        } else if (!state.hasSecondPlayer()) {
             statusText.setText("Ceka se drugi igrac.");
         } else if (myPlayer == 0) {
             statusText.setText("Soba je popunjena. Resetuj test sobu za novi test.");
@@ -138,9 +154,17 @@ public class SkockoWaitingRoomFragment extends Fragment {
         return new StepByStepPlayerSession(userId, userName);
     }
 
-    private String playerLabel(String name, boolean ready) {
+    private boolean hasAvailableTokens() {
+        AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        return authUser == null || authUser.getTokens() > 0;
+    }
+
+    private String playerLabel(String playerId, String name, boolean ready, SkockoMatchState state) {
         if (isEmpty(name)) {
             return "ceka se";
+        }
+        if (state.isForfeited(playerId)) {
+            return name + " - napustio partiju";
         }
         return name + (ready ? " - spreman" : " - nije potvrdio");
     }
@@ -153,5 +177,9 @@ public class SkockoWaitingRoomFragment extends Fragment {
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String nonEmpty(String value, String fallback) {
+        return isEmpty(value) ? fallback : value;
     }
 }

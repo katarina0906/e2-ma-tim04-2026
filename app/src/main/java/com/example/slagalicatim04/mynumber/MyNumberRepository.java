@@ -1,11 +1,14 @@
 package com.example.slagalicatim04.mynumber;
 
+import com.example.slagalicatim04.auth.PlayerProgressService;
+import com.example.slagalicatim04.auth.DailyMissionService;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
 import com.example.slagalicatim04.ranking.RankingCycle;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.SetOptions;
@@ -16,6 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MyNumberRepository {
+    private static final String FRIEND_ROOM_PREFIX = "friend_";
     private static final int WIN_BONUS_STARS = 10;
     private static final int SCORE_PER_STAR = 40;
 
@@ -26,11 +30,13 @@ public class MyNumberRepository {
 
     private final DocumentReference matchRef;
     private final MyNumberGameService service = new MyNumberGameService();
+    private final PlayerProgressService progressService;
 
     public MyNumberRepository(String roomId) {
         matchRef = FirebaseFirestore.getInstance()
                 .collection("stepByStepMatches")
                 .document(roomId);
+        progressService = new PlayerProgressService(matchRef.getFirestore());
     }
 
     public ListenerRegistration listen(Listener listener) {
@@ -84,10 +90,11 @@ public class MyNumberRepository {
                 int left = Math.max(0, state.getSecondsLeft() - 1);
                 updates.put("myNumberSecondsLeft", left);
                 if (left == 0) {
-                    submitMissingAndScore(transaction, state, updates,
+                    submitMissingAndScore(transaction, snapshot, state, updates,
                             state.getP1Result(), state.getP2Result());
                 }
             }
+            updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(matchRef, updates, SetOptions.merge());
             return null;
         }).addOnSuccessListener(ignored -> awardTokensIfFinished());
@@ -125,12 +132,32 @@ public class MyNumberRepository {
             boolean p2Submitted = myPlayer == 2 || state.isP2Submitted();
             Integer p1Result = myPlayer == 1 ? result : state.getP1Result();
             Integer p2Result = myPlayer == 2 ? result : state.getP2Result();
-            if (p1Submitted && p2Submitted) {
-                submitMissingAndScore(transaction, state, updates, p1Result, p2Result);
+            boolean canResolveWithForfeit = !isEmpty(state.getForfeitedPlayerId())
+                    && (p1Submitted || p2Submitted);
+            if ((p1Submitted && p2Submitted) || canResolveWithForfeit) {
+                submitMissingAndScore(transaction, snapshot, state, updates, p1Result, p2Result);
             }
+            updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(matchRef, updates, SetOptions.merge());
             return null;
         }).addOnSuccessListener(ignored -> awardTokensIfFinished());
+    }
+
+    public void resolveForfeitState(MyNumberMatchState state) {
+        String forfeitedPlayerId = state.getForfeitedPlayerId();
+        if (!state.isMyNumberGame() || isEmpty(forfeitedPlayerId)) {
+            return;
+        }
+        int forfeitedPlayer = state.getPlayer1Id().equals(forfeitedPlayerId) ? 1
+                : state.getPlayer2Id().equals(forfeitedPlayerId) ? 2 : 0;
+        if (forfeitedPlayer == 0 || forfeitedPlayer != state.getActivePlayer()) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("myNumberActivePlayer", forfeitedPlayer == 1 ? 2 : 1);
+        updates.put("myNumberStatusMessage",
+                "Protivnik je napustio partiju. Nastavljas bez cekanja.");
+        matchRef.set(updates, SetOptions.merge());
     }
 
     private void updateIfActive(StepByStepPlayerSession player, String field, Object value) {
@@ -143,13 +170,16 @@ public class MyNumberRepository {
                 updates.put(field, value);
                 if ("myNumberTargetShown".equals(field)) updates.put("myNumberTargetRevealLeft", 0);
                 if ("myNumberNumbersShown".equals(field)) updates.put("myNumberNumbersRevealLeft", 0);
+                updates.put("updatedAt", FieldValue.serverTimestamp());
                 matchRef.set(updates, SetOptions.merge());
             }
         });
     }
 
-    private void submitMissingAndScore(Transaction transaction, MyNumberMatchState state,
-                                       Map<String, Object> updates, Integer p1, Integer p2) {
+    private void submitMissingAndScore(Transaction transaction, DocumentSnapshot snapshot,
+                                       MyNumberMatchState state, Map<String, Object> updates,
+                                       Integer p1, Integer p2)
+            throws FirebaseFirestoreException {
         MyNumberGameService.RoundScore score = service.scoreRound(
                 state.getTarget(), state.getActivePlayer(), p1, p2);
         long nextP1Score = state.getPlayer1Score() + score.p1Points;
@@ -158,7 +188,8 @@ public class MyNumberRepository {
         updates.put("player2Score", nextP2Score);
         updates.put("myNumberStatusMessage", score.message);
         updates.put(state.getRound() == 1 ? "myNumberRound1Result" : "myNumberRound2Result", score.message);
-        if (state.getRound() == 1) {
+        int roundCount = state.isSoloChallenge() ? 1 : 2;
+        if (state.getRound() < roundCount) {
             updates.putAll(newRoundState(2, nextP1Score, nextP2Score));
         } else {
             updates.put("currentGame", "matchResult");
@@ -167,16 +198,153 @@ public class MyNumberRepository {
                     score.message + " Moj broj i cela partija su zavrseni.");
             updates.put("statusMessage", "Partija je zavrsena.");
             updates.put("finished", true);
-            if (!state.isRankingRecorded()) {
+            applyMatchRewards(transaction, snapshot, state, updates, nextP1Score, nextP2Score);
+            if (!state.isSoloChallenge() && !Boolean.TRUE.equals(snapshot.getBoolean("rankingRecorded"))) {
                 updates.put("rankingRecorded", true);
                 recordRanking(transaction, state, nextP1Score, nextP2Score);
             }
         }
     }
 
+    private void applyMatchRewards(Transaction transaction, DocumentSnapshot snapshot,
+                                   MyNumberMatchState state, Map<String, Object> updates,
+                                   long nextP1Score, long nextP2Score)
+            throws FirebaseFirestoreException {
+        if (Boolean.TRUE.equals(snapshot.getBoolean("matchRewardsApplied"))) {
+            return;
+        }
+        if (isFriendlyMatch()) {
+            markFriendlyMission(transaction, state.getPlayer1Id());
+            markFriendlyMission(transaction, state.getPlayer2Id());
+            updates.put("matchRewardsApplied", true);
+            updates.put("player1StarDelta", 0L);
+            updates.put("player2StarDelta", 0L);
+            updates.put("player1EarnedTokens", 0L);
+            updates.put("player2EarnedTokens", 0L);
+            return;
+        }
+        if (isTournamentMatch(snapshot)) {
+            applyTournamentRewards(transaction, snapshot, state, updates, nextP1Score, nextP2Score);
+            return;
+        }
+        int winner = winner(nextP1Score, nextP2Score);
+        DocumentSnapshot player1Snapshot = transaction.get(
+                matchRef.getFirestore().collection("users").document(state.getPlayer1Id()));
+        DocumentSnapshot player2Snapshot = transaction.get(
+                matchRef.getFirestore().collection("users").document(state.getPlayer2Id()));
+        PlayerProgressService.RewardResult p1Reward = state.isForfeited(state.getPlayer1Id())
+                ? new PlayerProgressService.RewardResult(0, 0, 0, 0)
+                : progressService.applyMatchRewards(
+                transaction, state.getPlayer1Id(), player1Snapshot, nextP1Score,
+                winner == 1 || state.isForfeited(state.getPlayer2Id()));
+        PlayerProgressService.RewardResult p2Reward = state.isForfeited(state.getPlayer2Id())
+                ? new PlayerProgressService.RewardResult(0, 0, 0, 0)
+                : progressService.applyMatchRewards(
+                transaction, state.getPlayer2Id(), player2Snapshot, nextP2Score,
+                winner == 2 || state.isForfeited(state.getPlayer1Id()));
+        updates.put("matchRewardsApplied", true);
+        updates.put("player1StarDelta", p1Reward.starDelta);
+        updates.put("player2StarDelta", p2Reward.starDelta);
+        updates.put("player1Stars", p1Reward.remainingStars);
+        updates.put("player2Stars", p2Reward.remainingStars);
+        updates.put("player1EarnedTokens", p1Reward.earnedTokens);
+        updates.put("player2EarnedTokens", p2Reward.earnedTokens);
+    }
+
+    private void markFriendlyMission(Transaction transaction, String userId)
+            throws FirebaseFirestoreException {
+        if (isEmpty(userId)) {
+            return;
+        }
+        DocumentReference userRef = matchRef.getFirestore().collection("users").document(userId);
+        DocumentSnapshot userSnapshot = transaction.get(userRef);
+        DailyMissionService.Reward reward = DailyMissionService.computeReward(
+                userSnapshot, DailyMissionService.Mission.PLAY_FRIENDLY_MATCH);
+        if (reward.changed) {
+            transaction.set(userRef, DailyMissionService.buildUserRewardUpdates(userSnapshot, reward),
+                    SetOptions.merge());
+        }
+    }
+
+    private void applyTournamentRewards(Transaction transaction, DocumentSnapshot snapshot,
+                                        MyNumberMatchState state, Map<String, Object> updates,
+                                        long nextP1Score, long nextP2Score)
+            throws FirebaseFirestoreException {
+        int winner = winner(nextP1Score, nextP2Score);
+        String round = stringValue(snapshot.getString("tournamentRound"));
+        DocumentSnapshot player1Snapshot = transaction.get(
+                matchRef.getFirestore().collection("users").document(state.getPlayer1Id()));
+        DocumentSnapshot player2Snapshot = transaction.get(
+                matchRef.getFirestore().collection("users").document(state.getPlayer2Id()));
+        PlayerProgressService.RewardResult p1Reward = new PlayerProgressService.RewardResult(0, 0, 0, 0);
+        PlayerProgressService.RewardResult p2Reward = new PlayerProgressService.RewardResult(0, 0, 0, 0);
+        long p1TokenBonus = 0L;
+        long p2TokenBonus = 0L;
+        long p1StarBonus = 0L;
+        long p2StarBonus = 0L;
+
+        if ("semifinal".equals(round)) {
+            if (winner == 1) {
+                p1Reward = progressService.applyMatchRewards(
+                        transaction, state.getPlayer1Id(), player1Snapshot, nextP1Score, true);
+                p1TokenBonus = 2L;
+            } else if (winner == 2) {
+                p2Reward = progressService.applyMatchRewards(
+                        transaction, state.getPlayer2Id(), player2Snapshot, nextP2Score, true);
+                p2TokenBonus = 2L;
+            }
+        } else if ("final".equals(round)) {
+            p1Reward = progressService.applyMatchRewards(
+                    transaction, state.getPlayer1Id(), player1Snapshot, nextP1Score, winner == 1);
+            p2Reward = progressService.applyMatchRewards(
+                    transaction, state.getPlayer2Id(), player2Snapshot, nextP2Score, winner == 2);
+            if (winner == 1) {
+                p1TokenBonus = 3L;
+                p1StarBonus = 10L;
+            } else if (winner == 2) {
+                p2TokenBonus = 3L;
+                p2StarBonus = 10L;
+            }
+        }
+
+        applyBonus(transaction, state.getPlayer1Id(), p1StarBonus, p1TokenBonus);
+        applyBonus(transaction, state.getPlayer2Id(), p2StarBonus, p2TokenBonus);
+        updates.put("matchRewardsApplied", true);
+        updates.put("player1StarDelta", p1Reward.starDelta + p1StarBonus);
+        updates.put("player2StarDelta", p2Reward.starDelta + p2StarBonus);
+        updates.put("player1Stars", p1Reward.remainingStars + p1StarBonus);
+        updates.put("player2Stars", p2Reward.remainingStars + p2StarBonus);
+        updates.put("player1EarnedTokens", p1Reward.earnedTokens + p1TokenBonus);
+        updates.put("player2EarnedTokens", p2Reward.earnedTokens + p2TokenBonus);
+    }
+
+    private void applyBonus(Transaction transaction, String userId, long stars, long tokens) {
+        if (isEmpty(userId) || (stars <= 0 && tokens <= 0)) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        if (stars > 0) {
+            updates.put("stars", FieldValue.increment(stars));
+            updates.put("totalStars", FieldValue.increment(stars));
+            updates.put("overallStars", FieldValue.increment(stars));
+            updates.put("monthlyStars", FieldValue.increment(stars));
+        }
+        if (tokens > 0) {
+            updates.put("tokens", FieldValue.increment(tokens));
+        }
+        transaction.set(matchRef.getFirestore().collection("users").document(userId),
+                updates, SetOptions.merge());
+    }
+
+    private int winner(long p1Score, long p2Score) {
+        if (p1Score > p2Score) return 1;
+        if (p2Score > p1Score) return 2;
+        return 0;
+    }
+
     private void recordRanking(Transaction transaction, MyNumberMatchState state,
                                long p1Score, long p2Score) {
-        int winner = p1Score > p2Score ? 1 : p2Score > p1Score ? 2 : 0;
+        int winner = winner(p1Score, p2Score);
         long p1Stars = cycleStars(p1Score, winner == 1);
         long p2Stars = cycleStars(p2Score, winner == 2);
         RankingCycle weekly = RankingCycle.current(RankingCycle.WEEKLY);
@@ -189,7 +357,7 @@ public class MyNumberRepository {
 
     private void writeCycle(Transaction transaction, RankingCycle cycle, String userId,
                             String username, long stars) {
-        if (userId == null || userId.trim().isEmpty()) {
+        if (isEmpty(userId)) {
             return;
         }
         DocumentReference cycleRef = matchRef.getFirestore()
@@ -204,7 +372,7 @@ public class MyNumberRepository {
 
         Map<String, Object> entryData = new HashMap<>();
         entryData.put("userId", userId);
-        entryData.put("username", username == null || username.isEmpty() ? "Igrac" : username);
+        entryData.put("username", isEmpty(username) ? "Igrac" : username);
         entryData.put("leagueIcon", "*");
         entryData.put("leagueName", "Liga");
         entryData.put("played", true);
@@ -235,7 +403,7 @@ public class MyNumberRepository {
             } else {
                 return;
             }
-            if (winnerId == null || winnerId.isEmpty()) {
+            if (isEmpty(winnerId)) {
                 return;
             }
             awardTokensForCycles(winnerId);
@@ -412,6 +580,7 @@ public class MyNumberRepository {
         state.put("myNumberStatusMessage", "Moj broj - runda " + round);
         if (p1Score != null) state.put("player1Score", p1Score);
         if (p2Score != null) state.put("player2Score", p2Score);
+        state.put("updatedAt", FieldValue.serverTimestamp());
         return state;
     }
 
@@ -419,5 +588,22 @@ public class MyNumberRepository {
         if (playerId.equals(snapshot.getString("player1Id"))) return 1;
         if (playerId.equals(snapshot.getString("player2Id"))) return 2;
         return 0;
+    }
+
+    private boolean isFriendlyMatch() {
+        return matchRef.getId().startsWith(FRIEND_ROOM_PREFIX);
+    }
+
+    private boolean isTournamentMatch(DocumentSnapshot snapshot) {
+        return matchRef.getId().startsWith("tournament_")
+                || !isEmpty(snapshot.getString("tournamentId"));
+    }
+
+    private String stringValue(String value) {
+        return value == null ? "" : value;
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

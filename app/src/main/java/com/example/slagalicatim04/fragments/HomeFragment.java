@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -17,8 +18,9 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.example.slagalicatim04.ranking.RankingRewardSynchronizer;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.example.slagalicatim04.regions.AvatarFrameStyler;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -28,10 +30,11 @@ public class HomeFragment extends Fragment {
 
     private TextView usernameText;
     private TextView regionText;
+    private TextView leagueText;
     private TextView tokensText;
     private TextView starsText;
-    private TextView leagueText;
     private ImageView avatarImage;
+    private View avatarFrame;
     private AuthService authService;
     private final RankingRewardSynchronizer rewardSynchronizer = new RankingRewardSynchronizer();
 
@@ -47,23 +50,34 @@ public class HomeFragment extends Fragment {
         authService = AuthService.getInstance(requireContext());
         usernameText = view.findViewById(R.id.homeProfileUsername);
         regionText = view.findViewById(R.id.homeProfileRegion);
+        leagueText = view.findViewById(R.id.homeProfileLeague);
         tokensText = view.findViewById(R.id.homeProfileTokens);
         starsText = view.findViewById(R.id.homeProfileStars);
-        leagueText = view.findViewById(R.id.homeProfileLeague);
         avatarImage = view.findViewById(R.id.homeProfileAvatar);
+        avatarFrame = view.findViewById(R.id.homeProfileAvatarFrame);
 
-        view.findViewById(R.id.homeProfileCard).setOnClickListener(v -> {
-            BottomNavigationView bnv = requireActivity().findViewById(R.id.bottom_navigation);
-            bnv.setSelectedItemId(R.id.profileFragment);
-        });
+        view.findViewById(R.id.homeProfileCard).setOnClickListener(v ->
+                Navigation.findNavController(v).navigate(R.id.profileFragment));
         view.findViewById(R.id.homeQuickNotifications).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
                         .navigate(R.id.action_homeFragment_to_notificationsFragment));
         view.findViewById(R.id.homeQuickRanking).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
                         .navigate(R.id.action_homeFragment_to_rankingFragment));
-        view.findViewById(R.id.startGameCard).setOnClickListener(v ->
-                Navigation.findNavController(v).navigate(R.id.stepByStepWaitingRoomFragment));
+        view.findViewById(R.id.homeQuickFriends).setOnClickListener(v ->
+                Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
+                        .navigate(R.id.action_homeFragment_to_friendsFragment));
+        view.findViewById(R.id.homeQuickTournament).setOnClickListener(v ->
+                Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
+                        .navigate(R.id.action_homeFragment_to_tournamentFragment));
+        view.findViewById(R.id.startGameCard).setOnClickListener(v -> {
+            AuthUser currentUser = authService.getCurrentUser();
+            if (currentUser != null && currentUser.getTokens() < 1) {
+                Toast.makeText(requireContext(), R.string.tokens_missing, Toast.LENGTH_LONG).show();
+                return;
+            }
+            Navigation.findNavController(v).navigate(R.id.stepByStepWaitingRoomFragment);
+        });
 
         AuthUser user = authService.getCurrentUser();
         if (user != null) {
@@ -91,6 +105,13 @@ public class HomeFragment extends Fragment {
     private void showProfile(AuthUser user) {
         usernameText.setText(user.getUsername());
         regionText.setText(user.getRegion());
+        LeagueInfo league = LeagueInfo.forStars(user.getTotalStars());
+        leagueText.setText(league.name);
+        leagueText.setCompoundDrawablesWithIntrinsicBounds(league.iconRes, 0, 0, 0);
+        leagueText.setCompoundDrawablePadding(6);
+        tokensText.setText(String.valueOf(user.getTokens()));
+        starsText.setText(String.valueOf(user.getTotalStars()));
+        AvatarFrameStyler.apply(avatarFrame, user.getAvatarFramePlace());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }
 

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F4F1FA"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Regioni Srbije"
+            android:textColor="#1E1E2F"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/regionCycleText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="#6C6780"
+            android:textSize="14sp"
+            tools:text="Mesecni ciklus: 2026-06" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openRegionChatButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Otvori čet regiona" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openRegionChallengesButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Otvori izazove regiona" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            app:cardCornerRadius="22dp"
+            app:cardElevation="5dp">
+
+            <org.osmdroid.views.MapView
+                android:id="@+id/serbiaRegionsMap"
+                android:layout_width="match_parent"
+                android:layout_height="420dp"
+                android:background="#FFFFFF"
+                android:padding="10dp" />
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#FFFFFF"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/selectedRegionTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#1E1E2F"
+                    android:textSize="19sp"
+                    android:textStyle="bold"
+                    tools:text="BG  Beogradski region" />
+
+                <TextView
+                    android:id="@+id/selectedRegionStats"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:lineSpacingExtra="3dp"
+                    android:textColor="#333333"
+                    android:textSize="15sp"
+                    tools:text="Prva mesta: 3\nDruga mesta: 2\nTreca mesta: 1\nAktivni igraci: 8\nRegistrovani igraci: 120" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Mesecna rang lista po regionima"
+            android:textColor="#1E1E2F"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Prikazuje se svih 5 regiona. Sabiraju se zvezde svih igraca koji pripadaju regionu. Na pocetku novog mesecnog ciklusa lista krece od nule."
+            android:textColor="#6C6780"
+            android:textSize="14sp" />
+
+        <LinearLayout
+            android:id="@+id/regionRankingList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical"
+            tools:itemCount="5"
+            tools:listitem="@layout/item_region_rank" />
+    </LinearLayout>
+</ScrollView>

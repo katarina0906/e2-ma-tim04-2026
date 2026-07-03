@@ -113,6 +113,8 @@
     <string name="notif_channel_ranking_desc">Plasman na rang listama i promena liga.</string>
     <string name="notif_channel_rewards_name">Nagrade</string>
     <string name="notif_channel_rewards_desc">Dostupne nagrade, poklon kutije i slične obavesti.</string>
+    <string name="notif_channel_game_invites_name">Pozivi za partiju</string>
+    <string name="notif_channel_game_invites_desc">Pozivi prijatelja za prijateljske partije.</string>
     <string name="notif_channel_other_name">Ostalo</string>
     <string name="notif_channel_other_desc">Pozivi za prijatelje i druge aplikacije koje nemaju svoj kanal.</string>
 
@@ -121,4 +123,10 @@
     <string name="profile_change_password_description"></string>
     <string name="profile_change_password_toggle_open">Prikaži formu</string>
     <string name="profile_change_password_toggle_close">Sakrij formu</string>
+    <string name="home_region_placeholder">📍
+Region</string>
+    <string name="home_tokens_fmt">🪙
+%1$d
+Tokena</string>
+    <string name="tokens_missing">Nemate dovoljno tokena za novu partiju.</string>
 </resources>

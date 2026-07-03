@@ -66,6 +66,12 @@
         <action
             android:id="@+id/action_homeFragment_to_rankingFragment"
             app:destination="@id/rankingFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_friendsFragment"
+            app:destination="@id/friendsFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_tournamentFragment"
+            app:destination="@id/tournamentFragment" />
     </fragment>
 
     <fragment
@@ -92,6 +98,12 @@
         tools:layout="@layout/fragment_ranking" />
 
     <fragment
+        android:id="@+id/friendsFragment"
+        android:name="com.example.slagalicatim04.fragments.FriendsFragment"
+        android:label="Prijatelji"
+        tools:layout="@layout/fragment_friends" />
+
+    <fragment
         android:id="@+id/notificationTargetFragment"
         android:name="com.example.slagalicatim04.fragments.NotificationTargetFragment"
         android:label="@string/notification_target_title"
@@ -102,6 +114,42 @@
         android:name="com.example.slagalicatim04.fragments.GamesFragment"
         android:label="Games"
         tools:layout="@layout/fragment_games" />
+
+    <fragment
+        android:id="@+id/tournamentFragment"
+        android:name="com.example.slagalicatim04.fragments.TournamentFragment"
+        android:label="Turnir"
+        tools:layout="@layout/fragment_tournament" />
+
+    <fragment
+        android:id="@+id/regionsFragment"
+        android:name="com.example.slagalicatim04.fragments.RegionsFragment"
+        android:label="Regioni"
+        tools:layout="@layout/fragment_regions" />
+
+    <fragment
+        android:id="@+id/regionChatFragment"
+        android:name="com.example.slagalicatim04.fragments.RegionChatFragment"
+        android:label="Čet regiona"
+        tools:layout="@layout/fragment_region_chat" />
+
+    <fragment
+        android:id="@+id/regionChallengesFragment"
+        android:name="com.example.slagalicatim04.fragments.RegionChallengesFragment"
+        android:label="Izazovi regiona"
+        tools:layout="@layout/fragment_region_challenges" />
+
+    <fragment
+        android:id="@+id/regionChallengeRoomFragment"
+        android:name="com.example.slagalicatim04.fragments.RegionChallengeRoomFragment"
+        android:label="Izazov"
+        tools:layout="@layout/fragment_region_challenge_room" />
+
+    <fragment
+        android:id="@+id/challengeSoloMyNumberFragment"
+        android:name="com.example.slagalicatim04.fragments.ChallengeSoloMyNumberFragment"
+        android:label="Samostalna partija"
+        tools:layout="@layout/fragment_challenge_solo_my_number" />
 
     <fragment
         android:id="@+id/koZnaZnaFragment"

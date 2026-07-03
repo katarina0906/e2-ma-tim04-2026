@@ -1,5 +1,6 @@
 package com.example.slagalicatim04.stepbystep;
 
+import com.example.slagalicatim04.auth.TokenService;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -23,11 +24,14 @@ public class StepByStepWaitingRoomRepository {
     }
 
     private static final String COLLECTION = "stepByStepMatches";
+    private static final String FRIEND_ROOM_PREFIX = "friend_";
 
     private final DocumentReference roomRef;
+    private final TokenService tokenService;
 
     public StepByStepWaitingRoomRepository(String roomId) {
         roomRef = FirebaseFirestore.getInstance().collection(COLLECTION).document(roomId);
+        tokenService = new TokenService(roomRef.getFirestore());
     }
 
     public void joinRoom(StepByStepPlayerSession player, ErrorCallback onError) {
@@ -95,6 +99,14 @@ public class StepByStepWaitingRoomRepository {
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
 
             if (otherReady) {
+                DocumentSnapshot player1Snapshot = transaction.get(
+                        roomRef.getFirestore().collection("users").document(state.getPlayer1Id()));
+                DocumentSnapshot player2Snapshot = transaction.get(
+                        roomRef.getFirestore().collection("users").document(state.getPlayer2Id()));
+                if (!isFriendlyMatch() && !isTournamentMatch()) {
+                    tokenService.consumeSingleToken(transaction, state.getPlayer1Id(), player1Snapshot);
+                    tokenService.consumeSingleToken(transaction, state.getPlayer2Id(), player2Snapshot);
+                }
                 updates.put("phase", "koZnaZnaPlaying");
                 updates.put("currentGame", "koZnaZna");
                 updates.put("finished", false);
@@ -103,6 +115,14 @@ public class StepByStepWaitingRoomRepository {
                 updates.put("kzzCurrentQuestion", 0L);
                 updates.put("kzzAnswers", new HashMap<>());
                 updates.put("statusMessage", "Oba igraca su spremna. Pokrece se Ko zna zna.");
+                transaction.set(roomRef.getFirestore().collection("users")
+                                .document(state.getPlayer1Id()),
+                        busyState(roomRef.getId(), state.getPlayer2Id()),
+                        SetOptions.merge());
+                transaction.set(roomRef.getFirestore().collection("users")
+                                .document(state.getPlayer2Id()),
+                        busyState(roomRef.getId(), state.getPlayer1Id()),
+                        SetOptions.merge());
             }
             updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(roomRef, updates, SetOptions.merge());
@@ -115,6 +135,9 @@ public class StepByStepWaitingRoomRepository {
     }
 
     private boolean needsFreshRoom(StepByStepMatchState state, String playerId) {
+        if (state.isParticipant(playerId)) {
+            return state.getRound() < 1 || state.getRound() > 2;
+        }
         boolean gameAlreadyStarted = StepByStepMatchState.PHASE_PLAYING.equals(state.getPhase())
                 || "koZnaZnaPlaying".equals(state.getPhase())
                 || "spojnicePlaying".equals(state.getPhase())
@@ -157,5 +180,24 @@ public class StepByStepWaitingRoomRepository {
         state.put("statusMessage", "Ceka se igrac 2.");
         state.put("updatedAt", FieldValue.serverTimestamp());
         return state;
+    }
+
+    private Map<String, Object> busyState(String roomId, String opponentId) {
+        Map<String, Object> state = new HashMap<>();
+        state.put("active", true);
+        state.put("lastActiveAt", System.currentTimeMillis());
+        state.put("inGame", true);
+        state.put("currentRoomId", roomId);
+        state.put("currentMatchId", roomId);
+        state.put("currentOpponentId", opponentId);
+        return state;
+    }
+
+    private boolean isFriendlyMatch() {
+        return roomRef.getId().startsWith(FRIEND_ROOM_PREFIX);
+    }
+
+    private boolean isTournamentMatch() {
+        return roomRef.getId().startsWith("tournament_");
     }
 }

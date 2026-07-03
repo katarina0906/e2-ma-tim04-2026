@@ -27,18 +27,31 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
             android:gravity="center"
-            android:text="Racunanje rezultata..."
+            android:text="Ucitavanje rezultata..."
             android:textColor="#1E1E2F"
             android:textSize="25sp"
             android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/matchResultSoloDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:gravity="center"
+            android:textColor="#5F5A73"
+            android:textSize="15sp"
+            android:visibility="gone" />
+
         <LinearLayout
+            android:id="@+id/matchResultPlayersRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:visibility="gone">
 
             <androidx.cardview.widget.CardView
+                android:id="@+id/matchResultPlayer1Card"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="7dp"
@@ -85,6 +98,7 @@
             </androidx.cardview.widget.CardView>
 
             <androidx.cardview.widget.CardView
+                android:id="@+id/matchResultPlayer2Card"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="7dp"

@@ -122,6 +122,16 @@ exports.pushNotification = onDocumentCreated({
     return;
   }
   const notification = event.data.data();
+  if (notification.pushWhenOfflineOnly === true) {
+    const user = await db.collection("users").doc(event.params.userId).get();
+    if (isUserActive(user)) {
+      await event.data.ref.update({
+        pushStatus: "suppressed_active",
+        pushProcessedAt: FieldValue.serverTimestamp(),
+      });
+      return;
+    }
+  }
   const devices = await db.collection("users").doc(event.params.userId)
       .collection("devices").get();
   const tokenDocs = devices.docs.filter((document) => {
@@ -143,6 +153,7 @@ exports.pushNotification = onDocumentCreated({
     targetId: notification.targetId,
     title: notification.title,
     message: notification.message,
+    ...(notification.data || {}),
   });
   const response = await getMessaging().sendEachForMulticast({
     tokens: tokenDocs.map((document) => document.get("token")),
@@ -364,6 +375,13 @@ function isInvalidToken(error) {
   const code = error && error.code ? error.code : "";
   return code === "messaging/invalid-registration-token" ||
     code === "messaging/registration-token-not-registered";
+}
+
+function isUserActive(user) {
+  if (!user.exists) {
+    return false;
+  }
+  return user.get("active") === true;
 }
 
 process.on("unhandledRejection", (error) => {

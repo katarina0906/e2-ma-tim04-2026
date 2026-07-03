@@ -1,5 +1,6 @@
 package com.example.slagalicatim04.fragments;
 
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
@@ -14,6 +15,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
@@ -21,10 +24,12 @@ import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.mynumber.MyNumberGameService;
 import com.example.slagalicatim04.mynumber.MyNumberMatchState;
 import com.example.slagalicatim04.mynumber.MyNumberRepository;
 import com.example.slagalicatim04.multiplayer.TestRoomPlayerProvider;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
 import com.google.android.material.button.MaterialButton;
@@ -36,7 +41,12 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MyNumberFragment extends Fragment {
+public class MyNumberFragment extends Fragment implements ExitConfirmationHandler {
+    private static final String ARG_SOLO_PREVIEW_SCORE = "soloPreviewScore";
+    private static final String ARG_SOLO_PREVIEW = "soloPreview";
+    private static final String ARG_CHALLENGE_ID = "challengeId";
+    private static final String ARG_PREVIEW_USER_ID = "previewUserId";
+
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable ticker = this::renderCurrentState;
     private final List<ExpressionToken> expressionTokens = new ArrayList<>();
@@ -45,6 +55,7 @@ public class MyNumberFragment extends Fragment {
     private final MaterialButton[] operatorButtons = new MaterialButton[8];
 
     private MyNumberRepository repository;
+    private MatchForfeitRepository forfeitRepository;
     private ListenerRegistration listenerRegistration;
     private StepByStepPlayerSession playerSession;
     private MyNumberMatchState currentState;
@@ -88,6 +99,17 @@ public class MyNumberFragment extends Fragment {
             roomId = getArguments().getString("roomId");
         }
         repository = new MyNumberRepository(roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
         setupActions();
         setExpressionControlsEnabled(false);
         repository.startIfNeeded();
@@ -102,6 +124,9 @@ public class MyNumberFragment extends Fragment {
             listenerRegistration = null;
         }
         uiHandler.removeCallbacks(ticker);
+        if (!navigatedToMatchResult) {
+            new GameSessionRepository().abandonRoom(roomId);
+        }
         super.onDestroyView();
     }
 
@@ -184,12 +209,20 @@ public class MyNumberFragment extends Fragment {
         if (currentState == null || !isAdded()) {
             return;
         }
+        if (shouldNavigateSoloToMatchResult()) {
+            navigateToMatchResult(resolveSoloChallengeScore());
+            return;
+        }
         if (currentState.isMatchResult()) {
             navigateToMatchResult();
             return;
         }
         if (!currentState.isMyNumberGame()) {
             return;
+        }
+        if (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id())) {
+            repository.resolveForfeitState(currentState);
         }
 
         int myPlayer = myPlayer();
@@ -206,14 +239,18 @@ public class MyNumberFragment extends Fragment {
         boolean submitted = currentState.isSubmitted(myPlayer);
         boolean canUseExpression = !finished && currentState.isNumbersShown() && !submitted && myPlayer != 0;
 
-        roundText.setText(finished ? "Moj broj - kraj" : "Runda " + currentState.getRound() + " / 2");
+        roundText.setText(finished ? "Moj broj - kraj" : "Runda " + currentState.getRound() + " / "
+                + (currentState.isSoloChallenge() ? 1 : 2));
         timerValue.setText(timerText(finished));
-        player1ScoreText.setText(playerName(currentState.getPlayer1Name(), "Igrac 1") + ": "
+        player1ScoreText.setText(playerLabel(currentState.getPlayer1Id(), currentState.getPlayer1Name(), "Igrac 1") + ": "
                 + currentState.getPlayer1Score());
-        player2ScoreText.setText(playerName(currentState.getPlayer2Name(), "Igrac 2") + ": "
+        player2ScoreText.setText(playerLabel(currentState.getPlayer2Id(), currentState.getPlayer2Name(), "Igrac 2") + ": "
                 + currentState.getPlayer2Score());
+        updateHeaderVisibility(currentState.isSoloChallenge());
         PlayerHeaderLoader.loadAvatar(currentState.getPlayer1Id(), player1Avatar);
-        PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
+        if (!currentState.isSoloChallenge()) {
+            PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
+        }
         updatePlayerScoreStyle(myPlayer);
         targetValue.setText(currentState.isTargetShown() ? String.valueOf(currentState.getTarget()) : "?");
         updateNumberViews(canUseExpression);
@@ -293,18 +330,29 @@ public class MyNumberFragment extends Fragment {
     }
 
     private void updateStatus(boolean finished, boolean isActivePlayer, boolean submitted) {
-        if (finished) {
+        if (!currentState.isSoloChallenge() && (currentState.isForfeited(currentState.getPlayer1Id())
+                || currentState.isForfeited(currentState.getPlayer2Id()))) {
+            statusValue.setText(isEmpty(currentState.getStatusMessage())
+                    ? "Protivnik je napustio partiju. Nastavljas bez cekanja."
+                    : currentState.getStatusMessage());
+        } else if (finished) {
             statusValue.setText(currentState.getStatusMessage());
         } else if (submitted) {
-            statusValue.setText("Tvoje resenje je poslato. Ceka se protivnik ili kraj vremena.");
+            statusValue.setText(currentState.isSoloChallenge()
+                    ? "Obrada rezultata..."
+                    : "Tvoje resenje je poslato. Ceka se protivnik ili kraj vremena.");
         } else if (!currentState.isTargetShown()) {
             statusValue.setText(isActivePlayer
                     ? "Tvoja runda. Klikni Stop broj ili sacekaj automatsko prikazivanje."
-                    : "Cekajte da igrac " + currentState.getActivePlayer() + " zaustavi trazeni broj.");
+                    : (currentState.isSoloChallenge()
+                    ? "Samostalna partija je u toku."
+                    : "Cekajte da igrac " + currentState.getActivePlayer() + " zaustavi trazeni broj."));
         } else if (!currentState.isNumbersShown()) {
             statusValue.setText(isActivePlayer
                     ? "Klikni Stop brojevi ili sacekaj automatsko prikazivanje."
-                    : "Cekajte da igrac " + currentState.getActivePlayer() + " zaustavi brojeve.");
+                    : (currentState.isSoloChallenge()
+                    ? "Samostalna partija je u toku."
+                    : "Cekajte da igrac " + currentState.getActivePlayer() + " zaustavi brojeve."));
         } else {
             statusValue.setText("Sastavite izraz i posaljite resenje pre isteka vremena.");
         }
@@ -315,7 +363,11 @@ public class MyNumberFragment extends Fragment {
                 ? currentState.getP1Result()
                 : (myPlayer == 2 ? currentState.getP2Result() : null);
         resultValue.setText(myResult == null ? "-" : String.valueOf(myResult));
-        scoreValue.setText(finished ? "Ukupni bodovi su upisani gore." : "Ceka se ishod runde.");
+        scoreValue.setText(finished
+                ? "Ukupni bodovi su upisani gore."
+                : (currentState.isSoloChallenge() && submitted
+                ? "Prelaz na kraj partije..."
+                : "Ceka se ishod runde."));
 
         if (!finished && !submitted) {
             resultBanner.setVisibility(View.GONE);
@@ -326,7 +378,9 @@ public class MyNumberFragment extends Fragment {
         resultBannerTitle.setText(finished ? "Moj broj zavrsen" : "Resenje poslato");
         resultBannerMessage.setText(finished
                 ? currentState.getStatusMessage()
-                : "Tvoj rezultat je sacuvan u bazi. Ishod se racuna kada oba igraca posalju resenje ili istekne vreme.");
+                : (currentState.isSoloChallenge()
+                ? "Rezultat se obraduje. Sledi ekran kraja partije."
+                : "Tvoj rezultat je sacuvan u bazi. Ishod se racuna kada oba igraca posalju resenje ili istekne vreme."));
     }
 
     private void appendNumber(int index) {
@@ -410,9 +464,50 @@ public class MyNumberFragment extends Fragment {
                     "Izraz mora da se zavrsi brojem ili zagradom, sa operacijom izmedju brojeva.");
             return;
         }
-        repository.submit(playerSession, normalizeExpression(buildExpressionText()));
+        String expression = buildExpressionText();
+        repository.submit(playerSession, normalizeExpression(expression));
+        if (currentState.isSoloChallenge()) {
+            navigateToMatchResult(buildImmediateSoloTotalScore(expression));
+            return;
+        }
         setExpressionControlsEnabled(false);
         checkExpressionButton.setEnabled(false);
+    }
+
+    private boolean shouldNavigateSoloToMatchResult() {
+        if (currentState == null || !currentState.isSoloChallenge()) {
+            return false;
+        }
+        int myPlayer = myPlayer();
+        if (myPlayer == 0) {
+            return false;
+        }
+        return currentState.isMatchResult()
+                || MyNumberGameService.PHASE_FINISHED.equals(currentState.getPhase());
+    }
+
+    private long resolveSoloChallengeScore() {
+        if (currentState == null) {
+            return 0L;
+        }
+        return myPlayer() == 2 ? currentState.getPlayer2Score() : currentState.getPlayer1Score();
+    }
+
+    private long buildImmediateSoloTotalScore(String expression) {
+        if (currentState == null) {
+            return 0L;
+        }
+        Integer result = null;
+        try {
+            result = new MyNumberGameService().evaluate(
+                    normalizeExpression(expression),
+                    currentState.getNumbers());
+        } catch (RuntimeException ignored) {
+            result = null;
+        }
+        long currentScore = resolveSoloChallengeScore();
+        long earned = result != null && result == currentState.getTarget() ? 10L : 0L;
+        return currentScore + earned;
     }
 
     private void setExpressionControlsEnabled(boolean enabled) {
@@ -480,12 +575,24 @@ public class MyNumberFragment extends Fragment {
         player2ScoreText.setTypeface(null, myPlayer == 2 ? Typeface.BOLD : Typeface.NORMAL);
         player1ScoreText.setBackgroundColor(myPlayer == 1 ? 0xFFEFEAF8 : 0xFFF5F5F5);
         player2ScoreText.setBackgroundColor(myPlayer == 2 ? 0xFFEFEAF8 : 0xFFF5F5F5);
+        player1ScoreText.setTextColor(currentState != null && currentState.isForfeited(currentState.getPlayer1Id())
+                ? 0xFFD32F2F : Color.BLACK);
+        player2ScoreText.setTextColor(currentState != null && currentState.isForfeited(currentState.getPlayer2Id())
+                ? 0xFFD32F2F : Color.BLACK);
+    }
+
+    private void updateHeaderVisibility(boolean soloChallenge) {
+        int visibility = soloChallenge ? View.GONE : View.VISIBLE;
+        player2ScoreText.setVisibility(visibility);
+        player2Avatar.setVisibility(visibility);
     }
 
     private StepByStepPlayerSession resolveCurrentUser() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        String userId = new TestRoomPlayerProvider(requireContext()).getPlayerId();
+        String userId = firebaseUser == null
+                ? new TestRoomPlayerProvider(requireContext()).getPlayerId()
+                : firebaseUser.getUid();
         String userName;
 
         if (authUser != null) {
@@ -499,12 +606,22 @@ public class MyNumberFragment extends Fragment {
     }
 
     private void navigateToMatchResult() {
+        navigateToMatchResult(null);
+    }
+
+    private void navigateToMatchResult(@Nullable Long soloPreviewScore) {
         if (navigatedToMatchResult || getView() == null) {
             return;
         }
         navigatedToMatchResult = true;
         Bundle args = new Bundle();
         args.putString("roomId", roomId);
+        if (soloPreviewScore != null && currentState != null && currentState.isSoloChallenge()) {
+            args.putBoolean(ARG_SOLO_PREVIEW, true);
+            args.putLong(ARG_SOLO_PREVIEW_SCORE, soloPreviewScore);
+            args.putString(ARG_CHALLENGE_ID, currentState.getChallengeId());
+            args.putString(ARG_PREVIEW_USER_ID, playerSession.getId());
+        }
         Navigation.findNavController(requireView()).navigate(R.id.matchResultFragment, args);
     }
 
@@ -518,12 +635,37 @@ public class MyNumberFragment extends Fragment {
         return value == null || value.trim().isEmpty();
     }
 
-    private String playerName(String name, String fallback) {
-        return isEmpty(name) ? fallback : name;
+    private String playerLabel(String playerId, String name, String fallback) {
+        if (!isEmpty(name)) {
+            return name;
+        }
+        return isEmpty(playerId) ? fallback : playerId;
     }
 
     private void scrollToTop() {
         scrollView.post(() -> scrollView.smoothScrollTo(0, 0));
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null || currentState.isMatchResult()) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(playerSession.getId());
+                    Navigation.findNavController(requireView()).navigate(
+                            R.id.homeFragment,
+                            null,
+                            new androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build());
+                })
+                .show();
+        return true;
     }
 
     private static final class ExpressionToken {

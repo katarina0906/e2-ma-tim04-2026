@@ -23,6 +23,10 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
         void onMarkRead(InAppNotification item);
 
         void onOpen(InAppNotification item);
+
+        void onAcceptGameInvite(InAppNotification item);
+
+        void onDeclineGameInvite(InAppNotification item);
     }
 
     private List<InAppNotification> items = new ArrayList<>();
@@ -67,6 +71,9 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
         private final TextView time;
         private final MaterialButton markRead;
         private final MaterialButton open;
+        private final View inviteActions;
+        private final MaterialButton acceptInvite;
+        private final MaterialButton declineInvite;
 
         NotifHolder(@NonNull View itemView) {
             super(itemView);
@@ -79,6 +86,9 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
             time = itemView.findViewById(R.id.notif_time);
             markRead = itemView.findViewById(R.id.notif_mark_read);
             open = itemView.findViewById(R.id.notif_open);
+            inviteActions = itemView.findViewById(R.id.notif_invite_actions);
+            acceptInvite = itemView.findViewById(R.id.notif_accept_invite);
+            declineInvite = itemView.findViewById(R.id.notif_decline_invite);
         }
 
         void bind(InAppNotification n, Listener listener) {
@@ -98,10 +108,15 @@ public class NotificationsAdapter extends RecyclerView.Adapter<NotificationsAdap
             float alphaCard = unread ? 1f : 0.88f;
             card.setAlpha(alphaCard);
             markRead.setVisibility(unread ? View.VISIBLE : View.GONE);
+            boolean pendingInvite = NotificationRouter.ACTION_GAME_INVITE.equals(n.actionHint)
+                    && ("pending".equals(n.inviteStatus) || (n.inviteStatus.isEmpty() && unread));
+            inviteActions.setVisibility(pendingInvite ? View.VISIBLE : View.GONE);
 
             card.setOnClickListener(v -> listener.onOpen(n));
             markRead.setOnClickListener(v -> listener.onMarkRead(n));
             open.setOnClickListener(v -> listener.onOpen(n));
+            acceptInvite.setOnClickListener(v -> listener.onAcceptGameInvite(n));
+            declineInvite.setOnClickListener(v -> listener.onDeclineGameInvite(n));
         }
 
         private static int stripeColorFor(InAppNotification.Category c) {

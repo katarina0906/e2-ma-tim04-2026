@@ -155,7 +155,7 @@ public class StepByStepMatchRepository {
         } else if (gameService.shouldFinishSteal(state)) {
             updates.put("statusMessage", "Ukradeni pokusaj je istekao bez bodova.");
             putRoundResult(updates, state.getRound(), "Runda je zavrsena bez osvojenih bodova.");
-            applyNextRound(updates, state.getRound());
+            applyNextRound(updates, state);
             updates.put("updatedAt", FieldValue.serverTimestamp());
         }
         if (!updates.isEmpty()) {
@@ -189,6 +189,30 @@ public class StepByStepMatchRepository {
 
     public void resetMatch(StepByStepPlayerSession player) {
         matchRef.set(newMatchState(player));
+    }
+
+    public void resolveForfeitTurn(StepByStepMatchState state) {
+        String forfeitedPlayerId = state.getForfeitedPlayerId();
+        if (StepByStepMatchState.isEmpty(forfeitedPlayerId) || !state.isStepByStepGame()) {
+            return;
+        }
+        int forfeitedPlayer = state.playerNumber(forfeitedPlayerId);
+        if (forfeitedPlayer == 0) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        String phase = state.effectivePhase();
+        if (gameService.isRoundPhase(phase) && state.getActivePlayer() == forfeitedPlayer) {
+            startStealUpdates(updates, state.getActivePlayer());
+        } else if (gameService.isStealPhase(phase) && state.getStealPlayer() == forfeitedPlayer) {
+            updates.put("statusMessage", "Igrac je napustio partiju. Runda se zavrsava bez bodova.");
+            putRoundResult(updates, state.getRound(), "Protivnik je napustio partiju tokom runde.");
+            applyNextRound(updates, state);
+            updates.put("updatedAt", FieldValue.serverTimestamp());
+        }
+        if (!updates.isEmpty()) {
+            matchRef.set(updates, SetOptions.merge());
+        }
     }
 
     public interface ErrorCallback {
@@ -248,7 +272,7 @@ public class StepByStepMatchRepository {
             updates.put("statusMessage", "Igrac " + state.getActivePlayer() + " je pogodio u "
                     + openedSteps + ". koraku i osvojio " + points + " bodova.");
         }
-        applyNextRound(updates, state.getRound());
+        applyNextRound(updates, state);
     }
 
     private void startStealUpdates(Map<String, Object> updates, int activePlayer) {
@@ -265,8 +289,10 @@ public class StepByStepMatchRepository {
         updates.put("updatedAt", FieldValue.serverTimestamp());
     }
 
-    private void applyNextRound(Map<String, Object> updates, int currentRound) {
-        if (currentRound >= 2) {
+    private void applyNextRound(Map<String, Object> updates, StepByStepMatchState state) {
+        int currentRound = state.getRound();
+        int roundCount = state.isSoloChallenge() ? 1 : 2;
+        if (currentRound >= roundCount) {
             updates.put("finished", false);
             updates.put("stepByStepFinished", true);
             updates.put("currentGame", "myNumber");
@@ -275,8 +301,8 @@ public class StepByStepMatchRepository {
             updates.put("stealPlayer", 0);
             updates.put("visibleStepCount", 7L);
             updates.put("secondsLeft", 0L);
-            updates.put("finalResult", "Korak po korak je zavrsen. Pokrece se Moj broj.");
-            updates.put("statusMessage", "Korak po korak je zavrsen. Pokrece se Moj broj.");
+            updates.put("finalResult", "");
+            updates.put("statusMessage", "");
             return;
         }
         updates.put("round", currentRound + 1);

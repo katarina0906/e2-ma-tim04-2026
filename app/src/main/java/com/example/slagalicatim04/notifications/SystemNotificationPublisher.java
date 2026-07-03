@@ -2,6 +2,7 @@ package com.example.slagalicatim04.notifications;
 
 import android.Manifest;
 import android.app.PendingIntent;
+import android.app.Notification;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -12,6 +13,7 @@ import androidx.core.content.ContextCompat;
 
 import com.example.slagalicatim04.MainActivity;
 import com.example.slagalicatim04.R;
+import com.example.slagalicatim04.notifications.NotificationRouter;
 
 public final class SystemNotificationPublisher {
 
@@ -20,11 +22,17 @@ public final class SystemNotificationPublisher {
 
     public static boolean show(Context context, InAppNotification item) {
         return show(context, item.id, item.categoryKey(), item.actionHint,
-                item.targetId, item.title, item.message);
+                item.targetId, item.title, item.message, item.data.get("expiresAt"));
     }
 
     public static boolean show(Context context, String notificationId, String category,
                                String action, String targetId, String title, String message) {
+        return show(context, notificationId, category, action, targetId, title, message, "");
+    }
+
+    public static boolean show(Context context, String notificationId, String category,
+                               String action, String targetId, String title, String message,
+                               String expiresAt) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
             return false;
@@ -37,7 +45,8 @@ public final class SystemNotificationPublisher {
                 .putExtra(SlagalicaMessagingService.EXTRA_ACTION, action)
                 .putExtra(SlagalicaMessagingService.EXTRA_TARGET_ID, targetId)
                 .putExtra(SlagalicaMessagingService.EXTRA_TITLE, title)
-                .putExtra(SlagalicaMessagingService.EXTRA_MESSAGE, message);
+                .putExtra(SlagalicaMessagingService.EXTRA_MESSAGE, message)
+                .putExtra(SlagalicaMessagingService.EXTRA_EXPIRES_AT, expiresAt);
         int requestCode = notificationId == null
                 ? (int) System.currentTimeMillis()
                 : notificationId.hashCode();
@@ -45,16 +54,27 @@ public final class SystemNotificationPublisher {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context,
-                NotificationChannels.channelFor(category))
+                NotificationChannels.channelFor(category, action))
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                .setPriority(notificationPriority(action, category))
+                .setDefaults(Notification.DEFAULT_ALL);
 
         NotificationManagerCompat.from(context).notify(requestCode, builder.build());
         return true;
+    }
+
+    private static int notificationPriority(String action, String category) {
+        if (NotificationRouter.ACTION_GAME_INVITE.equals(action)
+                || NotificationRouter.ACTION_CHAT.equals(action)) {
+            return NotificationCompat.PRIORITY_HIGH;
+        }
+        return "chat".equalsIgnoreCase(category)
+                ? NotificationCompat.PRIORITY_HIGH
+                : NotificationCompat.PRIORITY_DEFAULT;
     }
 }

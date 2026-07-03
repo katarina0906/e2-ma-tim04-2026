@@ -17,6 +17,9 @@ public class MatchingMultiplayerState {
     private final String player1Name;
     private final String player2Id;
     private final String player2Name;
+    private final String forfeitedPlayerId;
+    private final boolean soloChallenge;
+    private final String statusMessage;
     private final List<Long> matchedPairs;
     private final List<Long> attemptedPairs;
     private final Map<String, Long> scores;
@@ -31,9 +34,12 @@ public class MatchingMultiplayerState {
         secondChance = Boolean.TRUE.equals(snapshot.getBoolean("spSecondChance"));
         deadlineAt = 0L;
         player1Id = stringValue(snapshot.getString("player1Id"), "");
-        player1Name = stringValue(snapshot.getString("player1Name"), "Igrac 1");
+        player1Name = stringValue(snapshot.getString("player1Name"), "");
         player2Id = stringValue(snapshot.getString("player2Id"), "");
-        player2Name = stringValue(snapshot.getString("player2Name"), "Igrac 2");
+        player2Name = stringValue(snapshot.getString("player2Name"), "");
+        forfeitedPlayerId = stringValue(snapshot.getString("forfeitedPlayerId"), "");
+        soloChallenge = Boolean.TRUE.equals(snapshot.getBoolean("soloChallenge"));
+        statusMessage = stringValue(snapshot.getString("statusMessage"), "");
         matchedPairs = listValue(snapshot.get("spMatchedPairs"));
         attemptedPairs = listValue(snapshot.get("spAttemptedPairs"));
         scores = scoreMap(snapshot);
@@ -75,6 +81,18 @@ public class MatchingMultiplayerState {
         return player2Name;
     }
 
+    public String getForfeitedPlayerId() {
+        return forfeitedPlayerId;
+    }
+
+    public String getStatusMessage() {
+        return statusMessage;
+    }
+
+    public boolean isSoloChallenge() {
+        return soloChallenge;
+    }
+
     public boolean isMatched(int pairIndex) {
         return matchedPairs.contains((long) pairIndex);
     }
@@ -86,6 +104,14 @@ public class MatchingMultiplayerState {
     public int getScore(String playerId) {
         Long score = scores.get(playerId);
         return score == null ? 0 : score.intValue();
+    }
+
+    public boolean isForfeited(String playerId) {
+        return playerId != null && playerId.equals(forfeitedPlayerId);
+    }
+
+    public boolean hasForfeit() {
+        return forfeitedPlayerId != null && !forfeitedPlayerId.trim().isEmpty();
     }
 
     private static int intValue(Long value) {
