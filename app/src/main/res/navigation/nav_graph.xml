@@ -64,6 +64,9 @@
             android:id="@+id/action_homeFragment_to_notificationsFragment"
             app:destination="@id/notificationsFragment" />
         <action
+            android:id="@+id/action_homeFragment_to_rankingFragment"
+            app:destination="@id/rankingFragment" />
+        <action
             android:id="@+id/action_homeFragment_to_friendsFragment"
             app:destination="@id/friendsFragment" />
         <action
@@ -87,6 +90,12 @@
         android:name="com.example.slagalicatim04.fragments.NotificationsFragment"
         android:label="@string/notifications_title"
         tools:layout="@layout/fragment_notifications" />
+
+    <fragment
+        android:id="@+id/rankingFragment"
+        android:name="com.example.slagalicatim04.fragments.RankingFragment"
+        android:label="Rang lista"
+        tools:layout="@layout/fragment_ranking" />
 
     <fragment
         android:id="@+id/friendsFragment"

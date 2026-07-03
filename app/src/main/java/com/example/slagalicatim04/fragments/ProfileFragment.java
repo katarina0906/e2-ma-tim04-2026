@@ -1,14 +1,14 @@
 package com.example.slagalicatim04.fragments;
 
-import android.os.Bundle;
 import android.net.Uri;
+import android.os.Bundle;
 import android.text.Editable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ImageView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -27,17 +27,21 @@ import com.example.slagalicatim04.auth.AvatarImageLoader;
 import com.example.slagalicatim04.auth.DailyMissionService;
 import com.example.slagalicatim04.friends.FriendQr;
 import com.example.slagalicatim04.leagues.LeagueInfo;
+import com.example.slagalicatim04.ranking.RankingRewardSynchronizer;
 import com.example.slagalicatim04.regions.AvatarFrameStyler;
 import com.example.slagalicatim04.regions.OpenStreetRegionMapStyler;
 import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
 import com.example.slagalicatim04.regions.RegionInfo;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
+
+import java.util.Locale;
 
 public class ProfileFragment extends Fragment {
 
@@ -61,6 +65,7 @@ public class ProfileFragment extends Fragment {
     private AuthService authService;
     private DailyMissionService dailyMissionService;
     private AuthUser currentUser;
+    private final RankingRewardSynchronizer rewardSynchronizer = new RankingRewardSynchronizer();
     private final ActivityResultLauncher<String> avatarPicker =
             registerForActivityResult(new ActivityResultContracts.GetContent(), this::uploadAvatar);
 
@@ -123,6 +128,7 @@ public class ProfileFragment extends Fragment {
             return;
         }
         showProfile(currentUser);
+        loadProfileCounters(currentUser.getId());
         loadDailyMissions(currentUser.getId());
         loadProfileFromFirestore();
     }
@@ -140,6 +146,7 @@ public class ProfileFragment extends Fragment {
                 if (result.isSuccess() && result.getData() != null) {
                     currentUser = result.getData();
                     showProfile(result.getData());
+                    loadProfileCounters(result.getData().getId());
                     loadDailyMissions(result.getData().getId());
                 } else {
                     Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
@@ -158,6 +165,28 @@ public class ProfileFragment extends Fragment {
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
         showProgress(user);
         showFriendQr(user);
+    }
+
+    private void loadProfileCounters(String userId) {
+        if (userId == null || userId.isEmpty() || FirebaseAuth.getInstance().getCurrentUser() == null) {
+            return;
+        }
+        rewardSynchronizer.syncCurrentRewards(userId, () -> readProfileCounters(userId));
+    }
+
+    private void readProfileCounters(String userId) {
+        FirebaseFirestore.getInstance().collection("users").document(userId).get()
+                .addOnSuccessListener(snapshot -> {
+                    if (!isAdded()) {
+                        return;
+                    }
+                    long tokens = value(snapshot.getLong("tokens"));
+                    long stars = value(snapshot.getLong("totalStars"));
+                    String leagueName = text(snapshot.getString("league"), "Nulta liga");
+                    tokensSummary.setText(String.format(Locale.ROOT, "%d", tokens));
+                    starsSummary.setText(String.format(Locale.ROOT, "%d", stars));
+                    leagueSummary.setText(leagueName);
+                });
     }
 
     private void loadDailyMissions(String userId) {
@@ -353,5 +382,13 @@ public class ProfileFragment extends Fragment {
         } catch (Exception error) {
             friendQrImage.setImageResource(android.R.drawable.ic_menu_share);
         }
+    }
+
+    private static long value(Long value) {
+        return value == null ? 0 : value;
+    }
+
+    private static String text(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value;
     }
 }

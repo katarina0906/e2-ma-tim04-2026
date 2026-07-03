@@ -5,6 +5,7 @@ const {getFirestore, FieldValue, Timestamp} = require("firebase-admin/firestore"
 const {getMessaging} = require("firebase-admin/messaging");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 
 initializeApp();
@@ -177,6 +178,24 @@ exports.pushNotification = onDocumentCreated({
   });
 });
 
+exports.closeRankingCycles = onSchedule({
+  region: REGION,
+  schedule: "every 5 minutes",
+  timeZone: "Europe/Belgrade",
+}, async () => {
+  const now = Timestamp.now();
+  const cycles = await db.collection("rankingCycles")
+      .where("rewardsDistributed", "==", false)
+      .get();
+  for (const cycleDoc of cycles.docs) {
+    const cycle = cycleDoc.data();
+    if (!cycle.endAt || cycle.endAt.toMillis() > now.toMillis()) {
+      continue;
+    }
+    await distributeRankingRewards(cycleDoc.ref, cycleDoc.id, cycle);
+  }
+});
+
 async function createNotification(recipientId, payload) {
   const user = await db.collection("users").doc(recipientId).get();
   if (!user.exists) {
@@ -202,6 +221,82 @@ async function createNotification(recipientId, payload) {
       : Timestamp.fromMillis(Date.now() + payload.expiresInSeconds * 1000),
   });
   return reference;
+}
+
+async function distributeRankingRewards(cycleRef, cycleId, cycle) {
+  const entries = await cycleRef.collection("entries")
+      .orderBy("stars", "desc")
+      .limit(10)
+      .get();
+  let rank = 1;
+  for (const entryDoc of entries.docs) {
+    const reward = rewardForRank(cycle.type, rank);
+    if (reward > 0) {
+      await grantRankingReward(entryDoc.id, cycleId, cycle, rank, reward);
+    }
+    rank += 1;
+  }
+  await cycleRef.set({
+    rewardsDistributed: true,
+    rewardsDistributedAt: FieldValue.serverTimestamp(),
+  }, {merge: true});
+}
+
+async function grantRankingReward(userId, cycleId, cycle, rank, tokens) {
+  const rewardRef = db.collection("users").doc(userId)
+      .collection("rewardClaims").doc(cycleId);
+  const userRef = db.collection("users").doc(userId);
+  const created = await db.runTransaction(async (transaction) => {
+    const existing = await transaction.get(rewardRef);
+    if (existing.exists) {
+      return false;
+    }
+    transaction.set(userRef, {
+      tokens: FieldValue.increment(tokens),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, {merge: true});
+    transaction.set(rewardRef, {
+      cycleId,
+      cycleType: cycle.type,
+      rank,
+      tokens,
+      claimedAt: FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
+  if (!created) {
+    return;
+  }
+  await createNotification(userId, {
+    category: "rewards",
+    action: "rewards_claim",
+    title: "Nagrada je dostupna",
+    message: rewardMessage(cycle.type, rank, tokens),
+    targetId: cycleId,
+    data: {
+      cycleId,
+      cycleType: cycle.type,
+      rank: String(rank),
+      tokens: String(tokens),
+    },
+    senderId: null,
+    source: "system",
+    expiresInSeconds: null,
+  });
+}
+
+function rewardForRank(type, rank) {
+  const monthly = type === "monthly";
+  if (rank === 1) return monthly ? 10 : 5;
+  if (rank === 2) return monthly ? 6 : 3;
+  if (rank === 3) return monthly ? 4 : 2;
+  if (rank >= 4 && rank <= 10) return monthly ? 2 : 1;
+  return 0;
+}
+
+function rewardMessage(type, rank, tokens) {
+  const label = type === "monthly" ? "mesecnoj" : "nedeljnoj";
+  return `Osvojili ste ${tokens} tokena za ${rank}. mesto na ${label} rang listi.`;
 }
 
 function validatePayload(raw, allowedActions) {

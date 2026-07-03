@@ -25,21 +25,22 @@ import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import com.example.slagalicatim04.databinding.ActivityMainBinding;
 import com.example.slagalicatim04.friends.GameInviteRepository;
 import com.example.slagalicatim04.fragments.ExitConfirmationHandler;
 import com.example.slagalicatim04.fragments.RegionChatFragment;
 import com.example.slagalicatim04.notifications.InAppNotification;
-import com.example.slagalicatim04.databinding.ActivityMainBinding;
 import com.example.slagalicatim04.notifications.NotificationRepository;
 import com.example.slagalicatim04.notifications.NotificationRouter;
 import com.example.slagalicatim04.notifications.SlagalicaMessagingService;
 import com.example.slagalicatim04.notifications.SystemNotificationPublisher;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -49,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private NavController navController;
     private ListenerRegistration notificationRegistration;
+    private boolean rewardAutoOpenInFlight;
     private final Set<String> surfacedGameInvites = new HashSet<>();
     private final Set<String> surfacedLeagueChanges = new HashSet<>();
     private final Set<String> surfacedChatNotifications = new HashSet<>();
@@ -140,6 +142,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         com.example.slagalicatim04.auth.AuthService.getInstance(this).setCurrentUserActive(true);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        openPendingRewardNotification();
     }
 
     @Override
@@ -474,6 +482,47 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception ignored) {
             }
         }).start();
+    }
+
+    private void openPendingRewardNotification() {
+        if (rewardAutoOpenInFlight || navController == null
+                || FirebaseAuth.getInstance().getCurrentUser() == null) {
+            return;
+        }
+        int destinationId = navController.getCurrentDestination() == null
+                ? 0 : navController.getCurrentDestination().getId();
+        if (destinationId == R.id.loginFragment
+                || destinationId == R.id.registerFragment
+                || destinationId == R.id.emailVerificationFragment
+                || destinationId == R.id.resetPasswordFragment
+                || destinationId == R.id.notificationTargetFragment) {
+            return;
+        }
+        rewardAutoOpenInFlight = true;
+        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        FirebaseFirestore.getInstance()
+                .collection("users").document(userId)
+                .collection("notifications")
+                .whereEqualTo("action", NotificationRouter.ACTION_REWARD)
+                .whereEqualTo("read", false)
+                .limit(1)
+                .get()
+                .addOnCompleteListener(task -> {
+                    rewardAutoOpenInFlight = false;
+                    if (!task.isSuccessful() || task.getResult().isEmpty()) {
+                        return;
+                    }
+                    var document = task.getResult().getDocuments().get(0);
+                    new NotificationRepository().markRead(document.getId(), () -> {
+                    }, ignored -> {
+                    });
+                    navController.navigate(R.id.notificationTargetFragment,
+                            NotificationRouter.targetArgs(
+                                    document.getString("action"),
+                                    document.getString("title"),
+                                    document.getString("message"),
+                                    document.getString("targetId")));
+                });
     }
 
     private String roomIdOf(InAppNotification item) {

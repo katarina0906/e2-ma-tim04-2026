@@ -21,6 +21,7 @@ import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
 import com.example.slagalicatim04.matchresult.MatchResultRepository;
 import com.example.slagalicatim04.matchresult.MatchResultState;
+import com.example.slagalicatim04.mynumber.MyNumberRepository;
 import com.example.slagalicatim04.regions.RegionChallenge;
 import com.example.slagalicatim04.regions.RegionChallengeParticipant;
 import com.example.slagalicatim04.regions.RegionChallengeRepository;
@@ -195,8 +196,10 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
             winnerText.setText(soloSummary(state));
         } else if (state.winner() == 1) {
             winnerText.setText("Pobednik je " + firstName + "!");
+            new MyNumberRepository(roomId).awardTokensIfFinished();
         } else if (state.winner() == 2) {
             winnerText.setText("Pobednik je " + secondName + "!");
+            new MyNumberRepository(roomId).awardTokensIfFinished();
         } else {
             winnerText.setText("Partija je zavrsena nereseno.");
         }

@@ -35,6 +35,7 @@ public class MyNumberMatchState {
     private final long player1Score;
     private final long player2Score;
     private final String statusMessage;
+    private final boolean rankingRecorded;
 
     public MyNumberMatchState(DocumentSnapshot snapshot) {
         currentGame = stringValue(snapshot, "currentGame");
@@ -64,6 +65,7 @@ public class MyNumberMatchState {
         player1Score = longValue(snapshot, "player1Score", 0);
         player2Score = longValue(snapshot, "player2Score", 0);
         statusMessage = stringValue(snapshot, "myNumberStatusMessage");
+        rankingRecorded = Boolean.TRUE.equals(snapshot.getBoolean("rankingRecorded"));
     }
 
     public String getCurrentGame() { return currentGame; }
@@ -93,6 +95,7 @@ public class MyNumberMatchState {
     public long getPlayer1Score() { return player1Score; }
     public long getPlayer2Score() { return player2Score; }
     public String getStatusMessage() { return statusMessage; }
+    public boolean isRankingRecorded() { return rankingRecorded; }
 
     public boolean isSubmitted(int player) {
         if (player == 1) return p1Submitted;

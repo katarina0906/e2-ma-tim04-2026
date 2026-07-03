@@ -352,6 +352,8 @@ public class AuthService {
         userData.put("league", initialLeague.name);
         userData.put("leagueLevel", initialLeague.level);
         userData.put("leagueIconRes", initialLeague.iconRes);
+        userData.put("leagueIcon", "*");
+        userData.put("leagueName", initialLeague.name);
         userData.put("lastTokenGrantDate",
                 new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
                         .format(new java.util.Date()));
