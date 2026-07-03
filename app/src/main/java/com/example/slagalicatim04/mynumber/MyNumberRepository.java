@@ -199,7 +199,9 @@ public class MyNumberRepository {
             updates.put("statusMessage", "Partija je zavrsena.");
             updates.put("finished", true);
             applyMatchRewards(transaction, snapshot, state, updates, nextP1Score, nextP2Score);
-            if (!state.isSoloChallenge() && !Boolean.TRUE.equals(snapshot.getBoolean("rankingRecorded"))) {
+            if (!isFriendlyMatch()
+                    && !state.isSoloChallenge()
+                    && !Boolean.TRUE.equals(snapshot.getBoolean("rankingRecorded"))) {
                 updates.put("rankingRecorded", true);
                 recordRanking(transaction, state, nextP1Score, nextP2Score);
             }
@@ -258,6 +260,9 @@ public class MyNumberRepository {
         }
         DocumentReference userRef = matchRef.getFirestore().collection("users").document(userId);
         DocumentSnapshot userSnapshot = transaction.get(userRef);
+        if (Boolean.TRUE.equals(userSnapshot.getBoolean("isGuest"))) {
+            return;
+        }
         DailyMissionService.Reward reward = DailyMissionService.computeReward(
                 userSnapshot, DailyMissionService.Mission.PLAY_FRIENDLY_MATCH);
         if (reward.changed) {
@@ -389,6 +394,7 @@ public class MyNumberRepository {
     public void awardTokensIfFinished() {
         matchRef.get().addOnSuccessListener(snapshot -> {
             if (!snapshot.exists()
+                    || isFriendlyMatch()
                     || !Boolean.TRUE.equals(snapshot.getBoolean("finished"))
                     || Boolean.TRUE.equals(snapshot.getBoolean("clientTokensAwarded"))) {
                 return;

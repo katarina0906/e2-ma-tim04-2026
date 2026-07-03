@@ -21,11 +21,14 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.example.slagalicatim04.databinding.ActivityMainBinding;
+import com.example.slagalicatim04.auth.AuthService;
+import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.friends.GameInviteRepository;
 import com.example.slagalicatim04.fragments.ExitConfirmationHandler;
 import com.example.slagalicatim04.fragments.RegionChatFragment;
@@ -45,6 +48,14 @@ import java.util.Map;
 import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
+    private static final Set<Integer> LOCKED_GAME_DESTINATIONS = Set.of(
+            R.id.koZnaZnaFragment,
+            R.id.spojniceFragment,
+            R.id.asocijacijeFragment,
+            R.id.skockoFragment,
+            R.id.stepByStepFragment,
+            R.id.myNumberFragment
+    );
 
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
@@ -116,14 +127,18 @@ public class MainActivity extends AppCompatActivity {
                     || destinationId == R.id.registerFragment
                     || destinationId == R.id.emailVerificationFragment
                     || destinationId == R.id.resetPasswordFragment;
+            boolean isLockedGameDestination = LOCKED_GAME_DESTINATIONS.contains(destinationId);
 
             if (isAuthScreen) {
                 binding.toolbar.setVisibility(View.GONE);
                 binding.bottomNavigation.setVisibility(View.GONE);
             } else {
                 binding.toolbar.setVisibility(View.VISIBLE);
-                binding.bottomNavigation.setVisibility(View.VISIBLE);
+                binding.bottomNavigation.setVisibility(
+                        isLockedGameDestination ? View.GONE : View.VISIBLE);
             }
+            updateGuestNavigation();
+            invalidateOptionsMenu();
         });
 
         requestNotificationPermission();
@@ -159,7 +174,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
+        updateGuestMenu(menu);
         return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        updateGuestMenu(menu);
+        return super.onPrepareOptionsMenu(menu);
     }
 
     @Override
@@ -167,6 +189,15 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         if (id == R.id.action_settings) {
+            AuthUser currentUser = AuthService.getInstance(this).getCurrentUser();
+            if (currentUser != null && currentUser.isGuest()) {
+                AuthService.getInstance(this).logout();
+                Toast.makeText(this, "Uspesno ste se odjavili.", Toast.LENGTH_SHORT).show();
+                NavOptions options = new NavOptions.Builder()
+                        .setPopUpTo(R.id.nav_graph, true)
+                        .build();
+                navController.navigate(R.id.loginFragment, null, options);
+            }
             return true;
         }
 
@@ -175,6 +206,9 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onSupportNavigateUp() {
+        if (isOnLockedGameDestination()) {
+            return delegateExitRequestToCurrentFragment();
+        }
         NavHostFragment navHostFragment =
                 (NavHostFragment) getSupportFragmentManager()
                         .findFragmentById(R.id.nav_host_fragment_content_main);
@@ -199,10 +233,34 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void updateGuestNavigation() {
+        AuthUser currentUser = AuthService.getInstance(this).getCurrentUser();
+        boolean guest = currentUser != null && currentUser.isGuest();
+        Menu menu = binding.bottomNavigation.getMenu();
+        menu.findItem(R.id.regionsFragment).setVisible(!guest);
+        menu.findItem(R.id.profileFragment).setVisible(!guest);
+    }
+
+    private void updateGuestMenu(Menu menu) {
+        MenuItem item = menu.findItem(R.id.action_settings);
+        if (item == null) {
+            return;
+        }
+        AuthUser currentUser = AuthService.getInstance(this).getCurrentUser();
+        boolean guest = currentUser != null && currentUser.isGuest();
+        item.setTitle(guest ? R.string.action_logout : R.string.action_settings);
+    }
+
     private void handleNotificationIntent(Intent intent) {
         if (intent == null
                 || !intent.hasExtra(SlagalicaMessagingService.EXTRA_NOTIFICATION_ID)
                 || FirebaseAuth.getInstance().getCurrentUser() == null) {
+            return;
+        }
+        if (isOnLockedGameDestination()) {
+            intent.removeExtra(SlagalicaMessagingService.EXTRA_NOTIFICATION_ID);
+            Toast.makeText(this, "Zavrsi trenutnu igru da bi otvorio druge stranice.",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -489,6 +547,9 @@ public class MainActivity extends AppCompatActivity {
                 || FirebaseAuth.getInstance().getCurrentUser() == null) {
             return;
         }
+        if (isOnLockedGameDestination()) {
+            return;
+        }
         int destinationId = navController.getCurrentDestination() == null
                 ? 0 : navController.getCurrentDestination().getId();
         if (destinationId == R.id.loginFragment
@@ -547,6 +608,27 @@ public class MainActivity extends AppCompatActivity {
 
     private String messageOf(Exception error) {
         return error.getMessage() == null ? "Greska pri obradi poziva." : error.getMessage();
+    }
+
+    private boolean isOnLockedGameDestination() {
+        return navController != null
+                && navController.getCurrentDestination() != null
+                && LOCKED_GAME_DESTINATIONS.contains(navController.getCurrentDestination().getId());
+    }
+
+    private boolean delegateExitRequestToCurrentFragment() {
+        NavHostFragment navHostFragment =
+                (NavHostFragment) getSupportFragmentManager()
+                        .findFragmentById(R.id.nav_host_fragment_content_main);
+        if (navHostFragment == null) {
+            return true;
+        }
+        androidx.fragment.app.Fragment currentFragment =
+                navHostFragment.getChildFragmentManager().getPrimaryNavigationFragment();
+        if (currentFragment instanceof ExitConfirmationHandler) {
+            return ((ExitConfirmationHandler) currentFragment).handleExitRequest();
+        }
+        return true;
     }
 
     @Override

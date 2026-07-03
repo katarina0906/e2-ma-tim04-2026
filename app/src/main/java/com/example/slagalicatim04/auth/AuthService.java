@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 public class AuthService {
@@ -41,6 +42,7 @@ public class AuthService {
     private static final String KEY_CURRENT_STARS = "current_stars";
     private static final String KEY_CURRENT_TOTAL_STARS = "current_total_stars";
     private static final String KEY_CURRENT_AVATAR_FRAME_PLACE = "current_avatar_frame_place";
+    private static final String KEY_CURRENT_IS_GUEST = "current_is_guest";
     private static final int AVATAR_MAX_SIZE = 512;
 
     private static AuthService instance;
@@ -156,6 +158,55 @@ public class AuthService {
         }
     }
 
+    public AuthResult<AuthUser> continueAsGuest() {
+        if (!isFirebaseConfigured()) {
+            return firebaseNotConfigured();
+        }
+        try {
+            firebaseAuth.signOut();
+            return finishGuestLogin(Tasks.await(firebaseAuth.signInAnonymously()).getUser(), "");
+        } catch (ExecutionException e) {
+            if (isAnonymousSignInDisabled(e)) {
+                return continueAsGuestWithEmailAccount();
+            }
+            return AuthResult.error(firebaseMessage(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return AuthResult.error("Operacija je prekinuta.");
+        }
+    }
+
+    private AuthResult<AuthUser> continueAsGuestWithEmailAccount() {
+        try {
+            String guestId = UUID.randomUUID().toString().replace("-", "");
+            String email = "guest-" + guestId + "@guest.slagalica.local";
+            String password = "Guest-" + guestId + "-9";
+            FirebaseUser firebaseUser = Tasks.await(firebaseAuth
+                    .createUserWithEmailAndPassword(email, password))
+                    .getUser();
+            return finishGuestLogin(firebaseUser, email);
+        } catch (ExecutionException e) {
+            return AuthResult.error(firebaseMessage(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return AuthResult.error("Operacija je prekinuta.");
+        }
+    }
+
+    private AuthResult<AuthUser> finishGuestLogin(FirebaseUser firebaseUser, String email)
+            throws ExecutionException, InterruptedException {
+        if (firebaseUser == null) {
+            return AuthResult.error("Gost prijava nije uspela.");
+        }
+        AuthUser guest = new AuthUser(firebaseUser.getUid(), email,
+                guestUsername(firebaseUser.getUid()), "Gost", "", "", true, "",
+                "", 0, 0, 0, null, null, 0, true);
+        saveGuestProfile(guest);
+        saveCurrentUser(guest);
+        updatePresence(firebaseUser.getUid(), true);
+        return AuthResult.success(guest, "Nastavljas kao gost.");
+    }
+
     public AuthResult<AuthUser> verifyEmail(String tokenOrLink) {
         return AuthResult.error("Potvrda naloga se radi klikom na Firebase link u mejlu.");
     }
@@ -248,7 +299,8 @@ public class AuthService {
                 preferences.getInt(KEY_CURRENT_TOTAL_STARS, 0),
                 null,
                 null,
-                preferences.getInt(KEY_CURRENT_AVATAR_FRAME_PLACE, 0)
+                preferences.getInt(KEY_CURRENT_AVATAR_FRAME_PLACE, 0),
+                preferences.getBoolean(KEY_CURRENT_IS_GUEST, false)
         );
     }
 
@@ -262,8 +314,11 @@ public class AuthService {
             return AuthResult.error("Korisnik nije prijavljen.");
         }
         try {
-            new TokenService(firestore).ensureDailyTokens(firebaseUser.getUid());
             AuthUser authUser = loadProfile(firebaseUser);
+            if (!authUser.isGuest()) {
+                new TokenService(firestore).ensureDailyTokens(firebaseUser.getUid());
+                authUser = loadProfile(firebaseUser);
+            }
             saveCurrentUser(authUser);
             updatePresence(firebaseUser.getUid(), true);
             return AuthResult.success(authUser, "Profil je ucitan.");
@@ -366,6 +421,35 @@ public class AuthService {
         Tasks.await(firestore.collection("usernames").document(authUser.getUsername()).set(usernameData));
     }
 
+    private void saveGuestProfile(AuthUser authUser) throws ExecutionException, InterruptedException {
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("email", "");
+        userData.put("username", authUser.getUsername());
+        userData.put("region", "Gost");
+        userData.put("isGuest", true);
+        userData.put("avatarFramePlace", 0);
+        userData.put("avatarData", "");
+        userData.put("tokens", 0L);
+        userData.put("dailyTokens", 0L);
+        userData.put("bonusDailyTokens", 0L);
+        userData.put("stars", 0L);
+        userData.put("totalStars", 0L);
+        userData.put("overallStars", 0L);
+        userData.put("monthlyStars", 0L);
+        userData.put("monthlyStarsCycle", "");
+        userData.put("league", "Prijateljska igra");
+        userData.put("leagueLevel", 0L);
+        userData.put("leagueIconRes", 0L);
+        userData.put("leagueIcon", "");
+        userData.put("leagueName", "Prijateljska igra");
+        userData.put("lastTokenGrantDate",
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
+                        .format(new java.util.Date()));
+
+        Tasks.await(firestore.collection("users").document(authUser.getId())
+                .set(userData, SetOptions.merge()));
+    }
+
     private boolean isFirebaseConfigured() {
         return firebaseAuth != null && firestore != null;
     }
@@ -389,6 +473,8 @@ public class AuthService {
         Double regionMapLatitude = userDoc.getDouble("regionMapLatitude");
         Double regionMapLongitude = userDoc.getDouble("regionMapLongitude");
         int avatarFramePlace = (int) longValue(userDoc, "avatarFramePlace");
+        boolean guest = Boolean.TRUE.equals(userDoc.getBoolean("isGuest"))
+                || firebaseUser.isAnonymous();
         return new AuthUser(firebaseUser.getUid(), email,
                 username == null ? "" : username,
                 region == null ? "" : region,
@@ -398,7 +484,7 @@ public class AuthService {
                 stars == null ? 0 : Math.max(0, stars.intValue()),
                 totalStars == null ? (stars == null ? 0 : Math.max(0, stars.intValue()))
                         : Math.max(0, totalStars.intValue()),
-                regionMapLatitude, regionMapLongitude, avatarFramePlace);
+                regionMapLatitude, regionMapLongitude, avatarFramePlace, guest);
     }
 
     private AuthUser firebaseUserOnly(FirebaseUser firebaseUser) {
@@ -433,6 +519,7 @@ public class AuthService {
                 .putInt(KEY_CURRENT_STARS, user.getStars())
                 .putInt(KEY_CURRENT_TOTAL_STARS, user.getTotalStars())
                 .putInt(KEY_CURRENT_AVATAR_FRAME_PLACE, user.getAvatarFramePlace())
+                .putBoolean(KEY_CURRENT_IS_GUEST, user.isGuest())
                 .apply();
     }
 
@@ -457,7 +544,15 @@ public class AuthService {
                 .remove(KEY_CURRENT_STARS)
                 .remove(KEY_CURRENT_TOTAL_STARS)
                 .remove(KEY_CURRENT_AVATAR_FRAME_PLACE)
+                .remove(KEY_CURRENT_IS_GUEST)
                 .apply();
+    }
+
+    private String guestUsername(String uid) {
+        if (uid == null || uid.length() < 6) {
+            return "Gost";
+        }
+        return "Gost " + uid.substring(0, 6);
     }
 
     private String encodeAvatar(Uri imageUri) throws IOException {
@@ -515,6 +610,17 @@ public class AuthService {
             return "Firebase operacija nije uspela.";
         }
         return message;
+    }
+
+    private boolean isAnonymousSignInDisabled(ExecutionException e) {
+        Throwable cause = e.getCause();
+        String message = cause == null ? e.getMessage() : cause.getMessage();
+        if (message == null) {
+            return false;
+        }
+        String normalized = message.toLowerCase(Locale.ROOT);
+        return normalized.contains("admin_only_operation")
+                || normalized.contains("restricted to administrators");
     }
 
     private String normalize(String value) {

@@ -165,8 +165,9 @@ public class FriendsRepository {
             if (!friendSnapshot.exists()) {
                 throw new IllegalArgumentException("Prijatelj nije pronadjen.");
             }
-            if (currentSnapshot.exists() && isInGame(transaction, currentRef, currentSnapshot)) {
-                throw new IllegalStateException("Vec ucestvujes u partiji.");
+            if (currentSnapshot.exists()) {
+                deactivatePreviousRoomIfNeeded(transaction, currentRef, currentSnapshot);
+                currentSnapshot = transaction.get(currentRef);
             }
             if (isInGame(transaction, friendRef, friendSnapshot)) {
                 throw new IllegalStateException("Prijatelj trenutno ucestvuje u drugoj partiji.");
@@ -188,6 +189,53 @@ public class FriendsRepository {
             return null;
         }));
         return new GameInviteResult(roomId, notificationId);
+    }
+
+    private void deactivatePreviousRoomIfNeeded(Transaction transaction,
+                                                DocumentReference userRef,
+                                                DocumentSnapshot user) throws FirebaseFirestoreException {
+        String previousRoomId = activeRoomId(user);
+        boolean hasBusyFlag = Boolean.TRUE.equals(user.getBoolean("inGame"))
+                || Boolean.TRUE.equals(user.getBoolean("busy"))
+                || Boolean.TRUE.equals(user.getBoolean("isPlaying"));
+        if (isEmpty(previousRoomId)) {
+            if (hasBusyFlag) {
+                transaction.set(userRef, clearBusyState(), SetOptions.merge());
+            }
+            return;
+        }
+
+        DocumentReference previousRoomRef = firestore.collection(MATCH_COLLECTION).document(previousRoomId);
+        DocumentSnapshot previousRoom = transaction.get(previousRoomRef);
+        if (previousRoom.exists() && isActiveRoom(previousRoom)) {
+            Map<String, Object> roomUpdates = new HashMap<>();
+            roomUpdates.put("phase", "abandoned");
+            roomUpdates.put("currentGame", "abandoned");
+            roomUpdates.put("inviteStatus", "abandoned");
+            roomUpdates.put("finished", true);
+            roomUpdates.put("statusMessage", "Prethodna partija je zatvorena jer je igrac zapoceo novu.");
+            roomUpdates.put("updatedAt", FieldValue.serverTimestamp());
+            transaction.set(previousRoomRef, roomUpdates, SetOptions.merge());
+            clearBusyStateIfRoomMatches(transaction, previousRoom.getString("player1Id"), previousRoomId);
+            clearBusyStateIfRoomMatches(transaction, previousRoom.getString("player2Id"), previousRoomId);
+            return;
+        }
+        transaction.set(userRef, clearBusyState(), SetOptions.merge());
+    }
+
+    private void clearBusyStateIfRoomMatches(Transaction transaction, String userId, String roomId)
+            throws FirebaseFirestoreException {
+        if (isEmpty(userId) || isEmpty(roomId)) {
+            return;
+        }
+        DocumentReference participantRef = firestore.collection("users").document(userId);
+        DocumentSnapshot participant = transaction.get(participantRef);
+        if (!participant.exists()) {
+            return;
+        }
+        if (roomId.equals(activeRoomId(participant))) {
+            transaction.set(participantRef, clearBusyState(), SetOptions.merge());
+        }
     }
 
     public void expireGameInvite(String roomId, String notificationId)
@@ -548,10 +596,13 @@ public class FriendsRepository {
             return false;
         }
         return !"finished".equals(phase)
+                && !"abandoned".equals(phase)
                 && !"inviteDeclined".equals(phase)
                 && !"inviteExpired".equals(phase)
                 && !"inviteCancelled".equals(phase)
-                && !"matchFinished".equals(phase);
+                && !"matchFinished".equals(phase)
+                && !"abandoned".equals(currentGame)
+                && !"abandoned".equals(inviteStatus);
     }
 
     private boolean isRunningGamePhase(String phase) {
