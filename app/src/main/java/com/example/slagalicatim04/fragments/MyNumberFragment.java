@@ -70,6 +70,8 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
     private TextView statusValue;
     private TextView player1ScoreText;
     private TextView player2ScoreText;
+    private TextView player1MetaText;
+    private TextView player2MetaText;
     private ImageView player1Avatar;
     private ImageView player2Avatar;
     private View resultBanner;
@@ -137,6 +139,8 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
         statusValue = view.findViewById(R.id.myNumberStatusValue);
         player1ScoreText = view.findViewById(R.id.myNumberPlayer1ScoreText);
         player2ScoreText = view.findViewById(R.id.myNumberPlayer2ScoreText);
+        player1MetaText = view.findViewById(R.id.myNumberPlayer1Meta);
+        player2MetaText = view.findViewById(R.id.myNumberPlayer2Meta);
         player1Avatar = view.findViewById(R.id.myNumberPlayer1Avatar);
         player2Avatar = view.findViewById(R.id.myNumberPlayer2Avatar);
         resultBanner = view.findViewById(R.id.myNumberResultBanner);
@@ -248,8 +252,10 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
                 + currentState.getPlayer2Score());
         updateHeaderVisibility(currentState.isSoloChallenge());
         PlayerHeaderLoader.loadAvatar(currentState.getPlayer1Id(), player1Avatar);
+        PlayerHeaderLoader.loadProfileSummary(currentState.getPlayer1Id(), player1MetaText);
         if (!currentState.isSoloChallenge()) {
             PlayerHeaderLoader.loadAvatar(currentState.getPlayer2Id(), player2Avatar);
+            PlayerHeaderLoader.loadProfileSummary(currentState.getPlayer2Id(), player2MetaText);
         }
         updatePlayerScoreStyle(myPlayer);
         targetValue.setText(currentState.isTargetShown() ? String.valueOf(currentState.getTarget()) : "?");
@@ -584,6 +590,7 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
     private void updateHeaderVisibility(boolean soloChallenge) {
         int visibility = soloChallenge ? View.GONE : View.VISIBLE;
         player2ScoreText.setVisibility(visibility);
+        player2MetaText.setVisibility(visibility);
         player2Avatar.setVisibility(visibility);
     }
 

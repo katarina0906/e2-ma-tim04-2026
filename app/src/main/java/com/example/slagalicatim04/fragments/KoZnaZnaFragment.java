@@ -40,6 +40,8 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
     private TextView resultText;
     private TextView playerScoreText;
     private TextView opponentScoreText;
+    private TextView playerMetaText;
+    private TextView opponentMetaText;
     private ImageView playerOneAvatar;
     private ImageView playerTwoAvatar;
     private TextView questionText;
@@ -68,6 +70,8 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         resultText = view.findViewById(R.id.resultText);
         playerScoreText = view.findViewById(R.id.kzzScore0);
         opponentScoreText = view.findViewById(R.id.kzzScore1);
+        playerMetaText = view.findViewById(R.id.kzzPlayer1Meta);
+        opponentMetaText = view.findViewById(R.id.kzzPlayer2Meta);
         playerOneAvatar = view.findViewById(R.id.kzzAvatar0);
         playerTwoAvatar = view.findViewById(R.id.kzzAvatar1);
         questionText = view.findViewById(R.id.questionText);
@@ -233,14 +237,17 @@ public class KoZnaZnaFragment extends Fragment implements ExitConfirmationHandle
         opponentScoreText.setTextColor(state.isForfeited(state.getPlayer2Id())
                 ? COLOR_FORFEITED : COLOR_SCORE_DEFAULT);
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
+        PlayerHeaderLoader.loadProfileSummary(state.getPlayer1Id(), playerMetaText);
         if (!state.isSoloChallenge()) {
             PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+            PlayerHeaderLoader.loadProfileSummary(state.getPlayer2Id(), opponentMetaText);
         }
     }
 
     private void updateHeaderVisibility(boolean soloChallenge) {
         int visibility = soloChallenge ? View.GONE : View.VISIBLE;
         opponentScoreText.setVisibility(visibility);
+        opponentMetaText.setVisibility(visibility);
         playerTwoAvatar.setVisibility(visibility);
     }
 
