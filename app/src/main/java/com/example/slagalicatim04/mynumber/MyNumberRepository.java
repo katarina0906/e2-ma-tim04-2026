@@ -16,6 +16,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MyNumberRepository {
+    private static final int WIN_BONUS_STARS = 10;
+    private static final int SCORE_PER_STAR = 40;
+
     public interface Listener {
         void onState(MyNumberMatchState state);
         void onError(Exception error);
@@ -174,22 +177,21 @@ public class MyNumberRepository {
     private void recordRanking(Transaction transaction, MyNumberMatchState state,
                                long p1Score, long p2Score) {
         int winner = p1Score > p2Score ? 1 : p2Score > p1Score ? 2 : 0;
-        if (winner == 0) {
-            return;
-        }
-        String winnerId = winner == 1 ? state.getPlayer1Id() : state.getPlayer2Id();
-        String winnerName = winner == 1 ? state.getPlayer1Name() : state.getPlayer2Name();
-        Map<String, Object> userTotals = new HashMap<>();
-        userTotals.put("totalStars", FieldValue.increment(1));
-        userTotals.put("updatedAt", FieldValue.serverTimestamp());
-        transaction.set(matchRef.getFirestore().collection("users").document(winnerId),
-                userTotals, SetOptions.merge());
-        writeCycle(transaction, RankingCycle.current(RankingCycle.WEEKLY), winnerId, winnerName);
-        writeCycle(transaction, RankingCycle.current(RankingCycle.MONTHLY), winnerId, winnerName);
+        long p1Stars = cycleStars(p1Score, winner == 1);
+        long p2Stars = cycleStars(p2Score, winner == 2);
+        RankingCycle weekly = RankingCycle.current(RankingCycle.WEEKLY);
+        RankingCycle monthly = RankingCycle.current(RankingCycle.MONTHLY);
+        writeCycle(transaction, weekly, state.getPlayer1Id(), state.getPlayer1Name(), p1Stars);
+        writeCycle(transaction, weekly, state.getPlayer2Id(), state.getPlayer2Name(), p2Stars);
+        writeCycle(transaction, monthly, state.getPlayer1Id(), state.getPlayer1Name(), p1Stars);
+        writeCycle(transaction, monthly, state.getPlayer2Id(), state.getPlayer2Name(), p2Stars);
     }
 
     private void writeCycle(Transaction transaction, RankingCycle cycle, String userId,
-                            String username) {
+                            String username, long stars) {
+        if (userId == null || userId.trim().isEmpty()) {
+            return;
+        }
         DocumentReference cycleRef = matchRef.getFirestore()
                 .collection("rankingCycles").document(cycle.id);
         Map<String, Object> cycleData = new HashMap<>();
@@ -203,12 +205,17 @@ public class MyNumberRepository {
         Map<String, Object> entryData = new HashMap<>();
         entryData.put("userId", userId);
         entryData.put("username", username == null || username.isEmpty() ? "Igrac" : username);
-        entryData.put("leagueIcon", "🏆");
-        entryData.put("leagueName", "Zlatna liga");
+        entryData.put("leagueIcon", "*");
+        entryData.put("leagueName", "Liga");
         entryData.put("played", true);
-        entryData.put("stars", FieldValue.increment(1));
+        entryData.put("stars", FieldValue.increment(Math.max(0L, stars)));
         entryData.put("updatedAt", FieldValue.serverTimestamp());
         transaction.set(cycleRef.collection("entries").document(userId), entryData, SetOptions.merge());
+    }
+
+    private long cycleStars(long score, boolean winner) {
+        long scoreStars = Math.max(0L, score / SCORE_PER_STAR);
+        return scoreStars + (winner ? WIN_BONUS_STARS : 0L);
     }
 
     public void awardTokensIfFinished() {
@@ -303,6 +310,13 @@ public class MyNumberRepository {
             if (!monthlyAlreadyClaimed && monthlyReward > 0) {
                 transaction.set(monthlyClaim, rewardClaimData(monthly, monthlyReward));
             }
+            transaction.set(userRef.collection("notifications")
+                            .document("ranking_reward_" + weekly.id + "_" + monthly.id),
+                    rewardNotificationData(
+                            weeklyAlreadyClaimed ? 0 : weeklyReward,
+                            monthlyAlreadyClaimed ? 0 : monthlyReward,
+                            tokens),
+                    SetOptions.merge());
             return null;
         });
     }
@@ -315,6 +329,39 @@ public class MyNumberRepository {
         data.put("claimedAt", FieldValue.serverTimestamp());
         data.put("source", "client");
         return data;
+    }
+
+    private Map<String, Object> rewardNotificationData(long weeklyTokens,
+                                                       long monthlyTokens,
+                                                       long totalTokens) {
+        Map<String, String> data = new HashMap<>();
+        data.put("weeklyTokens", String.valueOf(weeklyTokens));
+        data.put("monthlyTokens", String.valueOf(monthlyTokens));
+        data.put("totalTokens", String.valueOf(totalTokens));
+
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("category", "ranking");
+        notification.put("title", "Nagrada rang liste");
+        notification.put("message", rewardMessage(weeklyTokens, monthlyTokens, totalTokens));
+        notification.put("action", "rewards_claim");
+        notification.put("targetId", "ranking_rewards");
+        notification.put("data", data);
+        notification.put("source", "ranking_rewards");
+        notification.put("read", false);
+        notification.put("readAt", null);
+        notification.put("actionedAt", null);
+        notification.put("createdAt", FieldValue.serverTimestamp());
+        return notification;
+    }
+
+    private String rewardMessage(long weeklyTokens, long monthlyTokens, long totalTokens) {
+        if (weeklyTokens > 0 && monthlyTokens > 0) {
+            return "Osvojio si " + totalTokens + " tokena na nedeljnoj i mesecnoj rang listi.";
+        }
+        if (weeklyTokens > 0) {
+            return "Osvojio si " + weeklyTokens + " tokena na nedeljnoj rang listi.";
+        }
+        return "Osvojio si " + monthlyTokens + " tokena na mesecnoj rang listi.";
     }
 
     private void markClientTokensAwarded() {

@@ -12,11 +12,6 @@
         android:title="Games" />
 
     <item
-        android:id="@+id/rankingFragment"
-        android:icon="@android:drawable/ic_menu_sort_by_size"
-        android:title="Rang" />
-
-    <item
         android:id="@+id/profileFragment"
         android:icon="@android:drawable/ic_menu_myplaces"
         android:title="Profile" />

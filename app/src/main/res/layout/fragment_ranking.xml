@@ -20,14 +20,6 @@
             android:textSize="24sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Aktuelni ciklusi se osvezavaju na svaka 2 minuta."
-            android:textColor="#6C6780"
-            android:textSize="14sp" />
-
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

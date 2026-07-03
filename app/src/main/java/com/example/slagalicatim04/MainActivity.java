@@ -70,7 +70,6 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.homeFragment,
                 R.id.gamesFragment,
-                R.id.rankingFragment,
                 R.id.profileFragment,
                 R.id.loginFragment
         ).build();

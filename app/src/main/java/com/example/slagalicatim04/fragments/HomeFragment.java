@@ -109,11 +109,10 @@ public class HomeFragment extends Fragment {
                     }
                     long tokens = value(snapshot.getLong("tokens"));
                     long stars = value(snapshot.getLong("totalStars"));
-                    String leagueIcon = text(snapshot.getString("leagueIcon"), "🏆");
-                    String leagueName = text(snapshot.getString("leagueName"), "Zlatna liga");
-                    tokensText.setText(String.format(Locale.ROOT, "🪙\n%d\nTokena", tokens));
-                    starsText.setText(String.format(Locale.ROOT, "%s\n%d\nZvezda", "\u2605", stars));
-                    leagueText.setText(leagueIcon + " " + leagueName);
+                    String leagueName = text(snapshot.getString("league"), "Nulta liga");
+                    tokensText.setText(String.format(Locale.ROOT, "%d", tokens));
+                    starsText.setText(String.format(Locale.ROOT, "%d", stars));
+                    leagueText.setText(leagueName);
                 });
     }
 

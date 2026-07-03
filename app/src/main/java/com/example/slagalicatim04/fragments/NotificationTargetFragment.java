@@ -1,8 +1,9 @@
 package com.example.slagalicatim04.fragments;
 
 import android.os.Bundle;
-import android.media.AudioManager;
-import android.media.ToneGenerator;
+import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioTrack;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -57,6 +58,7 @@ public class NotificationTargetFragment extends Fragment {
 
     private void showRewardCelebration() {
         binding.rewardCelebration.setVisibility(View.VISIBLE);
+        binding.fullScreenConfetti.burst();
         binding.rewardIcon.setScaleX(0.4f);
         binding.rewardIcon.setScaleY(0.4f);
         binding.rewardIcon.setRotation(-18f);
@@ -73,8 +75,56 @@ public class NotificationTargetFragment extends Fragment {
                         .setDuration(220)
                         .start())
                 .start();
-        ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70);
-        tone.startTone(ToneGenerator.TONE_PROP_ACK, 180);
-        binding.rewardIcon.postDelayed(tone::release, 400);
+        playRewardSound();
+    }
+
+    private void playRewardSound() {
+        new Thread(() -> {
+            final int sampleRate = 44100;
+            short[] samples = melodySamples(sampleRate);
+            AudioTrack track = new AudioTrack.Builder()
+                    .setAudioAttributes(new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build())
+                    .setAudioFormat(new AudioFormat.Builder()
+                            .setSampleRate(sampleRate)
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build())
+                    .setBufferSizeInBytes(samples.length * 2)
+                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .build();
+            track.write(samples, 0, samples.length);
+            track.play();
+            try {
+                Thread.sleep(900);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            track.release();
+        }).start();
+    }
+
+    private short[] melodySamples(int sampleRate) {
+        double[] notes = {523.25, 659.25, 783.99, 1046.50};
+        int noteMs = 150;
+        int gapMs = 28;
+        int totalSamples = (noteMs + gapMs) * notes.length * sampleRate / 1000;
+        short[] out = new short[totalSamples];
+        int offset = 0;
+        for (double note : notes) {
+            int noteSamples = noteMs * sampleRate / 1000;
+            int gapSamples = gapMs * sampleRate / 1000;
+            for (int i = 0; i < noteSamples && offset + i < out.length; i++) {
+                double t = i / (double) sampleRate;
+                double envelope = Math.sin(Math.PI * i / noteSamples);
+                double shimmer = Math.sin(2.0 * Math.PI * note * 2.0 * t) * 0.18;
+                double wave = Math.sin(2.0 * Math.PI * note * t) * 0.72 + shimmer;
+                out[offset + i] = (short) (wave * envelope * 15000);
+            }
+            offset += noteSamples + gapSamples;
+        }
+        return out;
     }
 }

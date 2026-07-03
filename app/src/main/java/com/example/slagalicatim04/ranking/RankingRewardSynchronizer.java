@@ -116,6 +116,13 @@ public class RankingRewardSynchronizer {
             if (monthlyReward > monthlyClaimed) {
                 transaction.set(monthlyClaim, claimData(monthly, monthlyReward), SetOptions.merge());
             }
+            if (claimDelta > 0) {
+                transaction.set(userRef.collection("notifications")
+                                .document("ranking_reward_" + weekly.id + "_" + monthly.id),
+                        rewardNotificationData(weeklyReward, weeklyClaimed,
+                                monthlyReward, monthlyClaimed, claimDelta),
+                        SetOptions.merge());
+            }
             return null;
         }).addOnCompleteListener(ignored -> callback.onDone());
     }
@@ -128,6 +135,41 @@ public class RankingRewardSynchronizer {
         data.put("claimedAt", FieldValue.serverTimestamp());
         data.put("source", "client_sync");
         return data;
+    }
+
+    private Map<String, Object> rewardNotificationData(long weeklyReward, long weeklyClaimed,
+                                                       long monthlyReward, long monthlyClaimed,
+                                                       long claimDelta) {
+        long weeklyDelta = Math.max(0, weeklyReward - weeklyClaimed);
+        long monthlyDelta = Math.max(0, monthlyReward - monthlyClaimed);
+        Map<String, String> data = new HashMap<>();
+        data.put("weeklyTokens", String.valueOf(weeklyDelta));
+        data.put("monthlyTokens", String.valueOf(monthlyDelta));
+        data.put("totalTokens", String.valueOf(claimDelta));
+
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("category", "ranking");
+        notification.put("title", "Nagrada rang liste");
+        notification.put("message", rewardMessage(weeklyDelta, monthlyDelta, claimDelta));
+        notification.put("action", "rewards_claim");
+        notification.put("targetId", "ranking_rewards");
+        notification.put("data", data);
+        notification.put("source", "ranking_rewards");
+        notification.put("read", false);
+        notification.put("readAt", null);
+        notification.put("actionedAt", null);
+        notification.put("createdAt", FieldValue.serverTimestamp());
+        return notification;
+    }
+
+    private String rewardMessage(long weeklyDelta, long monthlyDelta, long claimDelta) {
+        if (weeklyDelta > 0 && monthlyDelta > 0) {
+            return "Osvojio si " + claimDelta + " tokena na nedeljnoj i mesecnoj rang listi.";
+        }
+        if (weeklyDelta > 0) {
+            return "Osvojio si " + weeklyDelta + " tokena na nedeljnoj rang listi.";
+        }
+        return "Osvojio si " + monthlyDelta + " tokena na mesecnoj rang listi.";
     }
 
     public static int rewardForRank(String cycleType, int rank) {
