@@ -1,6 +1,7 @@
 package com.example.slagalicatim04.mynumber;
 
 import com.example.slagalicatim04.auth.PlayerProgressService;
+import com.example.slagalicatim04.auth.DailyMissionService;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -204,6 +205,8 @@ public class MyNumberRepository {
             return;
         }
         if (isFriendlyMatch()) {
+            markFriendlyMission(transaction, state.getPlayer1Id());
+            markFriendlyMission(transaction, state.getPlayer2Id());
             updates.put("matchRewardsApplied", true);
             updates.put("player1StarDelta", 0L);
             updates.put("player2StarDelta", 0L);
@@ -237,6 +240,21 @@ public class MyNumberRepository {
         updates.put("player2Stars", p2Reward.remainingStars);
         updates.put("player1EarnedTokens", p1Reward.earnedTokens);
         updates.put("player2EarnedTokens", p2Reward.earnedTokens);
+    }
+
+    private void markFriendlyMission(Transaction transaction, String userId)
+            throws FirebaseFirestoreException {
+        if (isEmpty(userId)) {
+            return;
+        }
+        DocumentReference userRef = matchRef.getFirestore().collection("users").document(userId);
+        DocumentSnapshot userSnapshot = transaction.get(userRef);
+        DailyMissionService.Reward reward = DailyMissionService.computeReward(
+                userSnapshot, DailyMissionService.Mission.PLAY_FRIENDLY_MATCH);
+        if (reward.changed) {
+            transaction.set(userRef, DailyMissionService.buildUserRewardUpdates(userSnapshot, reward),
+                    SetOptions.merge());
+        }
     }
 
     private void applyTournamentRewards(Transaction transaction, DocumentSnapshot snapshot,

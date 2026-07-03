@@ -42,36 +42,48 @@ public class PlayerProgressService {
         long currentTokens = longValue(snapshot, FIELD_TOKENS);
         RewardComputation computation = computeReward(playerScore, winner, currentStars, currentTotalStars,
                 currentTokens);
+        DailyMissionService.Reward missionReward = winner
+                ? DailyMissionService.computeReward(snapshot, DailyMissionService.Mission.WIN_MATCH)
+                : DailyMissionService.noReward(snapshot);
+        long nextStarsBeforeTokens = computation.remainingStars + missionReward.starDelta;
+        long missionEarnedTokens = nextStarsBeforeTokens / STARS_PER_TOKEN;
+        long nextRemainingStars = nextStarsBeforeTokens % STARS_PER_TOKEN;
+        long nextTokens = computation.nextTokens + missionEarnedTokens + missionReward.tokenDelta;
+        long nextTotalStars = computation.nextTotalStars + missionReward.starDelta;
 
-        LeagueInfo league = LeagueInfo.forStars(computation.nextTotalStars);
+        LeagueInfo league = LeagueInfo.forStars(nextTotalStars);
         String cycle = RegionRepository.currentCycle();
         long currentMonthlyStars = cycle.equals(snapshot.getString("monthlyStarsCycle"))
                 ? longValue(snapshot, "monthlyStars")
                 : 0L;
-        long nextMonthlyStars = Math.max(0, currentMonthlyStars + computation.starDelta);
+        long nextMonthlyStars = Math.max(0,
+                currentMonthlyStars + computation.starDelta + missionReward.starDelta);
         LeagueInfo previousLeague = LeagueInfo.forStars(currentTotalStars);
         DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
 
         transaction.update(userRef,
-                FIELD_STARS, computation.remainingStars,
-                FIELD_TOTAL_STARS, computation.nextTotalStars,
-                "overallStars", computation.nextTotalStars,
+                FIELD_STARS, nextRemainingStars,
+                FIELD_TOTAL_STARS, nextTotalStars,
+                "overallStars", nextTotalStars,
                 "monthlyStars", nextMonthlyStars,
                 "monthlyStarsCycle", cycle,
                 "league", league.name,
                 "leagueLevel", league.level,
                 "leagueIconRes", league.iconRes,
-                FIELD_TOKENS, computation.nextTokens);
+                FIELD_TOKENS, nextTokens,
+                "dailyMissionsDate", missionReward.date,
+                "dailyMissions", missionReward.missions,
+                "dailyMissionsAllBonusClaimed", missionReward.allBonusClaimed);
         if (previousLeague.level != league.level) {
             transaction.set(userRef.collection("notifications")
                             .document("league_change_" + System.currentTimeMillis()),
-                    LeagueNotificationData.create(previousLeague.name, league, computation.nextTotalStars,
+                    LeagueNotificationData.create(previousLeague.name, league, nextTotalStars,
                             league.level > previousLeague.level));
         }
 
-        return new RewardResult(computation.starDelta, computation.remainingStars,
-                computation.earnedTokens, computation.nextTokens,
-                computation.nextTotalStars - currentTotalStars, computation.nextTotalStars, league.level);
+        return new RewardResult(computation.starDelta + missionReward.starDelta, nextRemainingStars,
+                computation.earnedTokens + missionEarnedTokens + missionReward.tokenDelta, nextTokens,
+                nextTotalStars - currentTotalStars, nextTotalStars, league.level);
     }
 
     static RewardComputation computeReward(long playerScore, boolean winner,

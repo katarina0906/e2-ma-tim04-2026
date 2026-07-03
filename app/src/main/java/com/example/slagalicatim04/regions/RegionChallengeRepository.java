@@ -3,6 +3,7 @@ package com.example.slagalicatim04.regions;
 import androidx.annotation.NonNull;
 
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.auth.DailyMissionService;
 import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
@@ -423,7 +424,7 @@ public class RegionChallengeRepository {
             String userId = ranking.get(i).getKey();
             long starsAwarded = i == 0 ? winnerStars : (i == 1 ? secondStars : 0L);
             long tokensAwarded = i == 0 ? winnerTokens : (i == 1 ? secondTokens : 0L);
-            if (starsAwarded > 0L || tokensAwarded > 0L) {
+            if (i == 0 || starsAwarded > 0L || tokensAwarded > 0L) {
                 DocumentReference userRef = firestore.collection("users").document(userId);
                 rewardSnapshots.put(userId, transaction.get(userRef));
             }
@@ -439,10 +440,25 @@ public class RegionChallengeRepository {
                 DocumentReference userRef = firestore.collection("users").document(userId);
                 DocumentSnapshot userSnapshot = rewardSnapshots.get(userId);
                 long currentTokens = longValue(userSnapshot.getLong("tokens"));
-                transaction.set(userRef, rewardUpdates(userSnapshot,
+                Map<String, Object> updates = rewardUpdates(userSnapshot,
                         starsAwarded, tokensAwarded,
                         resolvedStars(userSnapshot) + starsAwarded,
-                        currentTokens + tokensAwarded), SetOptions.merge());
+                        currentTokens + tokensAwarded);
+                if (i == 0) {
+                    updates.putAll(DailyMissionService.buildMissionUpdates(userSnapshot,
+                            DailyMissionService.Mission.WIN_TOURNAMENT_MATCH,
+                            resolvedStars(userSnapshot) + starsAwarded,
+                            resolvedStars(userSnapshot) + starsAwarded,
+                            currentTokens + tokensAwarded));
+                }
+                transaction.set(userRef, updates, SetOptions.merge());
+            } else if (i == 0) {
+                DocumentReference userRef = firestore.collection("users").document(userId);
+                DocumentSnapshot userSnapshot = rewardSnapshots.get(userId);
+                transaction.set(userRef, DailyMissionService.buildUserRewardUpdates(userSnapshot,
+                        DailyMissionService.computeReward(userSnapshot,
+                                DailyMissionService.Mission.WIN_TOURNAMENT_MATCH)),
+                        SetOptions.merge());
             }
         }
 

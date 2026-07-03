@@ -93,13 +93,13 @@ public class HomeFragment extends Fragment {
 
     private void showProfile(AuthUser user) {
         usernameText.setText(user.getUsername());
-        regionText.setText("Region\n" + user.getRegion());
+        regionText.setText(user.getRegion());
         LeagueInfo league = LeagueInfo.forStars(user.getTotalStars());
         leagueText.setText(league.name);
         leagueText.setCompoundDrawablesWithIntrinsicBounds(league.iconRes, 0, 0, 0);
         leagueText.setCompoundDrawablePadding(6);
-        tokensText.setText("🪙\n" + user.getTokens() + "\nTokena");
-        starsText.setText("★\n" + user.getTotalStars() + "\nZvezda");
+        tokensText.setText(String.valueOf(user.getTokens()));
+        starsText.setText(String.valueOf(user.getTotalStars()));
         AvatarFrameStyler.apply(avatarFrame, user.getAvatarFramePlace());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }

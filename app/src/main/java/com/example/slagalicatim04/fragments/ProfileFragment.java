@@ -24,6 +24,7 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
+import com.example.slagalicatim04.auth.DailyMissionService;
 import com.example.slagalicatim04.friends.FriendQr;
 import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.example.slagalicatim04.regions.AvatarFrameStyler;
@@ -32,6 +33,7 @@ import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
 import com.example.slagalicatim04.regions.RegionInfo;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
@@ -46,11 +48,18 @@ public class ProfileFragment extends Fragment {
     private TextView tokensSummary;
     private TextView starsSummary;
     private TextView leagueSummary;
+    private TextView dailyMissionProgress;
+    private TextView dailyMissionReward;
+    private TextView missionWinStatus;
+    private TextView missionChatStatus;
+    private TextView missionFriendlyStatus;
+    private TextView missionTournamentStatus;
     private ImageView avatarImage;
     private ImageView friendQrImage;
     private View avatarFrame;
     private MapView regionMapView;
     private AuthService authService;
+    private DailyMissionService dailyMissionService;
     private AuthUser currentUser;
     private final ActivityResultLauncher<String> avatarPicker =
             registerForActivityResult(new ActivityResultContracts.GetContent(), this::uploadAvatar);
@@ -65,6 +74,7 @@ public class ProfileFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         authService = AuthService.getInstance(requireContext());
+        dailyMissionService = new DailyMissionService(FirebaseFirestore.getInstance());
         usernameText = view.findViewById(R.id.profileUsername);
         emailText = view.findViewById(R.id.profileEmail);
         regionText = view.findViewById(R.id.profileRegion);
@@ -72,6 +82,12 @@ public class ProfileFragment extends Fragment {
         tokensSummary = view.findViewById(R.id.profileTokensSummary);
         starsSummary = view.findViewById(R.id.profileStarsSummary);
         leagueSummary = view.findViewById(R.id.profileLeagueSummary);
+        dailyMissionProgress = view.findViewById(R.id.profileDailyMissionProgress);
+        dailyMissionReward = view.findViewById(R.id.profileDailyMissionReward);
+        missionWinStatus = view.findViewById(R.id.profileMissionWinStatus);
+        missionChatStatus = view.findViewById(R.id.profileMissionChatStatus);
+        missionFriendlyStatus = view.findViewById(R.id.profileMissionFriendlyStatus);
+        missionTournamentStatus = view.findViewById(R.id.profileMissionTournamentStatus);
         avatarImage = view.findViewById(R.id.profileAvatar);
         friendQrImage = view.findViewById(R.id.profileFriendQr);
         avatarFrame = view.findViewById(R.id.profileAvatarFrame);
@@ -107,6 +123,7 @@ public class ProfileFragment extends Fragment {
             return;
         }
         showProfile(currentUser);
+        loadDailyMissions(currentUser.getId());
         loadProfileFromFirestore();
     }
 
@@ -123,6 +140,7 @@ public class ProfileFragment extends Fragment {
                 if (result.isSuccess() && result.getData() != null) {
                     currentUser = result.getData();
                     showProfile(result.getData());
+                    loadDailyMissions(result.getData().getId());
                 } else {
                     Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
                     navigateToLogin(requireView());
@@ -142,12 +160,60 @@ public class ProfileFragment extends Fragment {
         showFriendQr(user);
     }
 
+    private void loadDailyMissions(String userId) {
+        dailyMissionService.loadStatus(userId, new DailyMissionService.StatusListener() {
+            @Override
+            public void onStatus(DailyMissionService.Status status) {
+                if (!isAdded()) {
+                    return;
+                }
+                requireActivity().runOnUiThread(() -> showDailyMissions(status));
+            }
+
+            @Override
+            public void onError(Exception error) {
+                if (!isAdded()) {
+                    return;
+                }
+                requireActivity().runOnUiThread(() -> {
+                    dailyMissionProgress.setText("Misije trenutno nisu dostupne.");
+                    dailyMissionReward.setText("...");
+                });
+            }
+        });
+    }
+
+    private void showDailyMissions(DailyMissionService.Status status) {
+        dailyMissionProgress.setText(status.completedCount() + "/4 zavrseno danas");
+        dailyMissionReward.setText(status.allBonusClaimed ? "Bonus uzet" : "+3 po misiji");
+        dailyMissionReward.setTextColor(status.allBonusClaimed ? 0xFFFFFFFF : 0xFF6F4BB2);
+        dailyMissionReward.setBackgroundResource(status.allBonusClaimed
+                ? R.drawable.bg_daily_mission_done
+                : R.drawable.bg_daily_mission_pending);
+        bindMissionStatus(missionWinStatus,
+                status.isCompleted(DailyMissionService.Mission.WIN_MATCH));
+        bindMissionStatus(missionChatStatus,
+                status.isCompleted(DailyMissionService.Mission.SEND_CHAT_MESSAGE));
+        bindMissionStatus(missionFriendlyStatus,
+                status.isCompleted(DailyMissionService.Mission.PLAY_FRIENDLY_MATCH));
+        bindMissionStatus(missionTournamentStatus,
+                status.isCompleted(DailyMissionService.Mission.WIN_TOURNAMENT_MATCH));
+    }
+
+    private void bindMissionStatus(TextView statusView, boolean completed) {
+        statusView.setText(completed ? "Gotovo" : "+3 zvezde");
+        statusView.setTextColor(completed ? 0xFFFFFFFF : 0xFF6F4BB2);
+        statusView.setBackgroundResource(completed
+                ? R.drawable.bg_daily_mission_done
+                : R.drawable.bg_daily_mission_pending);
+    }
+
     private void showProgress(AuthUser user) {
         LeagueInfo league = LeagueInfo.forStars(user.getTotalStars());
-        tokensSummary.setText("🪙\n" + user.getTokens() + "\nTokena");
-        starsSummary.setText("★\n" + user.getTotalStars() + "\nZvezda");
+        tokensSummary.setText(String.valueOf(user.getTokens()));
+        starsSummary.setText(String.valueOf(user.getTotalStars()));
         leagueSummary.setText(league.name);
-        leagueSummary.setCompoundDrawablesWithIntrinsicBounds(league.iconRes, 0, 0, 0);
+        leagueSummary.setCompoundDrawablesWithIntrinsicBounds(0, league.iconRes, 0, 0);
         leagueSummary.setCompoundDrawablePadding(4);
     }
 
