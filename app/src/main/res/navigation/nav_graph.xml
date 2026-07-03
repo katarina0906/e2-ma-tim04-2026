@@ -66,6 +66,9 @@
         <action
             android:id="@+id/action_homeFragment_to_friendsFragment"
             app:destination="@id/friendsFragment" />
+        <action
+            android:id="@+id/action_homeFragment_to_tournamentFragment"
+            app:destination="@id/tournamentFragment" />
     </fragment>
 
     <fragment
@@ -102,6 +105,12 @@
         android:name="com.example.slagalicatim04.fragments.GamesFragment"
         android:label="Games"
         tools:layout="@layout/fragment_games" />
+
+    <fragment
+        android:id="@+id/tournamentFragment"
+        android:name="com.example.slagalicatim04.fragments.TournamentFragment"
+        android:label="Turnir"
+        tools:layout="@layout/fragment_tournament" />
 
     <fragment
         android:id="@+id/regionsFragment"

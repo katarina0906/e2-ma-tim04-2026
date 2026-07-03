@@ -265,12 +265,16 @@
             android:weightSum="2">
 
             <TextView
+                android:id="@+id/homeQuickTournament"
                 android:layout_width="0dp"
                 android:layout_height="82dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 android:gravity="center"
-                android:text="📊\nStatistika"
+                android:text="🏆\nTurnir"
                 android:textColor="#1E1E2F"
                 android:textStyle="bold" />
 

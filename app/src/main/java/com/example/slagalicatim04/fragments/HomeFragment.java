@@ -58,6 +58,9 @@ public class HomeFragment extends Fragment {
         view.findViewById(R.id.homeQuickFriends).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
                         .navigate(R.id.action_homeFragment_to_friendsFragment));
+        view.findViewById(R.id.homeQuickTournament).setOnClickListener(v ->
+                Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
+                        .navigate(R.id.action_homeFragment_to_tournamentFragment));
         view.findViewById(R.id.startGameCard).setOnClickListener(v -> {
             AuthUser currentUser = authService.getCurrentUser();
             if (currentUser != null && currentUser.getTokens() < 1) {
