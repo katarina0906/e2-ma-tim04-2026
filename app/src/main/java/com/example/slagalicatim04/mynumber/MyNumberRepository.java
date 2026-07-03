@@ -67,6 +67,7 @@ public class MyNumberRepository {
     }
 
     public void tick(StepByStepPlayerSession player) {
+        final boolean[] friendlyMatchFinished = {false};
         matchRef.getFirestore().runTransaction((Transaction.Function<Void>) transaction -> {
             DocumentSnapshot snapshot = transaction.get(matchRef);
             if (!snapshot.exists()) return null;
@@ -90,14 +91,19 @@ public class MyNumberRepository {
                 int left = Math.max(0, state.getSecondsLeft() - 1);
                 updates.put("myNumberSecondsLeft", left);
                 if (left == 0) {
-                    submitMissingAndScore(transaction, snapshot, state, updates,
+                    friendlyMatchFinished[0] = submitMissingAndScore(transaction, snapshot, state, updates,
                             state.getP1Result(), state.getP2Result());
                 }
             }
             updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(matchRef, updates, SetOptions.merge());
             return null;
-        }).addOnSuccessListener(ignored -> awardTokensIfFinished());
+        }).addOnSuccessListener(ignored -> {
+            if (friendlyMatchFinished[0]) {
+                markFriendlyMissionForPlayer(player.getId());
+            }
+            awardTokensIfFinished();
+        });
     }
 
     public void revealTarget(StepByStepPlayerSession player) {
@@ -109,6 +115,7 @@ public class MyNumberRepository {
     }
 
     public void submit(StepByStepPlayerSession player, String expression) {
+        final boolean[] friendlyMatchFinished = {false};
         matchRef.getFirestore().runTransaction((Transaction.Function<Void>) transaction -> {
             DocumentSnapshot snapshot = transaction.get(matchRef);
             if (!snapshot.exists()) return null;
@@ -135,12 +142,18 @@ public class MyNumberRepository {
             boolean canResolveWithForfeit = !isEmpty(state.getForfeitedPlayerId())
                     && (p1Submitted || p2Submitted);
             if ((p1Submitted && p2Submitted) || canResolveWithForfeit) {
-                submitMissingAndScore(transaction, snapshot, state, updates, p1Result, p2Result);
+                friendlyMatchFinished[0] = submitMissingAndScore(
+                        transaction, snapshot, state, updates, p1Result, p2Result);
             }
             updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(matchRef, updates, SetOptions.merge());
             return null;
-        }).addOnSuccessListener(ignored -> awardTokensIfFinished());
+        }).addOnSuccessListener(ignored -> {
+            if (friendlyMatchFinished[0]) {
+                markFriendlyMissionForPlayer(player.getId());
+            }
+            awardTokensIfFinished();
+        });
     }
 
     public void resolveForfeitState(MyNumberMatchState state) {
@@ -176,9 +189,9 @@ public class MyNumberRepository {
         });
     }
 
-    private void submitMissingAndScore(Transaction transaction, DocumentSnapshot snapshot,
-                                       MyNumberMatchState state, Map<String, Object> updates,
-                                       Integer p1, Integer p2)
+    private boolean submitMissingAndScore(Transaction transaction, DocumentSnapshot snapshot,
+                                          MyNumberMatchState state, Map<String, Object> updates,
+                                          Integer p1, Integer p2)
             throws FirebaseFirestoreException {
         MyNumberGameService.RoundScore score = service.scoreRound(
                 state.getTarget(), state.getActivePlayer(), p1, p2);
@@ -191,6 +204,7 @@ public class MyNumberRepository {
         int roundCount = state.isSoloChallenge() ? 1 : 2;
         if (state.getRound() < roundCount) {
             updates.putAll(newRoundState(2, nextP1Score, nextP2Score));
+            return false;
         } else {
             updates.put("currentGame", "matchResult");
             updates.put("phase", "matchFinished");
@@ -205,6 +219,7 @@ public class MyNumberRepository {
                 updates.put("rankingRecorded", true);
                 recordRanking(transaction, state, nextP1Score, nextP2Score);
             }
+            return isFriendlyMatch();
         }
     }
 
@@ -216,8 +231,6 @@ public class MyNumberRepository {
             return;
         }
         if (isFriendlyMatch()) {
-            markFriendlyMission(transaction, state.getPlayer1Id());
-            markFriendlyMission(transaction, state.getPlayer2Id());
             updates.put("matchRewardsApplied", true);
             updates.put("player1StarDelta", 0L);
             updates.put("player2StarDelta", 0L);
@@ -253,22 +266,24 @@ public class MyNumberRepository {
         updates.put("player2EarnedTokens", p2Reward.earnedTokens);
     }
 
-    private void markFriendlyMission(Transaction transaction, String userId)
-            throws FirebaseFirestoreException {
-        if (isEmpty(userId)) {
+    public void markFriendlyMissionForPlayer(String userId) {
+        if (!isFriendlyMatch() || isEmpty(userId)) {
             return;
         }
-        DocumentReference userRef = matchRef.getFirestore().collection("users").document(userId);
-        DocumentSnapshot userSnapshot = transaction.get(userRef);
-        if (Boolean.TRUE.equals(userSnapshot.getBoolean("isGuest"))) {
-            return;
-        }
-        DailyMissionService.Reward reward = DailyMissionService.computeReward(
-                userSnapshot, DailyMissionService.Mission.PLAY_FRIENDLY_MATCH);
-        if (reward.changed) {
-            transaction.set(userRef, DailyMissionService.buildUserRewardUpdates(userSnapshot, reward),
-                    SetOptions.merge());
-        }
+        matchRef.getFirestore().runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentReference userRef = matchRef.getFirestore().collection("users").document(userId);
+            DocumentSnapshot userSnapshot = transaction.get(userRef);
+            if (!userSnapshot.exists() || Boolean.TRUE.equals(userSnapshot.getBoolean("isGuest"))) {
+                return null;
+            }
+            DailyMissionService.Reward reward = DailyMissionService.computeReward(
+                    userSnapshot, DailyMissionService.Mission.PLAY_FRIENDLY_MATCH);
+            if (reward.changed) {
+                transaction.set(userRef, DailyMissionService.buildUserRewardUpdates(userSnapshot, reward),
+                        SetOptions.merge());
+            }
+            return null;
+        });
     }
 
     private void applyTournamentRewards(Transaction transaction, DocumentSnapshot snapshot,

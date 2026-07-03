@@ -620,6 +620,7 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
         if (navigatedToMatchResult || getView() == null) {
             return;
         }
+        repository.markFriendlyMissionForPlayer(playerSession.getId());
         navigatedToMatchResult = true;
         Bundle args = new Bundle();
         args.putString("roomId", roomId);
