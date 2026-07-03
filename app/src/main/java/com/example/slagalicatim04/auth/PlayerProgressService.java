@@ -37,50 +37,69 @@ public class PlayerProgressService {
     public RewardResult applyMatchRewards(Transaction transaction, String userId,
                                           DocumentSnapshot snapshot,
                                           long playerScore, boolean winner) {
-        long scoreStars = Math.max(0, playerScore / SCORE_PER_STAR);
-        long starDelta = winner ? WIN_BONUS_STARS + scoreStars : scoreStars - LOSS_PENALTY_STARS;
         long currentStars = longValue(snapshot, FIELD_STARS);
-        long currentTotalStars = longValue(snapshot, FIELD_TOTAL_STARS);
+        long currentTotalStars = firstLongValue(snapshot, FIELD_TOTAL_STARS, "overallStars", FIELD_STARS);
         long currentTokens = longValue(snapshot, FIELD_TOKENS);
+        RewardComputation computation = computeReward(playerScore, winner, currentStars, currentTotalStars,
+                currentTokens);
 
-        long nextStarsBeforeTokens = Math.max(0, currentStars + starDelta);
-        long nextTotalStars = Math.max(0, currentTotalStars + starDelta);
-        long earnedTokens = nextStarsBeforeTokens / STARS_PER_TOKEN;
-        long remainingStars = nextStarsBeforeTokens % STARS_PER_TOKEN;
-        long nextTokens = currentTokens + earnedTokens;
-        LeagueInfo league = LeagueInfo.forStars(nextTotalStars);
+        LeagueInfo league = LeagueInfo.forStars(computation.nextTotalStars);
         String cycle = RegionRepository.currentCycle();
         long currentMonthlyStars = cycle.equals(snapshot.getString("monthlyStarsCycle"))
                 ? longValue(snapshot, "monthlyStars")
                 : 0L;
-        long nextMonthlyStars = Math.max(0, currentMonthlyStars + starDelta);
+        long nextMonthlyStars = Math.max(0, currentMonthlyStars + computation.starDelta);
         LeagueInfo previousLeague = LeagueInfo.forStars(currentTotalStars);
         DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
 
         transaction.update(userRef,
-                FIELD_STARS, remainingStars,
-                FIELD_TOTAL_STARS, nextTotalStars,
-                "overallStars", nextTotalStars,
+                FIELD_STARS, computation.remainingStars,
+                FIELD_TOTAL_STARS, computation.nextTotalStars,
+                "overallStars", computation.nextTotalStars,
                 "monthlyStars", nextMonthlyStars,
                 "monthlyStarsCycle", cycle,
                 "league", league.name,
                 "leagueLevel", league.level,
                 "leagueIconRes", league.iconRes,
-                FIELD_TOKENS, nextTokens);
+                FIELD_TOKENS, computation.nextTokens);
         if (previousLeague.level != league.level) {
             transaction.set(userRef.collection("notifications")
                             .document("league_change_" + System.currentTimeMillis()),
-                    LeagueNotificationData.create(previousLeague.name, league, nextTotalStars,
+                    LeagueNotificationData.create(previousLeague.name, league, computation.nextTotalStars,
                             league.level > previousLeague.level));
         }
 
-        return new RewardResult(starDelta, remainingStars, earnedTokens, nextTokens,
-                nextTotalStars - currentTotalStars, nextTotalStars, league.level);
+        return new RewardResult(computation.starDelta, computation.remainingStars,
+                computation.earnedTokens, computation.nextTokens,
+                computation.nextTotalStars - currentTotalStars, computation.nextTotalStars, league.level);
+    }
+
+    static RewardComputation computeReward(long playerScore, boolean winner,
+                                           long currentStars, long currentTotalStars,
+                                           long currentTokens) {
+        long scoreStars = Math.max(0, playerScore / SCORE_PER_STAR);
+        long starDelta = winner ? WIN_BONUS_STARS + scoreStars : scoreStars - LOSS_PENALTY_STARS;
+        long nextStarsBeforeTokens = Math.max(0, currentStars + starDelta);
+        long nextTotalStars = Math.max(0, currentTotalStars + starDelta);
+        long earnedTokens = nextStarsBeforeTokens / STARS_PER_TOKEN;
+        long remainingStars = nextStarsBeforeTokens % STARS_PER_TOKEN;
+        long nextTokens = Math.max(0, currentTokens) + earnedTokens;
+        return new RewardComputation(starDelta, remainingStars, earnedTokens, nextTokens, nextTotalStars);
     }
 
     private long longValue(DocumentSnapshot snapshot, String key) {
         Long value = snapshot.getLong(key);
         return value == null ? 0 : Math.max(0, value);
+    }
+
+    private long firstLongValue(DocumentSnapshot snapshot, String... keys) {
+        for (String key : keys) {
+            Long value = snapshot.getLong(key);
+            if (value != null) {
+                return Math.max(0, value);
+            }
+        }
+        return 0L;
     }
 
     public static final class RewardResult {
@@ -106,6 +125,23 @@ public class PlayerProgressService {
             this.collectedStars = collectedStars;
             this.totalStars = totalStars;
             this.leagueLevel = leagueLevel;
+        }
+    }
+
+    static final class RewardComputation {
+        final long starDelta;
+        final long remainingStars;
+        final long earnedTokens;
+        final long nextTokens;
+        final long nextTotalStars;
+
+        RewardComputation(long starDelta, long remainingStars, long earnedTokens,
+                          long nextTokens, long nextTotalStars) {
+            this.starDelta = starDelta;
+            this.remainingStars = remainingStars;
+            this.earnedTokens = earnedTokens;
+            this.nextTokens = nextTokens;
+            this.nextTotalStars = nextTotalStars;
         }
     }
 }

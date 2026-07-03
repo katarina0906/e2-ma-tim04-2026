@@ -146,7 +146,7 @@ public class ProfileFragment extends Fragment {
     private void showProgress(AuthUser user) {
         LeagueInfo league = LeagueInfo.forStars(user.getTotalStars());
         tokensSummary.setText(user.getTokens() + "\nTokena\n+"
-                + (TokenService.INITIAL_TOKENS + league.level) + "/dan");
+                + TokenService.DAILY_TOKENS + "/dan");
         starsSummary.setText(user.getTotalStars() + "\nZvezda");
         long untilNext = league.starsUntilNext(user.getTotalStars());
         String detail = untilNext == 0L ? "Maks." : "jos " + untilNext;

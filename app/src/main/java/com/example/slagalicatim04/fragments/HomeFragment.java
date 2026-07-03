@@ -97,7 +97,7 @@ public class HomeFragment extends Fragment {
         leagueText.setCompoundDrawablesWithIntrinsicBounds(league.iconRes, 0, 0, 0);
         leagueText.setCompoundDrawablePadding(6);
         tokensText.setText(user.getTokens() + "\nTokena\n+"
-                + (TokenService.INITIAL_TOKENS + league.level) + "/dan");
+                + TokenService.DAILY_TOKENS + "/dan");
         starsText.setText(user.getTotalStars() + "\nZvezda");
         AvatarFrameStyler.apply(avatarFrame, user.getAvatarFramePlace());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());

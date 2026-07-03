@@ -154,15 +154,33 @@ public class GameInviteRepository {
             return false;
         }
         String roomId = activeRoomId(user);
+        boolean hasBusyFlag = Boolean.TRUE.equals(user.getBoolean("inGame"))
+                || Boolean.TRUE.equals(user.getBoolean("busy"))
+                || Boolean.TRUE.equals(user.getBoolean("isPlaying"));
         if (isEmpty(roomId) || roomId.equals(invitedRoomId)) {
+            if (isEmpty(roomId) && hasBusyFlag) {
+                transaction.set(userRef, clearBusyState(), SetOptions.merge());
+            }
             return false;
         }
         DocumentSnapshot room = transaction.get(firestore.collection(MATCH_COLLECTION).document(roomId));
-        boolean activeRoom = isActiveRoom(room);
+        boolean activeRoom = isActiveRoom(room) && roomContainsActivePlayer(room, user.getId());
         if (!activeRoom) {
             transaction.set(userRef, clearBusyState(), SetOptions.merge());
         }
         return activeRoom;
+    }
+
+    private boolean roomContainsActivePlayer(DocumentSnapshot room, String userId) {
+        if (room == null || !room.exists() || isEmpty(userId)) {
+            return false;
+        }
+        String player1Id = room.getString("player1Id");
+        String player2Id = room.getString("player2Id");
+        if (!userId.equals(player1Id) && !userId.equals(player2Id)) {
+            return false;
+        }
+        return !userId.equals(room.getString("forfeitedPlayerId"));
     }
 
     private boolean isActiveRoom(DocumentSnapshot room) {

@@ -2,6 +2,7 @@ package com.example.slagalicatim04.notifications;
 
 import android.Manifest;
 import android.app.PendingIntent;
+import android.app.Notification;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -12,6 +13,7 @@ import androidx.core.content.ContextCompat;
 
 import com.example.slagalicatim04.MainActivity;
 import com.example.slagalicatim04.R;
+import com.example.slagalicatim04.notifications.NotificationRouter;
 
 public final class SystemNotificationPublisher {
 
@@ -59,9 +61,20 @@ public final class SystemNotificationPublisher {
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                .setPriority(notificationPriority(action, category))
+                .setDefaults(Notification.DEFAULT_ALL);
 
         NotificationManagerCompat.from(context).notify(requestCode, builder.build());
         return true;
+    }
+
+    private static int notificationPriority(String action, String category) {
+        if (NotificationRouter.ACTION_GAME_INVITE.equals(action)
+                || NotificationRouter.ACTION_CHAT.equals(action)) {
+            return NotificationCompat.PRIORITY_HIGH;
+        }
+        return "chat".equalsIgnoreCase(category)
+                ? NotificationCompat.PRIORITY_HIGH
+                : NotificationCompat.PRIORITY_DEFAULT;
     }
 }
