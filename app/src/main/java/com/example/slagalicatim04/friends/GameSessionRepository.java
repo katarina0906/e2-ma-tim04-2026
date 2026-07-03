@@ -62,6 +62,11 @@ public class GameSessionRepository {
         if (!playerId.equals(player1Id) && !playerId.equals(player2Id)) {
             return;
         }
+        String forfeitedPlayerId = stringValue(room.getString("forfeitedPlayerId"));
+        if (!forfeitedPlayerId.isEmpty() && !forfeitedPlayerId.equals(playerId)) {
+            finishRoomForBothPlayers(transaction, roomRef, player1Id, player2Id);
+            return;
+        }
         String winnerId = playerId.equals(player1Id) ? player2Id : player1Id;
         Map<String, Object> roomUpdates = new HashMap<>();
         roomUpdates.put("forfeitedPlayerId", playerId);
@@ -73,6 +78,20 @@ public class GameSessionRepository {
         }
         transaction.set(roomRef, roomUpdates, SetOptions.merge());
         clearPlayer(transaction, playerId, roomRef.getId());
+    }
+
+    private void finishRoomForBothPlayers(Transaction transaction, DocumentReference roomRef,
+                                          String player1Id, String player2Id) {
+        Map<String, Object> roomUpdates = new HashMap<>();
+        roomUpdates.put("phase", "matchFinished");
+        roomUpdates.put("currentGame", "matchResult");
+        roomUpdates.put("inviteStatus", "finished");
+        roomUpdates.put("finished", true);
+        roomUpdates.put("statusMessage", "Partija je zavrsena jer su oba igraca napustila igru.");
+        roomUpdates.put("updatedAt", FieldValue.serverTimestamp());
+        transaction.set(roomRef, roomUpdates, SetOptions.merge());
+        clearPlayer(transaction, player1Id, roomRef.getId());
+        clearPlayer(transaction, player2Id, roomRef.getId());
     }
 
     private void clearPlayer(Transaction transaction, String userId, String roomId) {

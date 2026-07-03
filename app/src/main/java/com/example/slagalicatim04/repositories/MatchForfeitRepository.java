@@ -3,6 +3,7 @@ package com.example.slagalicatim04.repositories;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
 
@@ -30,6 +31,12 @@ public class MatchForfeitRepository {
                 return null;
             }
 
+            String alreadyForfeitedPlayerId = stringValue(snapshot.getString("forfeitedPlayerId"));
+            if (!alreadyForfeitedPlayerId.isEmpty() && !alreadyForfeitedPlayerId.equals(playerId)) {
+                finishRoomForBothPlayers(transaction, player1Id, player2Id);
+                return null;
+            }
+
             String winnerId = playerId.equals(player1Id) ? player2Id : player1Id;
             Map<String, Object> updates = new HashMap<>();
             updates.put("forfeitedPlayerId", playerId);
@@ -43,8 +50,45 @@ public class MatchForfeitRepository {
             }
 
             transaction.set(matchRef, updates, SetOptions.merge());
+            clearPlayer(transaction, playerId);
             return null;
         });
+    }
+
+    private void finishRoomForBothPlayers(com.google.firebase.firestore.Transaction transaction,
+                                          String player1Id, String player2Id) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("phase", "matchFinished");
+        updates.put("currentGame", "matchResult");
+        updates.put("inviteStatus", "finished");
+        updates.put("finished", true);
+        updates.put("statusMessage", "Partija je zavrsena jer su oba igraca napustila igru.");
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        transaction.set(matchRef, updates, SetOptions.merge());
+        clearPlayer(transaction, player1Id);
+        clearPlayer(transaction, player2Id);
+    }
+
+    private void clearPlayer(com.google.firebase.firestore.Transaction transaction, String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            return;
+        }
+        transaction.set(matchRef.getFirestore().collection("users").document(userId),
+                clearBusyState(), SetOptions.merge());
+    }
+
+    private Map<String, Object> clearBusyState() {
+        Map<String, Object> state = new HashMap<>();
+        state.put("inGame", false);
+        state.put("busy", false);
+        state.put("isPlaying", false);
+        state.put("currentRoomId", FieldValue.delete());
+        state.put("currentMatchId", FieldValue.delete());
+        state.put("currentOpponentId", FieldValue.delete());
+        state.put("activeRoomId", FieldValue.delete());
+        state.put("activeMatchId", FieldValue.delete());
+        state.put("lastActiveAt", System.currentTimeMillis());
+        return state;
     }
 
     private void applyContinuationState(DocumentSnapshot snapshot, Map<String, Object> updates,
