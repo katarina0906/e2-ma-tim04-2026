@@ -132,5 +132,15 @@
             app:cornerRadius="18dp"
             app:strokeColor="#6F4BB2" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/continueAsGuestButton"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/continue_as_guest"
+            android:textAllCaps="false"
+            android:textColor="#6F4BB2" />
+
     </LinearLayout>
 </ScrollView>

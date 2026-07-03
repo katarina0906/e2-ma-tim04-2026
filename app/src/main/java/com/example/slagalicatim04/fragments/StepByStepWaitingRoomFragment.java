@@ -181,11 +181,15 @@ public class StepByStepWaitingRoomFragment extends Fragment {
 
     private boolean hasAvailableTokens() {
         AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
-        return authUser == null || authUser.getTokens() > 0;
+        return authUser == null || authUser.isGuest() || isFriendlyRoom() || authUser.getTokens() > 0;
     }
 
     private boolean isTournamentRoom() {
         return roomId != null && roomId.startsWith("tournament_");
+    }
+
+    private boolean isFriendlyRoom() {
+        return roomId != null && roomId.startsWith("friend_");
     }
 
     private String deviceId() {

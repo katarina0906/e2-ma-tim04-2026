@@ -50,6 +50,18 @@ public class LoginFragment extends Fragment {
         view.findViewById(R.id.openRegisterButton).setOnClickListener(v ->
                 Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_registerFragment));
 
+        view.findViewById(R.id.continueAsGuestButton).setOnClickListener(v -> {
+            new Thread(() -> {
+                AuthResult<AuthUser> result = authService.continueAsGuest();
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(requireContext(), result.getMessage(), Toast.LENGTH_LONG).show();
+                    if (result.isSuccess()) {
+                        Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_homeFragment);
+                    }
+                });
+            }).start();
+        });
+
         view.findViewById(R.id.openResetPasswordButton).setOnClickListener(v ->
                 Navigation.findNavController(v).navigate(R.id.action_loginFragment_to_resetPasswordFragment));
 

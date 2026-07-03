@@ -21,11 +21,14 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.example.slagalicatim04.databinding.ActivityMainBinding;
+import com.example.slagalicatim04.auth.AuthService;
+import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.friends.GameInviteRepository;
 import com.example.slagalicatim04.fragments.ExitConfirmationHandler;
 import com.example.slagalicatim04.fragments.RegionChatFragment;
@@ -124,6 +127,8 @@ public class MainActivity extends AppCompatActivity {
                 binding.toolbar.setVisibility(View.VISIBLE);
                 binding.bottomNavigation.setVisibility(View.VISIBLE);
             }
+            updateGuestNavigation();
+            invalidateOptionsMenu();
         });
 
         requestNotificationPermission();
@@ -159,7 +164,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
+        updateGuestMenu(menu);
         return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        updateGuestMenu(menu);
+        return super.onPrepareOptionsMenu(menu);
     }
 
     @Override
@@ -167,6 +179,15 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         if (id == R.id.action_settings) {
+            AuthUser currentUser = AuthService.getInstance(this).getCurrentUser();
+            if (currentUser != null && currentUser.isGuest()) {
+                AuthService.getInstance(this).logout();
+                Toast.makeText(this, "Uspesno ste se odjavili.", Toast.LENGTH_SHORT).show();
+                NavOptions options = new NavOptions.Builder()
+                        .setPopUpTo(R.id.nav_graph, true)
+                        .build();
+                navController.navigate(R.id.loginFragment, null, options);
+            }
             return true;
         }
 
@@ -197,6 +218,24 @@ public class MainActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1001);
         }
+    }
+
+    private void updateGuestNavigation() {
+        AuthUser currentUser = AuthService.getInstance(this).getCurrentUser();
+        boolean guest = currentUser != null && currentUser.isGuest();
+        Menu menu = binding.bottomNavigation.getMenu();
+        menu.findItem(R.id.regionsFragment).setVisible(!guest);
+        menu.findItem(R.id.profileFragment).setVisible(!guest);
+    }
+
+    private void updateGuestMenu(Menu menu) {
+        MenuItem item = menu.findItem(R.id.action_settings);
+        if (item == null) {
+            return;
+        }
+        AuthUser currentUser = AuthService.getInstance(this).getCurrentUser();
+        boolean guest = currentUser != null && currentUser.isGuest();
+        item.setTitle(guest ? R.string.action_logout : R.string.action_settings);
     }
 
     private void handleNotificationIntent(Intent intent) {

@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">Slagalica</string>
     <string name="action_settings">Settings</string>
+    <string name="action_logout">Logout</string>
     <string name="auth_welcome">Dobro dosla u Slagalicu</string>
     <string name="auth_subtitle">Prijavi se ili napravi nalog da bi zaigrala duel.</string>
     <string name="login_title">Prijava</string>
@@ -15,6 +16,7 @@
     <string name="register_title">Registracija</string>
     <string name="register_button">Kreiraj nalog</string>
     <string name="login_button">Prijavi se</string>
+    <string name="continue_as_guest">Nastavi kao gost</string>
     <string name="reset_password_title">Reset lozinke</string>
     <string name="reset_password_button">Sacuvaj novu lozinku</string>
     <string name="verification_title">Potvrda registracije</string>
