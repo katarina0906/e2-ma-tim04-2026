@@ -339,6 +339,15 @@ public class AuthService {
         userData.put("totalStars", authUser.getTotalStars());
         userData.put("monthlyStars", 0L);
         userData.put("monthlyStarsCycle", "");
+        userData.put("dailyMissionsDate",
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
+                        .format(new java.util.Date()));
+        Map<String, Object> dailyMissions = new HashMap<>();
+        for (DailyMissionService.Mission mission : DailyMissionService.Mission.values()) {
+            dailyMissions.put(mission.id, false);
+        }
+        userData.put("dailyMissions", dailyMissions);
+        userData.put("dailyMissionsAllBonusClaimed", false);
         LeagueInfo initialLeague = LeagueInfo.forStars(authUser.getTotalStars());
         userData.put("league", initialLeague.name);
         userData.put("leagueLevel", initialLeague.level);

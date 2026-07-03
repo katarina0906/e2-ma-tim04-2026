@@ -3,6 +3,7 @@ package com.example.slagalicatim04.regions;
 import androidx.annotation.NonNull;
 
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.auth.DailyMissionService;
 import com.example.slagalicatim04.notifications.InAppNotification;
 import com.example.slagalicatim04.notifications.NotificationRouter;
 import com.google.firebase.firestore.CollectionReference;
@@ -127,14 +128,23 @@ public class RegionChatRepository {
                         count++;
                     }
                     if (count == 0) {
+                        markChatMission(sender);
                         onSuccess.run();
                         return;
                     }
                     batch.commit()
-                            .addOnSuccessListener(ignored -> onSuccess.run())
+                            .addOnSuccessListener(ignored -> {
+                                markChatMission(sender);
+                                onSuccess.run();
+                            })
                             .addOnFailureListener(onError::accept);
                 })
                 .addOnFailureListener(onError::accept);
+    }
+
+    private void markChatMission(AuthUser sender) {
+        new DailyMissionService(firestore)
+                .markCompleted(sender.getId(), DailyMissionService.Mission.SEND_CHAT_MESSAGE);
     }
 
     private CollectionReference messagesRef(String regionKey) {
