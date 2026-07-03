@@ -1,6 +1,5 @@
 package com.example.slagalicatim04.auth;
 
-import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -17,6 +16,7 @@ import java.util.concurrent.ExecutionException;
 
 public class TokenService {
     public static final int INITIAL_TOKENS = 5;
+    public static final int DAILY_TOKENS = 5;
 
     private static final String USERS_COLLECTION = "users";
     private static final String FIELD_TOKENS = "tokens";
@@ -75,7 +75,7 @@ public class TokenService {
         Long storedTokens = snapshot.getLong(FIELD_TOKENS);
         String lastGrantDate = snapshot.getString(FIELD_LAST_TOKEN_GRANT_DATE);
         int tokens = storedTokens == null ? INITIAL_TOKENS : Math.max(0, storedTokens.intValue());
-        int dailyTokens = dailyTokensFor(snapshot);
+        int dailyTokens = DAILY_TOKENS;
 
         if (lastGrantDate == null || lastGrantDate.trim().isEmpty()) {
             transaction.update(userRef,
@@ -100,22 +100,6 @@ public class TokenService {
                     FIELD_BONUS_DAILY_TOKENS, dailyTokens - INITIAL_TOKENS);
         }
         return tokens;
-    }
-
-    private int dailyTokensFor(DocumentSnapshot snapshot) {
-        Long level = snapshot.getLong("leagueLevel");
-        int leagueLevel;
-        if (level != null) {
-            leagueLevel = Math.max(0, Math.min(5, level.intValue()));
-        } else {
-            leagueLevel = LeagueInfo.forStars(longValue(snapshot, "totalStars")).level;
-        }
-        return INITIAL_TOKENS + leagueLevel;
-    }
-
-    private long longValue(DocumentSnapshot snapshot, String key) {
-        Long value = snapshot.getLong(key);
-        return value == null ? 0L : Math.max(0L, value);
     }
 
     private long daysBetween(String from, String to) {

@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 
 public class RegionChatRepository {
-
     public interface Listener {
         void onMessages(List<RegionChatMessage> messages);
 
@@ -101,9 +100,6 @@ public class RegionChatRepository {
                         if (sender.getId().equals(user.getId())) {
                             continue;
                         }
-                        if (Boolean.TRUE.equals(user.getBoolean("active"))) {
-                            continue;
-                        }
                         String notificationId = "region_chat_" + messageId;
                         Map<String, String> data = new HashMap<>();
                         data.put("regionKey", region.key);
@@ -119,6 +115,7 @@ public class RegionChatRepository {
                         notification.put("targetId", region.key);
                         notification.put("data", data);
                         notification.put("source", "region_chat");
+                        notification.put("pushWhenOfflineOnly", true);
                         notification.put("read", false);
                         notification.put("readAt", null);
                         notification.put("actionedAt", null);

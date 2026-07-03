@@ -505,13 +505,8 @@ public class MyNumberFragment extends Fragment implements ExitConfirmationHandle
         } catch (RuntimeException ignored) {
             result = null;
         }
-        MyNumberGameService.RoundScore roundScore = new MyNumberGameService().scoreRound(
-                currentState.getTarget(),
-                currentState.getActivePlayer(),
-                myPlayer() == 1 ? result : null,
-                myPlayer() == 2 ? result : null);
         long currentScore = resolveSoloChallengeScore();
-        long earned = myPlayer() == 2 ? roundScore.p2Points : roundScore.p1Points;
+        long earned = result != null && result == currentState.getTarget() ? 10L : 0L;
         return currentScore + earned;
     }
 

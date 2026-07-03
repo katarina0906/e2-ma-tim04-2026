@@ -3,6 +3,7 @@ package com.example.slagalicatim04.regions;
 import androidx.annotation.NonNull;
 
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -437,12 +438,11 @@ public class RegionChallengeRepository {
             if (starsAwarded > 0L || tokensAwarded > 0L) {
                 DocumentReference userRef = firestore.collection("users").document(userId);
                 DocumentSnapshot userSnapshot = rewardSnapshots.get(userId);
-                long currentStars = longValue(userSnapshot.getLong("stars"));
                 long currentTokens = longValue(userSnapshot.getLong("tokens"));
-                Map<String, Object> reward = new HashMap<>();
-                reward.put("stars", currentStars + starsAwarded);
-                reward.put("tokens", currentTokens + tokensAwarded);
-                transaction.set(userRef, reward, SetOptions.merge());
+                transaction.set(userRef, rewardUpdates(userSnapshot,
+                        starsAwarded, tokensAwarded,
+                        resolvedStars(userSnapshot) + starsAwarded,
+                        currentTokens + tokensAwarded), SetOptions.merge());
             }
         }
 
@@ -478,7 +478,7 @@ public class RegionChallengeRepository {
     }
 
     private static void ensureFunds(DocumentSnapshot userSnapshot, long stakeStars, long stakeTokens) {
-        long stars = longValue(userSnapshot.getLong("stars"));
+        long stars = resolvedStars(userSnapshot);
         long tokens = longValue(userSnapshot.getLong("tokens"));
         if (stars < stakeStars) {
             throw new IllegalArgumentException("Nemas dovoljno zvezda za ovaj izazov.");
@@ -491,10 +491,10 @@ public class RegionChallengeRepository {
     private static void deductStake(com.google.firebase.firestore.Transaction transaction,
                                     DocumentReference userRef, DocumentSnapshot userSnapshot,
                                     long stakeStars, long stakeTokens) {
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("stars", longValue(userSnapshot.getLong("stars")) - stakeStars);
-        updates.put("tokens", longValue(userSnapshot.getLong("tokens")) - stakeTokens);
-        transaction.set(userRef, updates, SetOptions.merge());
+        long nextStars = Math.max(0L, resolvedStars(userSnapshot) - stakeStars);
+        long nextTokens = Math.max(0L, longValue(userSnapshot.getLong("tokens")) - stakeTokens);
+        transaction.set(userRef, rewardUpdates(userSnapshot, -stakeStars, -stakeTokens,
+                nextStars, nextTokens), SetOptions.merge());
     }
 
     private static Map<String, Object> mutableMap(Object value) {
@@ -508,6 +508,38 @@ public class RegionChallengeRepository {
 
     private static long longValue(Long value) {
         return value == null ? 0L : Math.max(0L, value);
+    }
+
+    private static long resolvedStars(DocumentSnapshot snapshot) {
+        Long totalStars = snapshot.getLong("totalStars");
+        if (totalStars != null) {
+            return Math.max(0L, totalStars);
+        }
+        Long overallStars = snapshot.getLong("overallStars");
+        if (overallStars != null) {
+            return Math.max(0L, overallStars);
+        }
+        return longValue(snapshot.getLong("stars"));
+    }
+
+    private static Map<String, Object> rewardUpdates(DocumentSnapshot snapshot,
+                                                     long starDelta, long tokenDelta,
+                                                     long nextStars, long nextTokens) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("stars", nextStars);
+        updates.put("totalStars", nextStars);
+        updates.put("overallStars", nextStars);
+        updates.put("tokens", nextTokens);
+        String cycle = RegionRepository.currentCycle();
+        long currentMonthlyStars = cycle.equals(snapshot.getString("monthlyStarsCycle"))
+                ? longValue(snapshot.getLong("monthlyStars")) : 0L;
+        updates.put("monthlyStars", Math.max(0L, currentMonthlyStars + starDelta));
+        updates.put("monthlyStarsCycle", cycle);
+        LeagueInfo league = LeagueInfo.forStars(nextStars);
+        updates.put("league", league.name);
+        updates.put("leagueLevel", league.level);
+        updates.put("leagueIconRes", league.iconRes);
+        return updates;
     }
 
     private static String validateUser(AuthUser user) {
