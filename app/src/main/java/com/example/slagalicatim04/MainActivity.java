@@ -48,6 +48,14 @@ import java.util.Map;
 import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
+    private static final Set<Integer> LOCKED_GAME_DESTINATIONS = Set.of(
+            R.id.koZnaZnaFragment,
+            R.id.spojniceFragment,
+            R.id.asocijacijeFragment,
+            R.id.skockoFragment,
+            R.id.stepByStepFragment,
+            R.id.myNumberFragment
+    );
 
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
@@ -119,13 +127,15 @@ public class MainActivity extends AppCompatActivity {
                     || destinationId == R.id.registerFragment
                     || destinationId == R.id.emailVerificationFragment
                     || destinationId == R.id.resetPasswordFragment;
+            boolean isLockedGameDestination = LOCKED_GAME_DESTINATIONS.contains(destinationId);
 
             if (isAuthScreen) {
                 binding.toolbar.setVisibility(View.GONE);
                 binding.bottomNavigation.setVisibility(View.GONE);
             } else {
                 binding.toolbar.setVisibility(View.VISIBLE);
-                binding.bottomNavigation.setVisibility(View.VISIBLE);
+                binding.bottomNavigation.setVisibility(
+                        isLockedGameDestination ? View.GONE : View.VISIBLE);
             }
             updateGuestNavigation();
             invalidateOptionsMenu();
@@ -196,6 +206,9 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onSupportNavigateUp() {
+        if (isOnLockedGameDestination()) {
+            return delegateExitRequestToCurrentFragment();
+        }
         NavHostFragment navHostFragment =
                 (NavHostFragment) getSupportFragmentManager()
                         .findFragmentById(R.id.nav_host_fragment_content_main);
@@ -242,6 +255,12 @@ public class MainActivity extends AppCompatActivity {
         if (intent == null
                 || !intent.hasExtra(SlagalicaMessagingService.EXTRA_NOTIFICATION_ID)
                 || FirebaseAuth.getInstance().getCurrentUser() == null) {
+            return;
+        }
+        if (isOnLockedGameDestination()) {
+            intent.removeExtra(SlagalicaMessagingService.EXTRA_NOTIFICATION_ID);
+            Toast.makeText(this, "Zavrsi trenutnu igru da bi otvorio druge stranice.",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -528,6 +547,9 @@ public class MainActivity extends AppCompatActivity {
                 || FirebaseAuth.getInstance().getCurrentUser() == null) {
             return;
         }
+        if (isOnLockedGameDestination()) {
+            return;
+        }
         int destinationId = navController.getCurrentDestination() == null
                 ? 0 : navController.getCurrentDestination().getId();
         if (destinationId == R.id.loginFragment
@@ -586,6 +608,27 @@ public class MainActivity extends AppCompatActivity {
 
     private String messageOf(Exception error) {
         return error.getMessage() == null ? "Greska pri obradi poziva." : error.getMessage();
+    }
+
+    private boolean isOnLockedGameDestination() {
+        return navController != null
+                && navController.getCurrentDestination() != null
+                && LOCKED_GAME_DESTINATIONS.contains(navController.getCurrentDestination().getId());
+    }
+
+    private boolean delegateExitRequestToCurrentFragment() {
+        NavHostFragment navHostFragment =
+                (NavHostFragment) getSupportFragmentManager()
+                        .findFragmentById(R.id.nav_host_fragment_content_main);
+        if (navHostFragment == null) {
+            return true;
+        }
+        androidx.fragment.app.Fragment currentFragment =
+                navHostFragment.getChildFragmentManager().getPrimaryNavigationFragment();
+        if (currentFragment instanceof ExitConfirmationHandler) {
+            return ((ExitConfirmationHandler) currentFragment).handleExitRequest();
+        }
+        return true;
     }
 
     @Override

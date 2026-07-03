@@ -33,6 +33,8 @@ public class StepByStepWaitingRoomFragment extends Fragment {
     private StepByStepPlayerSession playerSession;
     private ListenerRegistration listenerRegistration;
     private boolean navigatedToGame;
+    private boolean sawCleanWaitingState;
+    private boolean forcedInitialReset;
 
     private TextView statusText;
     private TextView codeText;
@@ -77,8 +79,7 @@ public class StepByStepWaitingRoomFragment extends Fragment {
             repository.resetRoom(playerSession);
         });
 
-        repository.joinRoom(playerSession, this::showError);
-        listenToRoom();
+        repository.joinRoom(playerSession, this::listenToRoom, this::showError);
         return view;
     }
 
@@ -109,6 +110,20 @@ public class StepByStepWaitingRoomFragment extends Fragment {
     }
 
     private void renderState(StepByStepMatchState state) {
+        if (isPublicRoom() && !sawCleanWaitingState) {
+            if (isWaitingState(state)) {
+                sawCleanWaitingState = true;
+            } else {
+                if (!forcedInitialReset) {
+                    forcedInitialReset = true;
+                    repository.resetRoom(playerSession);
+                }
+                statusText.setText("Priprema se nova partija...");
+                confirmButton.setEnabled(false);
+                return;
+            }
+        }
+
         int myPlayer = state.playerNumber(playerSession.getId());
         boolean opponentLeft = state.hasForfeit();
         player1Text.setText("Igrac 1: " + playerLabel(state.getPlayer1Id(), state.getPlayer1Name(),
@@ -192,6 +207,16 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         return roomId != null && roomId.startsWith("friend_");
     }
 
+    private boolean isPublicRoom() {
+        return !isTournamentRoom() && (roomId == null || !roomId.startsWith("friend_"));
+    }
+
+    private boolean isWaitingState(StepByStepMatchState state) {
+        return state != null
+                && "waiting".equals(state.getPhase())
+                && "waiting".equals(state.getCurrentGame());
+    }
+
     private String deviceId() {
         String id = Settings.Secure.getString(
                 requireContext().getContentResolver(),
@@ -202,7 +227,17 @@ public class StepByStepWaitingRoomFragment extends Fragment {
 
     private void showError(Exception error) {
         if (isAdded()) {
-            Toast.makeText(requireContext(), error.getMessage(), Toast.LENGTH_LONG).show();
+            String message = error.getMessage();
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+            if (isAbandonedMessage(message)) {
+                navigatedToGame = true;
+                Navigation.findNavController(requireView()).navigate(
+                        R.id.homeFragment,
+                        null,
+                        new androidx.navigation.NavOptions.Builder()
+                                .setPopUpTo(R.id.nav_graph, true)
+                                .build());
+            }
         }
     }
 
@@ -212,5 +247,13 @@ public class StepByStepWaitingRoomFragment extends Fragment {
 
     private String nonEmpty(String value, String fallback) {
         return isEmpty(value) ? fallback : value;
+    }
+
+    private boolean isAbandonedMessage(String message) {
+        if (isEmpty(message)) {
+            return false;
+        }
+        return message.contains("napustena")
+                || message.contains("ne mozes da se vratis");
     }
 }
