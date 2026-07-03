@@ -144,36 +144,48 @@
             <TextView
                 android:id="@+id/profileTokensSummary"
                 android:layout_width="0dp"
-                android:layout_height="86dp"
+                android:layout_height="92dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
+                android:includeFontPadding="false"
+                android:lineSpacingExtra="2dp"
+                android:padding="6dp"
                 android:text="0\nTokena"
                 android:textColor="#1E1E2F"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/profileStarsSummary"
                 android:layout_width="0dp"
-                android:layout_height="86dp"
+                android:layout_height="92dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
+                android:includeFontPadding="false"
+                android:lineSpacingExtra="2dp"
+                android:padding="6dp"
                 android:text="0\nZvezda"
                 android:textColor="#1E1E2F"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/profileLeagueSummary"
                 android:layout_width="0dp"
-                android:layout_height="86dp"
+                android:layout_height="92dp"
                 android:layout_weight="1"
                 android:background="#FFFFFF"
                 android:gravity="center"
-                android:text="Nulta liga\njos 100"
+                android:includeFontPadding="false"
+                android:lineSpacingExtra="2dp"
+                android:padding="6dp"
+                android:text="Nulta liga"
                 android:textColor="#1E1E2F"
+                android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
 

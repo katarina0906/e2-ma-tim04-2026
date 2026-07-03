@@ -18,7 +18,6 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
-import com.example.slagalicatim04.auth.TokenService;
 import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.example.slagalicatim04.regions.AvatarFrameStyler;
 
@@ -59,6 +58,9 @@ public class HomeFragment extends Fragment {
         view.findViewById(R.id.homeQuickFriends).setOnClickListener(v ->
                 Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
                         .navigate(R.id.action_homeFragment_to_friendsFragment));
+        view.findViewById(R.id.homeQuickTournament).setOnClickListener(v ->
+                Navigation.findNavController(requireActivity(), R.id.nav_host_fragment_content_main)
+                        .navigate(R.id.action_homeFragment_to_tournamentFragment));
         view.findViewById(R.id.startGameCard).setOnClickListener(v -> {
             AuthUser currentUser = authService.getCurrentUser();
             if (currentUser != null && currentUser.getTokens() < 1) {
@@ -96,9 +98,8 @@ public class HomeFragment extends Fragment {
         leagueText.setText(league.name);
         leagueText.setCompoundDrawablesWithIntrinsicBounds(league.iconRes, 0, 0, 0);
         leagueText.setCompoundDrawablePadding(6);
-        tokensText.setText(user.getTokens() + "\nTokena\n+"
-                + TokenService.DAILY_TOKENS + "/dan");
-        starsText.setText(user.getTotalStars() + "\nZvezda");
+        tokensText.setText("🪙\n" + user.getTokens() + "\nTokena");
+        starsText.setText("★\n" + user.getTotalStars() + "\nZvezda");
         AvatarFrameStyler.apply(avatarFrame, user.getAvatarFramePlace());
         AvatarImageLoader.load(avatarImage, user.getAvatarData());
     }

@@ -24,7 +24,6 @@ import com.example.slagalicatim04.auth.AuthResult;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
 import com.example.slagalicatim04.auth.AvatarImageLoader;
-import com.example.slagalicatim04.auth.TokenService;
 import com.example.slagalicatim04.friends.FriendQr;
 import com.example.slagalicatim04.leagues.LeagueInfo;
 import com.example.slagalicatim04.regions.AvatarFrameStyler;
@@ -145,13 +144,10 @@ public class ProfileFragment extends Fragment {
 
     private void showProgress(AuthUser user) {
         LeagueInfo league = LeagueInfo.forStars(user.getTotalStars());
-        tokensSummary.setText(user.getTokens() + "\nTokena\n+"
-                + TokenService.DAILY_TOKENS + "/dan");
-        starsSummary.setText(user.getTotalStars() + "\nZvezda");
-        long untilNext = league.starsUntilNext(user.getTotalStars());
-        String detail = untilNext == 0L ? "Maks." : "jos " + untilNext;
-        leagueSummary.setText(league.name + "\n" + detail);
-        leagueSummary.setCompoundDrawablesWithIntrinsicBounds(0, league.iconRes, 0, 0);
+        tokensSummary.setText("🪙\n" + user.getTokens() + "\nTokena");
+        starsSummary.setText("★\n" + user.getTotalStars() + "\nZvezda");
+        leagueSummary.setText(league.name);
+        leagueSummary.setCompoundDrawablesWithIntrinsicBounds(league.iconRes, 0, 0, 0);
         leagueSummary.setCompoundDrawablePadding(4);
     }
 
