@@ -26,7 +26,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="20dp"
-            android:text="Unesi podatke za novi nalog i izaberi region za koji igras."
+            android:text="Unesi podatke za novi nalog i izaberi region na mapi ili preko grada."
             android:textColor="#6C6780"
             android:textSize="15sp" />
 
@@ -62,6 +62,50 @@
                 android:id="@+id/registerUsernameInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Izaberi region"
+            android:textColor="#1E1E2F"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="4dp">
+
+            <org.osmdroid.views.MapView
+                android:id="@+id/registerRegionsMap"
+                android:layout_width="match_parent"
+                android:layout_height="300dp"
+                android:background="#FFFFFF"
+                android:padding="10dp" />
+        </androidx.cardview.widget.CardView>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:hint="Grad"
+            app:endIconMode="dropdown_menu"
+            app:boxBackgroundMode="filled"
+            app:boxCornerRadiusBottomEnd="18dp"
+            app:boxCornerRadiusBottomStart="18dp"
+            app:boxCornerRadiusTopEnd="18dp"
+            app:boxCornerRadiusTopStart="18dp">
+
+            <AutoCompleteTextView
+                android:id="@+id/registerCityInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:completionThreshold="1"
                 android:inputType="text" />
         </com.google.android.material.textfield.TextInputLayout>
 

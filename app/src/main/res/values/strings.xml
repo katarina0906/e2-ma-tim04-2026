@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">Slagalica</string>
     <string name="action_settings">Settings</string>
+    <string name="action_logout">Logout</string>
     <string name="auth_welcome">Dobro dosla u Slagalicu</string>
     <string name="auth_subtitle">Prijavi se ili napravi nalog da bi zaigrala duel.</string>
     <string name="login_title">Prijava</string>
@@ -15,6 +16,7 @@
     <string name="register_title">Registracija</string>
     <string name="register_button">Kreiraj nalog</string>
     <string name="login_button">Prijavi se</string>
+    <string name="continue_as_guest">Nastavi kao gost</string>
     <string name="reset_password_title">Reset lozinke</string>
     <string name="reset_password_button">Sacuvaj novu lozinku</string>
     <string name="verification_title">Potvrda registracije</string>
@@ -113,6 +115,8 @@
     <string name="notif_channel_ranking_desc">Plasman na rang listama i promena liga.</string>
     <string name="notif_channel_rewards_name">Nagrade</string>
     <string name="notif_channel_rewards_desc">Dostupne nagrade, poklon kutije i slične obavesti.</string>
+    <string name="notif_channel_game_invites_name">Pozivi za partiju</string>
+    <string name="notif_channel_game_invites_desc">Pozivi prijatelja za prijateljske partije.</string>
     <string name="notif_channel_other_name">Ostalo</string>
     <string name="notif_channel_other_desc">Pozivi za prijatelje i druge aplikacije koje nemaju svoj kanal.</string>
 
@@ -121,4 +125,10 @@
     <string name="profile_change_password_description"></string>
     <string name="profile_change_password_toggle_open">Prikaži formu</string>
     <string name="profile_change_password_toggle_close">Sakrij formu</string>
+    <string name="home_region_placeholder">📍
+Region</string>
+    <string name="home_tokens_fmt">🪙
+%1$d
+Tokena</string>
+    <string name="tokens_missing">Nemate dovoljno tokena za novu partiju.</string>
 </resources>

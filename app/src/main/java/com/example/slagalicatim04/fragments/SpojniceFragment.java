@@ -11,21 +11,26 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.PlayerHeaderLoader;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.models.MatchingMultiplayerState;
 import com.example.slagalicatim04.models.MatchingPair;
+import com.example.slagalicatim04.repositories.MatchForfeitRepository;
 import com.example.slagalicatim04.repositories.MultiplayerGameRepository;
 
-public class SpojniceFragment extends Fragment {
+public class SpojniceFragment extends Fragment implements ExitConfirmationHandler {
 
     private static final long CHANCE_DURATION_MS = 30_000L;
     private static final int COLOR_DEFAULT = Color.rgb(111, 75, 178);
     private static final int COLOR_SELECTED = Color.rgb(249, 168, 37);
     private static final int COLOR_CORRECT = Color.rgb(76, 175, 80);
+    private static final int COLOR_FORFEITED = 0xFFD32F2F;
 
     private final MatchingPair[][] rounds = {
             {
@@ -62,12 +67,16 @@ public class SpojniceFragment extends Fragment {
     private TextView resultText;
     private TextView playerOneScoreText;
     private TextView playerTwoScoreText;
+    private TextView playerOneMetaText;
+    private TextView playerTwoMetaText;
     private ImageView playerOneAvatar;
     private ImageView playerTwoAvatar;
     private CountDownTimer timer;
     private MultiplayerGameRepository multiplayerRepository;
     private MultiplayerGameRepository.Subscription stateRegistration;
     private MatchingMultiplayerState currentState;
+    private String roomId = MultiplayerGameRepository.TEST_ROOM_ID;
+    private MatchForfeitRepository forfeitRepository;
     private int selectedLeftIndex = -1;
     private String timerChanceKey = "";
     private boolean submitting;
@@ -83,6 +92,8 @@ public class SpojniceFragment extends Fragment {
         resultText = view.findViewById(R.id.resultText);
         playerOneScoreText = view.findViewById(R.id.spScore0);
         playerTwoScoreText = view.findViewById(R.id.spScore1);
+        playerOneMetaText = view.findViewById(R.id.spPlayer1Meta);
+        playerTwoMetaText = view.findViewById(R.id.spPlayer2Meta);
         playerOneAvatar = view.findViewById(R.id.spAvatar0);
         playerTwoAvatar = view.findViewById(R.id.spAvatar1);
         view.findViewById(R.id.newSpojniceGameButton).setVisibility(View.GONE);
@@ -94,7 +105,21 @@ public class SpojniceFragment extends Fragment {
             setupRightButton(index);
         }
 
-        multiplayerRepository = new MultiplayerGameRepository(requireContext());
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
+        multiplayerRepository = new MultiplayerGameRepository(requireContext(), roomId);
+        forfeitRepository = new MatchForfeitRepository(roomId);
+        requireActivity().getOnBackPressedDispatcher().addCallback(
+                getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (!handleExitRequest()) {
+                            setEnabled(false);
+                            requireActivity().getOnBackPressedDispatcher().onBackPressed();
+                        }
+                    }
+                });
         showWaitingState();
         stateRegistration = multiplayerRepository.joinMatching(
                 new MultiplayerGameRepository.StateListener<MatchingMultiplayerState>() {
@@ -152,6 +177,7 @@ public class SpojniceFragment extends Fragment {
         submitting = false;
         selectedLeftIndex = -1;
         updateScores(state);
+        updateHeaderVisibility(state.isSoloChallenge());
 
         if ("next".equals(state.getStatus())) {
             navigateToAssociations();
@@ -162,7 +188,7 @@ public class SpojniceFragment extends Fragment {
             return;
         }
         if (!"playing".equals(state.getStatus())) {
-            showWaitingState();
+            showWaitingState(state);
             return;
         }
 
@@ -173,19 +199,38 @@ public class SpojniceFragment extends Fragment {
             rightButtons[index].setText(currentRound[pairIndex].getRight());
         }
 
-        roundText.setText("Runda " + (state.getCurrentRound() + 1) + " / 2");
+        roundText.setText("Runda " + (state.getCurrentRound() + 1) + " / "
+                + (state.isSoloChallenge() ? 1 : 2));
         String playerLabel = state.getCurrentPlayer().equals(state.getPlayer1Id())
-                ? playerName(state.getPlayer1Name(), "Igrac 1")
-                : playerName(state.getPlayer2Name(), "Igrac 2");
-        turnText.setText("Na potezu: " + playerLabel
-                + (state.isSecondChance() ? " (preostali parovi)" : " (pocinje rundu)"));
-        if (state.getCurrentPlayer().equals(multiplayerRepository.getPlayerId())) {
+                ? playerLabel(state.getPlayer1Id(), state.getPlayer1Name(), "Igrac 1")
+                : playerLabel(state.getPlayer2Id(), state.getPlayer2Name(), "Igrac 2");
+        if (state.isSoloChallenge()) {
+            turnText.setText("Samostalna partija");
+        } else if (state.hasForfeit()) {
+            turnText.setText("Protivnik je napustio partiju");
+        } else {
+            turnText.setText("Na potezu: " + playerLabel
+                    + (state.isSecondChance() ? " (preostali parovi)" : " (pocinje rundu)"));
+        }
+        if (state.isSoloChallenge()) {
+            resultText.setText("Tvoj potez.");
+        } else if (state.hasForfeit()) {
+            resultText.setText(nonEmpty(state.getStatusMessage(),
+                    "Protivnik je napustio partiju. Nastavljas bez cekanja."));
+        } else if (state.getCurrentPlayer().equals(multiplayerRepository.getPlayerId())) {
             resultText.setText("Tvoj potez.");
         } else {
             resultText.setText("Sacekaj potez drugog igraca.");
         }
 
         setButtonsForState(state);
+        if (!state.isSoloChallenge() && state.hasForfeit() && state.isForfeited(state.getCurrentPlayer())) {
+            resultText.setText(nonEmpty(state.getStatusMessage(),
+                    "Protivnik je napustio partiju. Preskace se cekanje."));
+            multiplayerRepository.expireMatchingChance(
+                    state.getCurrentRound(), state.getCurrentPlayer(), state.isSecondChance());
+            return;
+        }
         startTimerForChance(state);
     }
 
@@ -251,25 +296,57 @@ public class SpojniceFragment extends Fragment {
     }
 
     private void updateScores(MatchingMultiplayerState state) {
-        playerOneScoreText.setText(playerName(state.getPlayer1Name(), "Igrac 1") + ": "
+        playerOneScoreText.setText(playerLabel(state.getPlayer1Id(), state.getPlayer1Name(), "Igrac 1") + ": "
                 + state.getScore(state.getPlayer1Id()));
-        playerTwoScoreText.setText(playerName(state.getPlayer2Name(), "Igrac 2") + ": "
+        playerTwoScoreText.setText(playerLabel(state.getPlayer2Id(), state.getPlayer2Name(), "Igrac 2") + ": "
                 + state.getScore(state.getPlayer2Id()));
+        playerOneScoreText.setTextColor(state.isForfeited(state.getPlayer1Id()) ? COLOR_FORFEITED : Color.BLACK);
+        playerTwoScoreText.setTextColor(state.isForfeited(state.getPlayer2Id()) ? COLOR_FORFEITED : Color.BLACK);
         PlayerHeaderLoader.loadAvatar(state.getPlayer1Id(), playerOneAvatar);
-        PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+        PlayerHeaderLoader.loadProfileSummary(state.getPlayer1Id(), playerOneMetaText);
+        if (!state.isSoloChallenge()) {
+            PlayerHeaderLoader.loadAvatar(state.getPlayer2Id(), playerTwoAvatar);
+            PlayerHeaderLoader.loadProfileSummary(state.getPlayer2Id(), playerTwoMetaText);
+        }
     }
 
-    private String playerName(String name, String fallback) {
-        return name == null || name.trim().isEmpty() ? fallback : name;
+    private void updateHeaderVisibility(boolean soloChallenge) {
+        int visibility = soloChallenge ? View.GONE : View.VISIBLE;
+        playerTwoScoreText.setVisibility(visibility);
+        playerTwoMetaText.setVisibility(visibility);
+        playerTwoAvatar.setVisibility(visibility);
+    }
+
+    private String playerLabel(String playerId, String name, String fallback) {
+        if (name != null && !name.trim().isEmpty()) {
+            return name;
+        }
+        return playerId == null || playerId.trim().isEmpty() ? fallback : playerId;
     }
 
     private void showWaitingState() {
+        showWaitingState(null);
+    }
+
+    private void showWaitingState(MatchingMultiplayerState state) {
         cancelTimer();
         timerChanceKey = "";
-        roundText.setText("Test soba: " + MultiplayerGameRepository.TEST_ROOM_ID);
-        turnText.setText("Ceka se drugi igrac");
+        roundText.setText("");
+        boolean opponentLeft = state != null && state.hasForfeit();
+        boolean hasState = state != null;
+        turnText.setText(opponentLeft
+                ? "Protivnik je napustio partiju"
+                : (hasState && state.isSoloChallenge()
+                ? "Samostalna partija je sacuvana"
+                : (hasState ? "Stanje partije je sacuvano" : "Ceka se drugi igrac")));
         timerText.setText("30s");
-        resultText.setText("Oba uredjaja treba da otvore igru Spojnice.");
+        resultText.setText(opponentLeft
+                ? nonEmpty(state.getStatusMessage(), "Stanje partije je sacuvano u bazi.")
+                : (hasState
+                ? nonEmpty(state.getStatusMessage(), state.isSoloChallenge()
+                ? "Partija je aktivna."
+                : "Partija je aktivna. Sacekaj sledece stanje iz baze.")
+                : "Oba uredjaja treba da otvore igru Spojnice."));
         disableAllButtons();
     }
 
@@ -278,7 +355,9 @@ public class SpojniceFragment extends Fragment {
         roundText.setText("Spojnice zavrsene");
         turnText.setText("Kraj igre");
         timerText.setText("0s");
-        resultText.setText("Igrac 1: " + state.getScore(state.getPlayer1Id())
+        resultText.setText(state.isSoloChallenge()
+                ? "Rezultat: " + state.getScore(state.getPlayer1Id())
+                : "Igrac 1: " + state.getScore(state.getPlayer1Id())
                 + " | Igrac 2: " + state.getScore(state.getPlayer2Id()));
         disableAllButtons();
     }
@@ -311,8 +390,39 @@ public class SpojniceFragment extends Fragment {
         }
         navigatedToAssociations = true;
         Bundle args = new Bundle();
-        args.putString("roomId", MultiplayerGameRepository.TEST_ROOM_ID);
+        args.putString("roomId", roomId);
         Navigation.findNavController(requireView()).navigate(R.id.asocijacijeFragment, args);
+    }
+
+    private String nonEmpty(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value;
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (currentState == null
+                || !"playing".equals(currentState.getStatus())) {
+            return false;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Napusti partiju?")
+                .setMessage("Ako izađeš sada, izgubićeš partiju. Da li želiš da napustiš igru?")
+                .setNegativeButton("Ostani", null)
+                .setPositiveButton("Napusti", (dialog, which) -> {
+                    forfeitRepository.forfeit(multiplayerRepository.getPlayerId());
+                    Navigation.findNavController(requireView()).navigate(
+                            R.id.homeFragment,
+                            null,
+                            new androidx.navigation.NavOptions.Builder()
+                                    .setPopUpTo(R.id.nav_graph, true)
+                                    .build());
+                })
+                .show();
+        return true;
     }
 
     @Override
@@ -325,6 +435,9 @@ public class SpojniceFragment extends Fragment {
         if (stateRegistration != null) {
             stateRegistration.remove();
             stateRegistration = null;
+        }
+        if (!navigatedToAssociations) {
+            new GameSessionRepository().abandonRoom(roomId);
         }
         super.onDestroyView();
     }

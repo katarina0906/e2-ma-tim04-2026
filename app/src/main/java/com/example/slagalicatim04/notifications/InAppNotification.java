@@ -37,10 +37,18 @@ public class InAppNotification {
     @Nullable
     public final String targetId;
     public final Map<String, String> data;
+    public final String inviteStatus;
 
     public InAppNotification(String id, Category category, String title, String message,
                              Timestamp createdAt, boolean read, @Nullable String actionHint,
                              @Nullable String targetId, Map<String, String> data) {
+        this(id, category, title, message, createdAt, read, actionHint, targetId, data, "");
+    }
+
+    public InAppNotification(String id, Category category, String title, String message,
+                             Timestamp createdAt, boolean read, @Nullable String actionHint,
+                             @Nullable String targetId, Map<String, String> data,
+                             String inviteStatus) {
         this.id = id;
         this.category = category;
         this.title = title;
@@ -50,6 +58,7 @@ public class InAppNotification {
         this.actionHint = actionHint;
         this.targetId = targetId;
         this.data = Collections.unmodifiableMap(new HashMap<>(data));
+        this.inviteStatus = valueOrEmpty(inviteStatus);
     }
 
     public static InAppNotification fromDocument(DocumentSnapshot document) {
@@ -62,7 +71,8 @@ public class InAppNotification {
                 Boolean.TRUE.equals(document.getBoolean("read")),
                 document.getString("action"),
                 document.getString("targetId"),
-                stringMap(document.get("data"))
+                stringMap(document.get("data")),
+                document.getString("inviteStatus")
         );
     }
 

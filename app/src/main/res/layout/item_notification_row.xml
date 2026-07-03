@@ -103,6 +103,35 @@
                 tools:visibility="visible" />
 
             <LinearLayout
+                android:id="@+id/notif_invite_actions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/notif_decline_invite"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:text="Odbij"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/notif_accept_invite"
+                    style="@style/Widget.MaterialComponents.Button"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Prihvati"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"

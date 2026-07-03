@@ -1,5 +1,6 @@
 package com.example.slagalicatim04.skocko;
 
+import com.example.slagalicatim04.auth.TokenService;
 import com.example.slagalicatim04.services.SkockoGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepGameService;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
@@ -34,12 +35,14 @@ public class SkockoMatchRepository {
     }
 
     private final DocumentReference matchRef;
+    private final TokenService tokenService;
     private final Random random = new Random();
 
     public SkockoMatchRepository(String roomId) {
         matchRef = FirebaseFirestore.getInstance()
                 .collection("stepByStepMatches")
                 .document(roomId);
+        tokenService = new TokenService(matchRef.getFirestore());
     }
 
     public void joinRoom(StepByStepPlayerSession player, ErrorCallback onError) {
@@ -103,6 +106,12 @@ public class SkockoMatchRepository {
             updates.put(myPlayer == 1 ? "player1Ready" : "player2Ready", true);
             updates.put("statusMessage", "Igrac " + myPlayer + " je spreman.");
             if (otherReady) {
+                DocumentSnapshot player1Snapshot = transaction.get(
+                        matchRef.getFirestore().collection("users").document(state.getPlayer1Id()));
+                DocumentSnapshot player2Snapshot = transaction.get(
+                        matchRef.getFirestore().collection("users").document(state.getPlayer2Id()));
+                tokenService.consumeSingleToken(transaction, state.getPlayer1Id(), player1Snapshot);
+                tokenService.consumeSingleToken(transaction, state.getPlayer2Id(), player2Snapshot);
                 applyRoundStart(updates, 1);
                 updates.put("currentGame", "skocko");
                 updates.put("player1Score", 0L);
@@ -213,16 +222,40 @@ public class SkockoMatchRepository {
         matchRef.set(newWaitingState(player));
     }
 
+    public void resolveForfeitTurn(SkockoMatchState state) {
+        String forfeitedPlayerId = state.getForfeitedPlayerId();
+        if (SkockoMatchState.isEmpty(forfeitedPlayerId)
+                || !"skocko".equals(state.getCurrentGame())) {
+            return;
+        }
+        int forfeitedPlayer = state.playerNumber(forfeitedPlayerId);
+        if (forfeitedPlayer == 0 || state.getActivePlayer() != forfeitedPlayer) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        if (SkockoMatchState.PHASE_ROUND.equals(state.getPhase())) {
+            applyStealStart(updates, state.roundStarter());
+        } else if (SkockoMatchState.PHASE_STEAL.equals(state.getPhase())) {
+            finishOrStartNextRound(updates, state,
+                    "Igrac je napustio partiju tokom ukradenog pokusaja.");
+        }
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        matchRef.set(updates, SetOptions.merge());
+    }
+
     private void finishOrStartNextRound(Map<String, Object> updates, SkockoMatchState state,
                                         String message) {
-        if (state.getRound() >= 2) {
+        if (state.getRound() >= roundCount(state)) {
             applyStepByStepStart(updates);
-            updates.put("statusMessage", message
-                    + " Skočko je završen. Pokrece se Korak po korak.");
+            updates.put("statusMessage", message);
         } else {
             applyRoundStart(updates, 2);
             updates.put("statusMessage", message + " Pocinje runda 2, igra igrac 2.");
         }
+    }
+
+    private int roundCount(SkockoMatchState state) {
+        return state.isSoloChallenge() ? 1 : 2;
     }
 
     private void applyStealStart(Map<String, Object> updates, int roundStarter) {

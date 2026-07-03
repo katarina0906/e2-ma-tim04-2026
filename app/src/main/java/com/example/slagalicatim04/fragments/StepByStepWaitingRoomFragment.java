@@ -16,6 +16,7 @@ import androidx.navigation.Navigation;
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
 import com.example.slagalicatim04.auth.AuthUser;
+import com.example.slagalicatim04.friends.GameSessionRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchRepository;
 import com.example.slagalicatim04.stepbystep.StepByStepMatchState;
 import com.example.slagalicatim04.stepbystep.StepByStepPlayerSession;
@@ -26,12 +27,14 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.ListenerRegistration;
 
 public class StepByStepWaitingRoomFragment extends Fragment {
-    private static final String ROOM_ID = StepByStepMatchRepository.DEFAULT_MATCH_ID;
+    private String roomId = StepByStepMatchRepository.DEFAULT_MATCH_ID;
 
     private StepByStepWaitingRoomRepository repository;
     private StepByStepPlayerSession playerSession;
     private ListenerRegistration listenerRegistration;
     private boolean navigatedToGame;
+    private boolean sawCleanWaitingState;
+    private boolean forcedInitialReset;
 
     private TextView statusText;
     private TextView codeText;
@@ -53,9 +56,22 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         confirmButton = view.findViewById(R.id.waitingRoomConfirmButton);
         resetButton = view.findViewById(R.id.waitingRoomResetButton);
 
+        if (getArguments() != null && !isEmpty(getArguments().getString("roomId"))) {
+            roomId = getArguments().getString("roomId");
+        }
         playerSession = resolveCurrentUser();
-        repository = new StepByStepWaitingRoomRepository(ROOM_ID);
-        codeText.setText("Test soba: " + ROOM_ID);
+        if (!isTournamentRoom() && !hasAvailableTokens()) {
+            Toast.makeText(requireContext(), R.string.tokens_missing, Toast.LENGTH_LONG).show();
+            Navigation.findNavController(view).navigate(
+                    R.id.homeFragment,
+                    null,
+                    new androidx.navigation.NavOptions.Builder()
+                            .setPopUpTo(R.id.nav_graph, true)
+                            .build());
+            return view;
+        }
+        repository = new StepByStepWaitingRoomRepository(roomId);
+        codeText.setText("");
         confirmButton.setEnabled(false);
         confirmButton.setOnClickListener(v -> repository.confirmReady(playerSession, this::showError));
         resetButton.setOnClickListener(v -> {
@@ -63,8 +79,7 @@ public class StepByStepWaitingRoomFragment extends Fragment {
             repository.resetRoom(playerSession);
         });
 
-        repository.joinRoom(playerSession, this::showError);
-        listenToRoom();
+        repository.joinRoom(playerSession, this::listenToRoom, this::showError);
         return view;
     }
 
@@ -73,6 +88,9 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         if (listenerRegistration != null) {
             listenerRegistration.remove();
             listenerRegistration = null;
+        }
+        if (!navigatedToGame) {
+            new GameSessionRepository().abandonRoom(roomId);
         }
         super.onDestroyView();
     }
@@ -92,16 +110,38 @@ public class StepByStepWaitingRoomFragment extends Fragment {
     }
 
     private void renderState(StepByStepMatchState state) {
+        if (isPublicRoom() && !sawCleanWaitingState) {
+            if (isWaitingState(state)) {
+                sawCleanWaitingState = true;
+            } else {
+                if (!forcedInitialReset) {
+                    forcedInitialReset = true;
+                    repository.resetRoom(playerSession);
+                }
+                statusText.setText("Priprema se nova partija...");
+                confirmButton.setEnabled(false);
+                return;
+            }
+        }
+
         int myPlayer = state.playerNumber(playerSession.getId());
-        player1Text.setText("Igrac 1: " + playerLabel(state.getPlayer1Name(), state.isPlayer1Ready()));
-        player2Text.setText("Igrac 2: " + playerLabel(state.getPlayer2Name(), state.isPlayer2Ready()));
+        boolean opponentLeft = state.hasForfeit();
+        player1Text.setText("Igrac 1: " + playerLabel(state.getPlayer1Id(), state.getPlayer1Name(),
+                state.isPlayer1Ready(), state));
+        player2Text.setText("Igrac 2: " + playerLabel(state.getPlayer2Id(), state.getPlayer2Name(),
+                state.isPlayer2Ready(), state));
+        player1Text.setTextColor(state.isForfeited(state.getPlayer1Id()) ? 0xFFD32F2F : 0xFF000000);
+        player2Text.setTextColor(state.isForfeited(state.getPlayer2Id()) ? 0xFFD32F2F : 0xFF000000);
 
         if ("koZnaZnaPlaying".equals(state.getPhase())) {
             navigateToKoZnaZna();
             return;
         }
 
-        if (!state.hasSecondPlayer()) {
+        if (opponentLeft) {
+            statusText.setText(nonEmpty(state.getStatusMessage(),
+                    "Protivnik je napustio partiju."));
+        } else if (!state.hasSecondPlayer()) {
             statusText.setText("Ceka se drugi igrac.");
         } else if (myPlayer == 0) {
             statusText.setText("Soba je popunjena. Resetuj test sobu za novi test.");
@@ -114,11 +154,15 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         confirmButton.setEnabled(myPlayer != 0 && state.hasSecondPlayer() && !state.isReady(myPlayer));
     }
 
-    private String playerLabel(String name, boolean ready) {
-        if (isEmpty(name)) {
+    private String playerLabel(String playerId, String name, boolean ready, StepByStepMatchState state) {
+        String visibleName = !isEmpty(name) ? name : (!isEmpty(playerId) ? playerId : "");
+        if (isEmpty(visibleName)) {
             return "ceka se";
         }
-        return name + (ready ? " - spreman" : " - nije potvrdio");
+        if (state.isForfeited(playerId)) {
+            return visibleName + " - napustio partiju";
+        }
+        return visibleName + (ready ? " - spreman" : " - nije potvrdio");
     }
 
     private void navigateToKoZnaZna() {
@@ -127,7 +171,7 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         }
         navigatedToGame = true;
         Bundle args = new Bundle();
-        args.putString("roomId", ROOM_ID);
+        args.putString("roomId", roomId);
         Navigation.findNavController(requireView()).navigate(R.id.koZnaZnaFragment, args);
     }
 
@@ -150,6 +194,29 @@ public class StepByStepWaitingRoomFragment extends Fragment {
         return new StepByStepPlayerSession(userId, userName);
     }
 
+    private boolean hasAvailableTokens() {
+        AuthUser authUser = AuthService.getInstance(requireContext()).getCurrentUser();
+        return authUser == null || authUser.isGuest() || isFriendlyRoom() || authUser.getTokens() > 0;
+    }
+
+    private boolean isTournamentRoom() {
+        return roomId != null && roomId.startsWith("tournament_");
+    }
+
+    private boolean isFriendlyRoom() {
+        return roomId != null && roomId.startsWith("friend_");
+    }
+
+    private boolean isPublicRoom() {
+        return !isTournamentRoom() && (roomId == null || !roomId.startsWith("friend_"));
+    }
+
+    private boolean isWaitingState(StepByStepMatchState state) {
+        return state != null
+                && "waiting".equals(state.getPhase())
+                && "waiting".equals(state.getCurrentGame());
+    }
+
     private String deviceId() {
         String id = Settings.Secure.getString(
                 requireContext().getContentResolver(),
@@ -160,11 +227,33 @@ public class StepByStepWaitingRoomFragment extends Fragment {
 
     private void showError(Exception error) {
         if (isAdded()) {
-            Toast.makeText(requireContext(), error.getMessage(), Toast.LENGTH_LONG).show();
+            String message = error.getMessage();
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+            if (isAbandonedMessage(message)) {
+                navigatedToGame = true;
+                Navigation.findNavController(requireView()).navigate(
+                        R.id.homeFragment,
+                        null,
+                        new androidx.navigation.NavOptions.Builder()
+                                .setPopUpTo(R.id.nav_graph, true)
+                                .build());
+            }
         }
     }
 
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String nonEmpty(String value, String fallback) {
+        return isEmpty(value) ? fallback : value;
+    }
+
+    private boolean isAbandonedMessage(String message) {
+        if (isEmpty(message)) {
+            return false;
+        }
+        return message.contains("napustena")
+                || message.contains("ne mozes da se vratis");
     }
 }

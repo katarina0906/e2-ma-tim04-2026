@@ -6,9 +6,12 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Patterns;
 import android.util.Base64;
+import android.util.Patterns;
 
+import com.example.slagalicatim04.leagues.LeagueInfo;
+import com.example.slagalicatim04.notifications.NotificationTokenManager;
+import com.example.slagalicatim04.regions.OpenStreetRegionResolver;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.AuthCredential;
@@ -17,13 +20,15 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.example.slagalicatim04.notifications.NotificationTokenManager;
+import com.google.firebase.firestore.SetOptions;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 public class AuthService {
@@ -33,6 +38,11 @@ public class AuthService {
     private static final String KEY_CURRENT_USERNAME = "current_username";
     private static final String KEY_CURRENT_REGION = "current_region";
     private static final String KEY_CURRENT_AVATAR_DATA = "current_avatar_data";
+    private static final String KEY_CURRENT_TOKENS = "current_tokens";
+    private static final String KEY_CURRENT_STARS = "current_stars";
+    private static final String KEY_CURRENT_TOTAL_STARS = "current_total_stars";
+    private static final String KEY_CURRENT_AVATAR_FRAME_PLACE = "current_avatar_frame_place";
+    private static final String KEY_CURRENT_IS_GUEST = "current_is_guest";
     private static final int AVATAR_MAX_SIZE = 512;
 
     private static AuthService instance;
@@ -63,6 +73,12 @@ public class AuthService {
 
     public AuthResult<AuthUser> register(String email, String username, String region,
                                          String password, String repeatedPassword) {
+        return register(email, username, region, password, repeatedPassword, null, null);
+    }
+
+    public AuthResult<AuthUser> register(String email, String username, String region,
+                                         String password, String repeatedPassword,
+                                         Double regionMapLatitude, Double regionMapLongitude) {
         if (!isFirebaseConfigured()) {
             return firebaseNotConfigured();
         }
@@ -70,8 +86,8 @@ public class AuthService {
         String normalizedUsername = normalize(username);
         String cleanedRegion = clean(region);
 
-        String validationError = validateRegistration(normalizedEmail, normalizedUsername, cleanedRegion,
-                password, repeatedPassword);
+        String validationError = validateRegistration(normalizedEmail, normalizedUsername,
+                cleanedRegion, password, repeatedPassword);
         if (validationError != null) {
             return AuthResult.error(validationError);
         }
@@ -92,7 +108,8 @@ public class AuthService {
             }
 
             AuthUser authUser = new AuthUser(firebaseUser.getUid(), normalizedEmail,
-                    normalizedUsername, cleanedRegion, "", "", false, "");
+                    normalizedUsername, cleanedRegion, "", "", false, "", "",
+                    TokenService.INITIAL_TOKENS, 0, regionMapLatitude, regionMapLongitude, 0);
             saveProfile(authUser);
             Tasks.await(firebaseUser.sendEmailVerification());
 
@@ -127,8 +144,10 @@ public class AuthService {
                 return AuthResult.error("Prvo potvrdi registraciju klikom na link poslat na mejl.");
             }
 
+            new TokenService(firestore).ensureDailyTokens(firebaseUser.getUid());
             AuthUser authUser = loadProfile(firebaseUser);
             saveCurrentUser(authUser);
+            updatePresence(firebaseUser.getUid(), true);
             NotificationTokenManager.syncCurrentDevice();
             return AuthResult.success(authUser, "Uspesna prijava.");
         } catch (ExecutionException e) {
@@ -137,6 +156,55 @@ public class AuthService {
             Thread.currentThread().interrupt();
             return AuthResult.error("Operacija je prekinuta.");
         }
+    }
+
+    public AuthResult<AuthUser> continueAsGuest() {
+        if (!isFirebaseConfigured()) {
+            return firebaseNotConfigured();
+        }
+        try {
+            firebaseAuth.signOut();
+            return finishGuestLogin(Tasks.await(firebaseAuth.signInAnonymously()).getUser(), "");
+        } catch (ExecutionException e) {
+            if (isAnonymousSignInDisabled(e)) {
+                return continueAsGuestWithEmailAccount();
+            }
+            return AuthResult.error(firebaseMessage(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return AuthResult.error("Operacija je prekinuta.");
+        }
+    }
+
+    private AuthResult<AuthUser> continueAsGuestWithEmailAccount() {
+        try {
+            String guestId = UUID.randomUUID().toString().replace("-", "");
+            String email = "guest-" + guestId + "@guest.slagalica.local";
+            String password = "Guest-" + guestId + "-9";
+            FirebaseUser firebaseUser = Tasks.await(firebaseAuth
+                    .createUserWithEmailAndPassword(email, password))
+                    .getUser();
+            return finishGuestLogin(firebaseUser, email);
+        } catch (ExecutionException e) {
+            return AuthResult.error(firebaseMessage(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return AuthResult.error("Operacija je prekinuta.");
+        }
+    }
+
+    private AuthResult<AuthUser> finishGuestLogin(FirebaseUser firebaseUser, String email)
+            throws ExecutionException, InterruptedException {
+        if (firebaseUser == null) {
+            return AuthResult.error("Gost prijava nije uspela.");
+        }
+        AuthUser guest = new AuthUser(firebaseUser.getUid(), email,
+                guestUsername(firebaseUser.getUid()), "Gost", "", "", true, "",
+                "", 0, 0, 0, null, null, 0, true);
+        saveGuestProfile(guest);
+        saveCurrentUser(guest);
+        updatePresence(firebaseUser.getUid(), true);
+        return AuthResult.success(guest, "Nastavljas kao gost.");
     }
 
     public AuthResult<AuthUser> verifyEmail(String tokenOrLink) {
@@ -225,7 +293,14 @@ public class AuthService {
                 "",
                 true,
                 "",
-                preferences.getString(KEY_CURRENT_AVATAR_DATA, "")
+                preferences.getString(KEY_CURRENT_AVATAR_DATA, ""),
+                preferences.getInt(KEY_CURRENT_TOKENS, 0),
+                preferences.getInt(KEY_CURRENT_STARS, 0),
+                preferences.getInt(KEY_CURRENT_TOTAL_STARS, 0),
+                null,
+                null,
+                preferences.getInt(KEY_CURRENT_AVATAR_FRAME_PLACE, 0),
+                preferences.getBoolean(KEY_CURRENT_IS_GUEST, false)
         );
     }
 
@@ -240,7 +315,12 @@ public class AuthService {
         }
         try {
             AuthUser authUser = loadProfile(firebaseUser);
+            if (!authUser.isGuest()) {
+                new TokenService(firestore).ensureDailyTokens(firebaseUser.getUid());
+                authUser = loadProfile(firebaseUser);
+            }
             saveCurrentUser(authUser);
+            updatePresence(firebaseUser.getUid(), true);
             return AuthResult.success(authUser, "Profil je ucitan.");
         } catch (ExecutionException e) {
             return AuthResult.error(firebaseMessage(e));
@@ -251,11 +331,25 @@ public class AuthService {
     }
 
     public void logout() {
+        FirebaseUser currentUser = firebaseAuth == null ? null : firebaseAuth.getCurrentUser();
+        if (currentUser != null) {
+            updatePresence(currentUser.getUid(), false);
+        }
         NotificationTokenManager.unregisterCurrentDevice();
         if (firebaseAuth != null) {
             firebaseAuth.signOut();
         }
         clearCurrentUser();
+    }
+
+    public void setCurrentUserActive(boolean active) {
+        if (!isFirebaseConfigured()) {
+            return;
+        }
+        FirebaseUser currentUser = firebaseAuth.getCurrentUser();
+        if (currentUser != null) {
+            updatePresence(currentUser.getUid(), active);
+        }
     }
 
     public AuthResult<AuthUser> updateAvatar(Uri imageUri) {
@@ -288,7 +382,36 @@ public class AuthService {
         userData.put("email", authUser.getEmail());
         userData.put("username", authUser.getUsername());
         userData.put("region", authUser.getRegion());
+        double[] osmLocation = osmLocationFor(authUser);
+        userData.put("regionMapLatitude", osmLocation[0]);
+        userData.put("regionMapLongitude", osmLocation[1]);
+        userData.put("avatarFramePlace", authUser.getAvatarFramePlace());
         userData.put("avatarData", authUser.getAvatarData());
+        userData.put("tokens", TokenService.INITIAL_TOKENS);
+        userData.put("dailyTokens", TokenService.INITIAL_TOKENS);
+        userData.put("bonusDailyTokens", 0L);
+        userData.put("stars", authUser.getStars());
+        userData.put("totalStars", authUser.getTotalStars());
+        userData.put("monthlyStars", 0L);
+        userData.put("monthlyStarsCycle", "");
+        userData.put("dailyMissionsDate",
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
+                        .format(new java.util.Date()));
+        Map<String, Object> dailyMissions = new HashMap<>();
+        for (DailyMissionService.Mission mission : DailyMissionService.Mission.values()) {
+            dailyMissions.put(mission.id, false);
+        }
+        userData.put("dailyMissions", dailyMissions);
+        userData.put("dailyMissionsAllBonusClaimed", false);
+        LeagueInfo initialLeague = LeagueInfo.forStars(authUser.getTotalStars());
+        userData.put("league", initialLeague.name);
+        userData.put("leagueLevel", initialLeague.level);
+        userData.put("leagueIconRes", initialLeague.iconRes);
+        userData.put("leagueIcon", "*");
+        userData.put("leagueName", initialLeague.name);
+        userData.put("lastTokenGrantDate",
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
+                        .format(new java.util.Date()));
 
         Map<String, Object> usernameData = new HashMap<>();
         usernameData.put("email", authUser.getEmail());
@@ -296,6 +419,35 @@ public class AuthService {
 
         Tasks.await(firestore.collection("users").document(authUser.getId()).set(userData));
         Tasks.await(firestore.collection("usernames").document(authUser.getUsername()).set(usernameData));
+    }
+
+    private void saveGuestProfile(AuthUser authUser) throws ExecutionException, InterruptedException {
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("email", "");
+        userData.put("username", authUser.getUsername());
+        userData.put("region", "Gost");
+        userData.put("isGuest", true);
+        userData.put("avatarFramePlace", 0);
+        userData.put("avatarData", "");
+        userData.put("tokens", 0L);
+        userData.put("dailyTokens", 0L);
+        userData.put("bonusDailyTokens", 0L);
+        userData.put("stars", 0L);
+        userData.put("totalStars", 0L);
+        userData.put("overallStars", 0L);
+        userData.put("monthlyStars", 0L);
+        userData.put("monthlyStarsCycle", "");
+        userData.put("league", "Prijateljska igra");
+        userData.put("leagueLevel", 0L);
+        userData.put("leagueIconRes", 0L);
+        userData.put("leagueIcon", "");
+        userData.put("leagueName", "Prijateljska igra");
+        userData.put("lastTokenGrantDate",
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT)
+                        .format(new java.util.Date()));
+
+        Tasks.await(firestore.collection("users").document(authUser.getId())
+                .set(userData, SetOptions.merge()));
     }
 
     private boolean isFirebaseConfigured() {
@@ -306,7 +458,8 @@ public class AuthService {
         return AuthResult.error("Firebase nije konfigurisan. Dodaj app/google-services.json i ukljuci Email/Password auth.");
     }
 
-    private AuthUser loadProfile(FirebaseUser firebaseUser) throws ExecutionException, InterruptedException {
+    private AuthUser loadProfile(FirebaseUser firebaseUser)
+            throws ExecutionException, InterruptedException {
         DocumentSnapshot userDoc = Tasks.await(firestore.collection("users")
                 .document(firebaseUser.getUid())
                 .get());
@@ -314,11 +467,24 @@ public class AuthService {
         String username = userDoc.getString("username");
         String region = userDoc.getString("region");
         String avatarData = userDoc.getString("avatarData");
+        Long tokens = userDoc.getLong("tokens");
+        Long stars = userDoc.getLong("stars");
+        Long totalStars = userDoc.getLong("totalStars");
+        Double regionMapLatitude = userDoc.getDouble("regionMapLatitude");
+        Double regionMapLongitude = userDoc.getDouble("regionMapLongitude");
+        int avatarFramePlace = (int) longValue(userDoc, "avatarFramePlace");
+        boolean guest = Boolean.TRUE.equals(userDoc.getBoolean("isGuest"))
+                || firebaseUser.isAnonymous();
         return new AuthUser(firebaseUser.getUid(), email,
                 username == null ? "" : username,
                 region == null ? "" : region,
                 "", "", firebaseUser.isEmailVerified(), "",
-                avatarData == null ? "" : avatarData);
+                avatarData == null ? "" : avatarData,
+                tokens == null ? 0 : Math.max(0, tokens.intValue()),
+                stars == null ? 0 : Math.max(0, stars.intValue()),
+                totalStars == null ? (stars == null ? 0 : Math.max(0, stars.intValue()))
+                        : Math.max(0, totalStars.intValue()),
+                regionMapLatitude, regionMapLongitude, avatarFramePlace, guest);
     }
 
     private AuthUser firebaseUserOnly(FirebaseUser firebaseUser) {
@@ -327,7 +493,8 @@ public class AuthService {
                 firebaseUser.isEmailVerified(), "");
     }
 
-    private String resolveEmail(String identifier) throws ExecutionException, InterruptedException {
+    private String resolveEmail(String identifier)
+            throws ExecutionException, InterruptedException {
         if (Patterns.EMAIL_ADDRESS.matcher(identifier).matches()) {
             return identifier;
         }
@@ -348,7 +515,22 @@ public class AuthService {
                 .putString(KEY_CURRENT_USERNAME, user.getUsername())
                 .putString(KEY_CURRENT_REGION, user.getRegion())
                 .putString(KEY_CURRENT_AVATAR_DATA, user.getAvatarData())
+                .putInt(KEY_CURRENT_TOKENS, user.getTokens())
+                .putInt(KEY_CURRENT_STARS, user.getStars())
+                .putInt(KEY_CURRENT_TOTAL_STARS, user.getTotalStars())
+                .putInt(KEY_CURRENT_AVATAR_FRAME_PLACE, user.getAvatarFramePlace())
+                .putBoolean(KEY_CURRENT_IS_GUEST, user.isGuest())
                 .apply();
+    }
+
+    private void updatePresence(String userId, boolean active) {
+        if (firestore == null || userId == null || userId.trim().isEmpty()) {
+            return;
+        }
+        Map<String, Object> presence = new HashMap<>();
+        presence.put("active", active);
+        presence.put("lastActiveAt", System.currentTimeMillis());
+        firestore.collection("users").document(userId).set(presence, SetOptions.merge());
     }
 
     private void clearCurrentUser() {
@@ -358,7 +540,19 @@ public class AuthService {
                 .remove(KEY_CURRENT_USERNAME)
                 .remove(KEY_CURRENT_REGION)
                 .remove(KEY_CURRENT_AVATAR_DATA)
+                .remove(KEY_CURRENT_TOKENS)
+                .remove(KEY_CURRENT_STARS)
+                .remove(KEY_CURRENT_TOTAL_STARS)
+                .remove(KEY_CURRENT_AVATAR_FRAME_PLACE)
+                .remove(KEY_CURRENT_IS_GUEST)
                 .apply();
+    }
+
+    private String guestUsername(String uid) {
+        if (uid == null || uid.length() < 6) {
+            return "Gost";
+        }
+        return "Gost " + uid.substring(0, 6);
     }
 
     private String encodeAvatar(Uri imageUri) throws IOException {
@@ -418,11 +612,36 @@ public class AuthService {
         return message;
     }
 
+    private boolean isAnonymousSignInDisabled(ExecutionException e) {
+        Throwable cause = e.getCause();
+        String message = cause == null ? e.getMessage() : cause.getMessage();
+        if (message == null) {
+            return false;
+        }
+        String normalized = message.toLowerCase(Locale.ROOT);
+        return normalized.contains("admin_only_operation")
+                || normalized.contains("restricted to administrators");
+    }
+
     private String normalize(String value) {
         return clean(value).toLowerCase(Locale.ROOT);
     }
 
     private String clean(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private long longValue(DocumentSnapshot snapshot, String field) {
+        Long value = snapshot.getLong(field);
+        return value == null ? 0L : value;
+    }
+
+    private double[] osmLocationFor(AuthUser authUser) {
+        Double latitude = authUser.getRegionMapLatitude();
+        Double longitude = authUser.getRegionMapLongitude();
+        if (latitude != null && longitude != null) {
+            return new double[]{latitude, longitude};
+        }
+        return OpenStreetRegionResolver.randomLocationForRegion(authUser.getRegion());
     }
 }

@@ -167,6 +167,21 @@ public class AssociationMatchRepository {
         });
     }
 
+    public void resolveForfeitTurn(AssociationMatchState state) {
+        String forfeitedPlayerId = state == null ? "" : state.getForfeitedPlayerId();
+        if (state == null || !state.isAssociationGame()
+                || forfeitedPlayerId == null || forfeitedPlayerId.trim().isEmpty()) {
+            return;
+        }
+        int forfeitedPlayer = state.playerNumber(forfeitedPlayerId);
+        if (forfeitedPlayer == 0 || forfeitedPlayer != state.getActivePlayer()) {
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        switchTurn(updates, state, forfeitedPlayer, "Igrac je napustio partiju.");
+        matchRef.set(updates, SetOptions.merge());
+    }
+
     private AssociationMatchState state(DocumentSnapshot snapshot) {
         return snapshot.exists() ? new AssociationMatchState(snapshot) : null;
     }
@@ -232,13 +247,17 @@ public class AssociationMatchRepository {
 
     private void advanceRound(Map<String, Object> updates, AssociationMatchState state,
                               String message) {
-        if (state.getRound() < AssociationGameService.ROUND_COUNT) {
+        if (state.getRound() < roundCount(state)) {
             updates.putAll(roundState(2));
-            updates.put("statusMessage", message + " Pocinje druga runda, igrac 2 otvara.");
+            updates.put("statusMessage", message);
             return;
         }
         updates.putAll(skockoState());
-        updates.put("statusMessage", message + " Asocijacije su zavrsene. Pokrece se Skocko.");
+        updates.put("statusMessage", message);
+    }
+
+    private int roundCount(AssociationMatchState state) {
+        return state.isSoloChallenge() ? 1 : AssociationGameService.ROUND_COUNT;
     }
 
     private Map<String, Object> roundState(int round) {
