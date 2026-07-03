@@ -51,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     private ListenerRegistration notificationRegistration;
     private final Set<String> surfacedGameInvites = new HashSet<>();
     private final Set<String> surfacedLeagueChanges = new HashSet<>();
+    private final Set<String> surfacedChatNotifications = new HashSet<>();
     private final Map<String, AlertDialog> activeGameInviteDialogs = new HashMap<>();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -268,6 +269,9 @@ public class MainActivity extends AppCompatActivity {
                         SystemNotificationPublisher.show(MainActivity.this, item);
                         showGameInviteDialog(item);
                         scheduleInviteExpiration(item);
+                    } else if (shouldSurfaceChatNotification(item)) {
+                        surfacedChatNotifications.add(item.id);
+                        SystemNotificationPublisher.show(MainActivity.this, item);
                     } else if (shouldSurfaceLeagueChange(item)) {
                         surfacedLeagueChanges.add(item.id);
                         showLeagueChangeDialog(item);
@@ -321,6 +325,12 @@ public class MainActivity extends AppCompatActivity {
         return NotificationRouter.ACTION_LEAGUE.equals(item.actionHint)
                 && !item.read
                 && !surfacedLeagueChanges.contains(item.id);
+    }
+
+    private boolean shouldSurfaceChatNotification(InAppNotification item) {
+        return NotificationRouter.ACTION_CHAT.equals(item.actionHint)
+                && !item.read
+                && !surfacedChatNotifications.contains(item.id);
     }
 
     private void showLeagueChangeDialog(InAppNotification item) {
