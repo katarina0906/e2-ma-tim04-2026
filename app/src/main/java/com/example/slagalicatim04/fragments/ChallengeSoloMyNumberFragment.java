@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
+import androidx.navigation.NavOptions;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
@@ -24,7 +25,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ChallengeSoloMyNumberFragment extends Fragment {
+public class ChallengeSoloMyNumberFragment extends Fragment implements ExitConfirmationHandler {
     public static final String ARG_CHALLENGE_ID = "challengeId";
 
     private final MyNumberGameService gameService = new MyNumberGameService();
@@ -299,6 +300,21 @@ public class ChallengeSoloMyNumberFragment extends Fragment {
                     : error.getMessage();
             Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
         }
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (!isAdded() || getView() == null) {
+            return false;
+        }
+        Navigation.findNavController(requireView()).navigate(
+                R.id.regionsFragment,
+                null,
+                new NavOptions.Builder()
+                        .setLaunchSingleTop(true)
+                        .setPopUpTo(R.id.regionsFragment, false)
+                        .build());
+        return true;
     }
 
     private static final class Token {

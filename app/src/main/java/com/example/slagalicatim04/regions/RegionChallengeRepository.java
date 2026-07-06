@@ -276,9 +276,6 @@ public class RegionChallengeRepository {
             updates.put("participants", participants);
             transaction.set(challengeRef, updates, SetOptions.merge());
 
-            if (allSubmitted(participants)) {
-                finalizeChallenge(transaction, challengeRef, state, participants);
-            }
             return null;
         }).addOnSuccessListener(ignored -> onSuccess.run())
                 .addOnFailureListener(onError::accept);
@@ -413,6 +410,11 @@ public class RegionChallengeRepository {
             return left.getValue().submittedAt.compareTo(right.getValue().submittedAt);
         });
 
+        if (ranking.size() < 2) {
+            refundCancelledChallenge(transaction, challengeRef, existingState, ranking);
+            return;
+        }
+
         long winnerStars = (existingState.totalStakeStars() * 75L) / 100L;
         long winnerTokens = (existingState.totalStakeTokens() * 75L) / 100L;
         long secondStars = existingState.stakeStars;
@@ -471,13 +473,43 @@ public class RegionChallengeRepository {
         transaction.set(challengeRef, updates, SetOptions.merge());
     }
 
-    private static boolean allSubmitted(Map<String, Object> rawParticipants) {
-        for (Object value : rawParticipants.values()) {
-            if (!RegionChallengeParticipant.fromMap("", value).submitted) {
-                return false;
-            }
+    private void refundCancelledChallenge(com.google.firebase.firestore.Transaction transaction,
+                                          DocumentReference challengeRef,
+                                          RegionChallenge existingState,
+                                          List<Map.Entry<String, RegionChallengeParticipant>> ranking)
+            throws FirebaseFirestoreException {
+        Timestamp finishedAt = Timestamp.now();
+        Map<String, Object> participants = new LinkedHashMap<>();
+        for (Map.Entry<String, RegionChallengeParticipant> entry : ranking) {
+            String userId = entry.getKey();
+            RegionChallengeParticipant participant = entry.getValue();
+            participants.put(userId, participantPayload(
+                    participant.username,
+                    participant.score,
+                    true,
+                    participant.submittedAt == null ? finishedAt : participant.submittedAt,
+                    existingState.stakeStars,
+                    existingState.stakeTokens));
+
+            DocumentReference userRef = firestore.collection("users").document(userId);
+            DocumentSnapshot userSnapshot = transaction.get(userRef);
+            long currentStars = resolvedStars(userSnapshot);
+            long currentTokens = longValue(userSnapshot.getLong("tokens"));
+            transaction.set(userRef, rewardUpdates(
+                    userSnapshot,
+                    existingState.stakeStars,
+                    existingState.stakeTokens,
+                    currentStars + existingState.stakeStars,
+                    currentTokens + existingState.stakeTokens), SetOptions.merge());
         }
-        return !rawParticipants.isEmpty();
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("participants", participants);
+        updates.put("status", RegionChallenge.STATUS_FINISHED);
+        updates.put("finishedAt", finishedAt);
+        updates.put("winnerId", ranking.isEmpty() ? "" : ranking.get(0).getKey());
+        updates.put("runnerUpId", "");
+        transaction.set(challengeRef, updates, SetOptions.merge());
     }
 
     private static Map<String, Object> participantPayload(String username, long score,

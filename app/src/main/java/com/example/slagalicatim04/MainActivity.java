@@ -209,6 +209,18 @@ public class MainActivity extends AppCompatActivity {
         if (isOnLockedGameDestination()) {
             return delegateExitRequestToCurrentFragment();
         }
+        if (navController != null
+                && navController.getCurrentDestination() != null
+                && navController.getCurrentDestination().getId() == R.id.regionChallengeRoomFragment) {
+            navController.navigate(
+                    R.id.regionsFragment,
+                    null,
+                    new NavOptions.Builder()
+                            .setLaunchSingleTop(true)
+                            .setPopUpTo(R.id.regionsFragment, false)
+                            .build());
+            return true;
+        }
         NavHostFragment navHostFragment =
                 (NavHostFragment) getSupportFragmentManager()
                         .findFragmentById(R.id.nav_host_fragment_content_main);

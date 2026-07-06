@@ -174,7 +174,7 @@ public class RegionChallengesFragment extends Fragment {
             return base + "\nPotrebna su najmanje 2 igraca da bi izazov poceo.";
         }
         if (challenge.isActive()) {
-            return base + "\nSvaki igrac posalje svoj konacni rezultat. Kraj je kad svi posalju rezultat.";
+            return base + "\nSvaki igrac posalje svoj konacni rezultat, a kreator zatvara izazov dugmetom Zavrsi izazov.";
         }
         return base + "\nRezultat je obracunat. Pobednik dobija 75% ukupnog uloga, drugi vraca svoj ulog.";
     }

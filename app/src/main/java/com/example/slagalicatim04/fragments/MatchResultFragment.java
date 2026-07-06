@@ -453,7 +453,11 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
             return "Rezultat izazova jos nije spreman.";
         }
         StringBuilder builder = new StringBuilder();
-        builder.append("1. mesto uzima 75% ukupnog uloga, 2. mesto dobija nazad svoj ulog.\n\n");
+        if (challenge.participantCount() < 2) {
+            builder.append("Izazov nije imao dovoljno igraca, pa je ulog vracen prijavljenim igracima.\n\n");
+        } else {
+            builder.append("1. mesto uzima 75% ukupnog uloga, 2. mesto dobija nazad svoj ulog.\n\n");
+        }
         for (int i = 0; i < challenge.participants.size(); i++) {
             RegionChallengeParticipant participant = challenge.participants.get(i);
             builder.append("#")
@@ -508,17 +512,12 @@ public class MatchResultFragment extends Fragment implements ExitConfirmationHan
             return;
         }
         if ((soloChallenge || challengeSummaryMode) && !isEmpty(challengeId)) {
-            Bundle args = new Bundle();
-            args.putString(RegionChallengeRoomFragment.ARG_CHALLENGE_ID, challengeId);
-            if (activeSoloPreview && !challengeSummaryMode) {
-                args.putLong(RegionChallengeRoomFragment.ARG_PREVIEW_SCORE, soloPreviewScore);
-                args.putString(RegionChallengeRoomFragment.ARG_PREVIEW_USER_ID, previewUserId);
-            }
             Navigation.findNavController(source).navigate(
-                    R.id.regionChallengeRoomFragment,
-                    args,
+                    R.id.regionsFragment,
+                    null,
                     new NavOptions.Builder()
                             .setLaunchSingleTop(true)
+                            .setPopUpTo(R.id.regionsFragment, false)
                             .build());
             return;
         }

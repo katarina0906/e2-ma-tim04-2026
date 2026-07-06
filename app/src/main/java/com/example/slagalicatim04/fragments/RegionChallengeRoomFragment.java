@@ -13,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.Navigation;
+import androidx.navigation.NavOptions;
 
 import com.example.slagalicatim04.R;
 import com.example.slagalicatim04.auth.AuthService;
@@ -23,7 +24,7 @@ import com.example.slagalicatim04.regions.RegionChallengeRepository;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.ListenerRegistration;
 
-public class RegionChallengeRoomFragment extends Fragment {
+public class RegionChallengeRoomFragment extends Fragment implements ExitConfirmationHandler {
     public static final String ARG_CHALLENGE_ID = "challengeId";
     public static final String ARG_PREVIEW_SCORE = "previewScore";
     public static final String ARG_PREVIEW_USER_ID = "previewUserId";
@@ -127,7 +128,7 @@ public class RegionChallengeRoomFragment extends Fragment {
         }
         if (challenge.isActive()) {
             return base + "\nIzazov je poceo. Udji u partiju, rezultat se cuva automatski."
-                    + "\nKreator zatvara izazov dugmetom Zavrsi izazov.";
+                    + "\nNagrade se obracunavaju tek kada kreator klikne Zavrsi izazov.";
         }
         return base + "\nIzazov je zavrsen.\n" + finishedSummary(challenge);
     }
@@ -178,7 +179,11 @@ public class RegionChallengeRoomFragment extends Fragment {
         }
         StringBuilder builder = new StringBuilder();
         builder.append("Raspodela nagrada:\n");
-        builder.append("1. mesto uzima 75% ukupnog uloga, 2. mesto dobija nazad svoj ulog.\n");
+        if (challenge.participantCount() < 2) {
+            builder.append("Izazov nije imao dovoljno igraca, pa je ulog vracen prijavljenim igracima.\n");
+        } else {
+            builder.append("1. mesto uzima 75% ukupnog uloga, 2. mesto dobija nazad svoj ulog.\n");
+        }
         for (int i = 0; i < challenge.participants.size(); i++) {
             RegionChallengeParticipant participant = challenge.participants.get(i);
             builder.append(i + 1)
@@ -236,5 +241,20 @@ public class RegionChallengeRoomFragment extends Fragment {
         if (isAdded()) {
             Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    @Override
+    public boolean handleExitRequest() {
+        if (!isAdded() || getView() == null) {
+            return false;
+        }
+        Navigation.findNavController(requireView()).navigate(
+                R.id.regionsFragment,
+                null,
+                new NavOptions.Builder()
+                        .setLaunchSingleTop(true)
+                        .setPopUpTo(R.id.regionsFragment, false)
+                        .build());
+        return true;
     }
 }
